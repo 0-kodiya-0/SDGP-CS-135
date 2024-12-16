@@ -1,9 +1,10 @@
-Proprietary Software License
+# Proprietary Software License
 
 Copyright © 2024 FusionSpace Development Team
 
 Tutorial Group: G-24 (CS)
-SDGP Group: CS-135
+
+## SDGP Group: CS-135
 
 | No. | Full Name | IIT No. | UOW No. |
 |-----|-----------|---------|----------|
