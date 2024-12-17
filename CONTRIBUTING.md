@@ -1,171 +1,149 @@
 # Contributing to FusionSpace
 
-Thank you for your interest in contributing to FusionSpace! This document provides guidelines and instructions for contributing to our project.
+## Table of Contents
 
-## Important Project Links
+- [Contributing to FusionSpace](#contributing-to-fusionspace)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Project Resources](#project-resources)
+    - [Important Links](#important-links)
+  - [Development Setup](#development-setup)
+    - [Prerequisites](#prerequisites)
+    - [Initial Setup](#initial-setup)
+  - [Development Scripts](#development-scripts)
+    - [Core Commands](#core-commands)
+  - [Development Guidelines](#development-guidelines)
+    - [Technology Stack](#technology-stack)
+    - [Coding Standards](#coding-standards)
+  - [Pull Request Process](#pull-request-process)
+    - [PR Requirements](#pr-requirements)
+    - [PR Title Format](#pr-title-format)
+    - [PR Template](#pr-template)
+  - [Issue Reporting](#issue-reporting)
+    - [Bug Reports](#bug-reports)
+    - [Feature Requests](#feature-requests)
+  - [Code Review Process](#code-review-process)
+    - [Review Requirements](#review-requirements)
+    - [Review Guidelines](#review-guidelines)
+  - [License](#license)
+
+## Overview
+
+Thank you for your interest in contributing to FusionSpace! This document provides comprehensive guidelines for contributing to our project.
+
+## Project Resources
+
+### Important Links
 
 - [Project Setup Guide](./docs/setup.md)
 - [Code Style Guide](./docs/style-guide.md)
 - [API Documentation](./docs/api/README.md)
 - [Database Schema](./docs/database/schema.md)
-- [UI Components](./src/components/README.md)
+- [UI Components](./docs/user-interface/README.md)
 
-## Development Environment Setup
+## Development Setup
 
 ### Prerequisites
+
 - Node.js (v16 or higher)
 - npm (v7 or higher)
 - Git
 
-### Setting Up Your Development Environment
+### Initial Setup
 
-1. Fork the repository
-2. Clone your fork:
 ```bash
+# Fork and clone
 git clone https://github.com/YOUR_USERNAME/FusionSpace.git
 cd FusionSpace
-```
 
-3. Install dependencies:
-```bash
+# Install dependencies
 npm install
 ```
 
-## Available Scripts
+## Development Scripts
 
-Our project uses several npm scripts for development, building, and deployment. Here's what each script does:
+### Core Commands
 
-### `npm start`
 ```bash
-"start": "electron-forge start"
-```
-- Starts the application in development mode
-- Launches both the Electron process and development server
-- Enables hot reload for React components
-- Shows developer tools automatically
-- Use this during development for testing changes
-
-### `npm run package`
-```bash
-"package": "electron-forge package"
-```
-- Creates a directory with executable files
-- Bundles your application without creating installers
-- Useful for testing the packaged application
-- Output is placed in the `out` directory
-- Doesn't create installation files
-
-### `npm run make`
-```bash
-"make": "electron-forge make"
-```
-- Creates platform-specific distributables (installers)
-- Builds the application for production
-- Creates installation files for your OS
-- Outputs installers to the `out` directory
-- Use this when preparing a release
-
-### `npm run publish`
-```bash
-"publish": "electron-forge publish"
-```
-- Packages and publishes the application
-- Creates installers and publishes to configured targets
-- Can publish to platforms like GitHub Releases
-- Requires proper configuration in forge.config.js
-- Use for releasing new versions
-
-### `npm run lint`
-```bash
-"lint": "eslint --ext .ts,.tsx ."
-```
-- Checks code for style and potential errors
-- Runs ESLint on TypeScript and TSX files
-- Helps maintain code quality
-- Must pass before submitting PRs
-- Can automatically fix some issues with `--fix` flag
-
-## Development Workflow
-
-1. Start development:
-```bash
+# Development Mode
 npm start
-```
+# Starts Electron + dev server
+# Enables hot reload
+# Opens dev tools
 
-2. Make your changes and test them locally
-
-3. Check for linting errors:
-```bash
-npm run lint
-```
-
-4. Test packaging:
-```bash
+# Package Application
 npm run package
-```
+# Creates executables in 'out' directory
+# Bundles without installers
 
-5. Create installers for testing:
-```bash
+# Create Installers
 npm run make
-```
+# Builds platform-specific distributables
+# Creates installation files
 
-6. When ready to publish:
-```bash
+# Publish Release
 npm run publish
+# Packages and publishes
+# Requires forge.config.js setup
+
+# Code Linting
+npm run lint
+# ESLint checking
+# Auto-fixes available issues
 ```
 
-[... rest of the previous CONTRIBUTING.md content ...]
 ## Development Guidelines
 
 ### Technology Stack
+
 - Electron
 - React
 - Webpack
 - Babel
 - TypeScript
 
-### Code Style
-- Use TypeScript for all new code
-- Follow the existing code formatting style
-- Use ESLint and Prettier for code formatting
-- Write meaningful commit messages following conventional commits
+### Coding Standards
 
-### TypeScript Guidelines
-- Enable strict mode in TypeScript configuration
-- Use interfaces for object shapes
-- Avoid using `any` type
-- Document complex types and interfaces
+1. TypeScript Usage:
+   - Enable strict mode
+   - Use interfaces
+   - Avoid `any` type
+   - Document complex types
 
-### Component Guidelines
-- Use functional components with hooks
-- Keep components small and focused
-- Implement proper error handling
-- Write unit tests for components
-- Use proper prop-types or TypeScript interfaces
+2. Component Guidelines:
+   - Functional components
+   - React hooks
+   - Error handling
+   - Unit testing
+   - Prop validation
 
-### Testing
-- Write unit tests for new features
-- Ensure all tests pass before submitting PR
-- Maintain minimum 80% code coverage
-- Use Jest and React Testing Library
+3. Testing Requirements:
+   - Unit tests
+   - 80% code coverage
+   - Jest + React Testing Library
 
 ## Pull Request Process
 
-1. Update documentation and README.md if needed
-2. Ensure your code follows our style guidelines
-3. Run all tests and ensure they pass
-4. Update the changelog with your changes
-5. Submit a pull request with a clear description of changes
+### PR Requirements
+
+1. Documentation updates
+2. Style guideline compliance
+3. Test coverage
+4. Changelog updates
 
 ### PR Title Format
-Use conventional commits format:
-- `feat: add new feature`
-- `fix: resolve bug`
-- `docs: update documentation`
-- `chore: update dependencies`
-- `refactor: improve code structure`
 
-### PR Description Template
+```
+[type]: Brief description
+
+Examples:
+feat: add new feature
+fix: resolve bug
+docs: update documentation
+```
+
+### PR Template
+
 ```markdown
 ## Description
 Brief description of changes
@@ -175,21 +153,22 @@ Brief description of changes
 - [ ] New feature
 - [ ] Documentation update
 - [ ] Code refactoring
-- [ ] Other (please specify)
+- [ ] Other (specify)
 
-## How Has This Been Tested?
+## Testing
 Describe testing steps
 
 ## Checklist
-- [ ] Code follows style guidelines
-- [ ] Tests pass locally
+- [ ] Code follows guidelines
+- [ ] Tests pass
 - [ ] Documentation updated
 - [ ] Changelog updated
 ```
 
-## Reporting Bugs
+## Issue Reporting
 
-### Bug Report Template
+### Bug Reports
+
 ```markdown
 ### Bug Description
 Clear description of the bug
@@ -212,29 +191,41 @@ What actually happens
 - Browser (if applicable):
 ```
 
-## Feature Requests
+### Feature Requests
 
-### Feature Request Template
 ```markdown
 ### Feature Description
 Clear description of proposed feature
 
 ### Problem It Solves
-Explain the problem this feature would solve
+Explain the problem
 
 ### Proposed Solution
 Your suggested implementation
 
 ### Alternative Solutions
-Other solutions you've considered
+Other considered approaches
 ```
 
 ## Code Review Process
 
-1. At least one maintainer must approve changes
-2. All comments must be resolved
-3. CI checks must pass
-4. Documentation must be updated
+### Review Requirements
+
+1. Maintainer approval required
+2. All comments resolved
+3. CI checks passing
+4. Documentation updated
+
+### Review Guidelines
+
+- Check code quality
+- Verify test coverage
+- Ensure documentation
+- Validate performance
+- Review security implications
 
 ## License
-By contributing to FusionSpace, you agree that your contributions will be licensed under the MIT License.
+
+This project is licensed under the MIT License. By contributing, you agree to license your contributions under the same terms.
+
+---
