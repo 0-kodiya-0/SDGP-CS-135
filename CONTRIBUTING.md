@@ -15,16 +15,19 @@
   - [Development Guidelines](#development-guidelines)
     - [Technology Stack](#technology-stack)
     - [Coding Standards](#coding-standards)
+  - [Development Workflow](#development-workflow)
+    - [Branch Strategy Options](#branch-strategy-options)
+      - [1. Direct Branching (For Core Team Members)](#1-direct-branching-for-core-team-members)
+      - [2. Fork and Branch](#2-fork-and-branch)
+    - [Branch Naming Conventions](#branch-naming-conventions)
+    - [Development Cycle Best Practices](#development-cycle-best-practices)
   - [Code Review Process](#code-review-process)
     - [Review Requirements](#review-requirements)
     - [Review Guidelines](#review-guidelines)
   - [Commit Guidelines](#commit-guidelines)
     - [Commit Message Template](#commit-message-template)
-    - [Template Setup](#template-setup)
     - [Commit Structure](#commit-structure)
   - [Pull Request Process](#pull-request-process)
-    - [PR Requirements](#pr-requirements)
-    - [PR Title Format](#pr-title-format)
     - [PR Template](#pr-template)
   - [Issue Reporting](#issue-reporting)
     - [Bug Reports](#bug-reports)
@@ -52,6 +55,7 @@ Thank you for your interest in contributing to FusionSpace! This document provid
 - Node.js (v16 or higher)
 - npm (v7 or higher)
 - Git
+- TypeScript knowledge
 
 ### Initial Setup
 
@@ -126,6 +130,131 @@ npm run lint
    - 80% code coverage
    - Jest + React Testing Library
 
+## Development Workflow
+
+### Branch Strategy Options
+
+#### 1. Direct Branching (For Core Team Members)
+
+Best for core team members with direct repository access.
+
+```bash
+# Clone the repository
+git clone https://github.com/0-kodiya-0/SDGP-CS-135.git
+cd SDGP-CS-135
+
+# Update main branch
+git checkout main
+git pull origin main
+
+# Create feature branch
+git checkout -b feature/[feature-name]
+
+# Make changes and commit
+git add .
+git commit -m "feat: add new feature"
+
+# Push changes
+git push origin feature/[feature-name]
+```
+
+**When to use:**
+
+- You're a core team member
+- You have direct write access
+- Working on immediate, time-sensitive features
+- Collaborating closely with the team
+
+#### 2. Fork and Branch
+
+```bash
+# 1. Fork repository (use GitHub UI)
+
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/SDGP-CS-135.git
+cd SDGP-CS-135
+
+# 3. Add upstream remote
+git remote add upstream https://github.com/0-kodiya-0/SDGP-CS-135.git
+
+# 4. Create feature branch
+git checkout -b feature/[feature-name]
+
+# 5. Keep fork updated
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+
+# 6. Make changes and commit
+git add .
+git commit -m "feat: add new feature"
+
+# 7. Push to your fork
+git push origin feature/[feature-name]
+```
+
+**When to use:**
+
+- Working on large, independent features
+- When you need isolated development
+
+### Branch Naming Conventions
+
+```bash
+# Features
+feature/user-authentication
+feature/dark-mode
+
+# Bug fixes
+fix/login-error
+fix/performance-issue
+
+# Documentation
+docs/api-guide
+docs/setup-instructions
+
+# Refactoring
+refactor/database-queries
+refactor/component-structure
+```
+
+### Development Cycle Best Practices
+
+1. **Before Starting**
+
+```bash
+# For direct branching
+git checkout main
+git pull origin main
+
+# For forked repository
+git fetch upstream
+git merge upstream/main
+```
+
+2. **During Development**
+
+```bash
+# Create branch with meaningful name
+git checkout -b feature/descriptive-name
+
+# Make small, focused commits
+git commit -m "feat: add specific functionality"
+```
+
+3. 🔴 **Before Submitting** 🔴  <span style="color:red">  Danger zone, be carful  </span>
+
+```bash
+# Update with latest changes 
+git fetch origin main
+git rebase origin/main
+
+# Test your changes
+npm run test
+npm run lint
+```
+
 ## Code Review Process
 
 ### Review Requirements
@@ -142,7 +271,7 @@ npm run lint
 - Ensure documentation
 - Validate performance
 - Review security implications
-  
+
 ## Commit Guidelines
 
 ### Commit Message Template
@@ -159,16 +288,6 @@ npm run lint
 # At the end: Include Co-authored-by for all contributors.
 ```
 
-### Template Setup
-
-```bash
-# Create template file
-printf "# Title: Summary, imperative, start upper case, don't end with a period\n# No more than 50 chars. #### 50 chars is here:  #\n\n# Remember blank line between title and body.\n\n# Body: Explain *what* and *why* (not *how*). Include task ID (Jira issue).\n# Wrap at 72 chars. ################################## which is here:  #\n\n\n# At the end: Include Co-authored-by for all contributors. \n# Include at least one empty line before it. Format: \n# Co-authored-by: name <user@users.noreply.github.com>\n" > ~/.gitmessage
-
-# Configure Git
-git config --global commit.template ~/.gitmessage
-```
-
 ### Commit Structure
 
 1. **Type**:
@@ -181,47 +300,23 @@ git config --global commit.template ~/.gitmessage
    - `test`: Testing
    - `chore`: Maintenance
 
-2. **Scope** (optional):
-
-```
-feat(auth): add OAuth support
-```
-
-3. **Subject**:
+2. **Subject**:
    - Imperative mood
    - No period
    - Under 50 characters
    - Capitalize first letter
 
-4. **Body** (optional):
+3. **Body**:
    - Explain what and why
    - 72 character wrap
    - Blank line after subject
 
-5. **Footer** (optional):
+4. **Footer**:
    - Reference issues
    - Note breaking changes
    - List co-authors
 
 ## Pull Request Process
-
-### PR Requirements
-
-1. Documentation updates
-2. Style guideline compliance
-3. Test coverage
-4. Changelog updates
-
-### PR Title Format
-
-```
-[type]: Brief description
-
-Examples:
-feat: add new feature
-fix: resolve bug
-docs: update documentation
-```
 
 ### PR Template
 
