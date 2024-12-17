@@ -1,43 +1,106 @@
 # FusionSpace Workspace
 
-A collaborative software platform designed to provide a unified workspace experience for students, educators, and professionals. FusionSpace offers role-based customization, seamless third-party integrations, and AI-powered features to enhance productivity.
+A cutting-edge web-based workspace solution designed to improve productivity and optimize workflows across educational and professional domains. FusionSpace offers sophisticated AI functionalities, real-time collaboration tools, and customizable environments tailored to distinct roles.
 
 ## Project Overview
 
-FusionSpace addresses the challenge of managing multiple digital workspaces by providing:
+FusionSpace addresses the challenges of digital workspace fragmentation by providing:
 
 - Unified interface with role-based customization
-- Integration with organization-specific APIs and third-party tools
-- Secure, encrypted peer-to-peer communication
-- AI-powered features for content analysis and automation
-- Customizable user interface for each environment
+- Real-time collaboration and communication tools
+- Integration with organizational APIs and third-party services
+- AI-powered content analysis and automation
+- Secure, encrypted data handling
+- Cross-platform compatibility
+
+## Key Features
+
+### Core Functionality
+
+- Component-based UI design for extensive customization
+- Role-specific environments with dedicated features
+- Centralized dashboard for workflow monitoring
+- Integrated communication tools (messaging, voice, video)
+- File management with cloud storage integration
+
+### AI Integration
+
+- Content summarization and analysis
+- Smart question generation
+- Intelligent chat assistance
+- Advanced search capabilities
+
+### Security & Privacy
+
+- End-to-end encryption for communications
+- Role-based access control
+- Secure data storage and processing
+- Compliance with privacy standards
+
+## Technical Architecture
+
+### Frontend Technologies
+
+- HTML/CSS/JavaScript
+- React with Tailwind CSS
+- Electron for desktop applications
+- React Flow for workflow visualization
+
+### Backend Stack
+
+- Node.js and Django
+- MongoDB for database management
+- RESTful and GraphQL APIs
+- WebRTC for real-time communication
+
+### Cloud Infrastructure
+
+- Amazon EC2 and Google Cloud
+- Kubernetes for container orchestration
+- Redis for caching
+- Vertex AI (Gemini) for AI features
 
 ## Repository Structure
 
 ### `.github/`
 
-Contains GitHub-specific configurations, templates, and workflow definitions for maintaining project consistency and automation.
+Contains GitHub-specific configurations, templates, and workflow definitions:
+
+- Issue templates
+- PR templates
+- GitHub Actions workflows
+- Community guidelines
 
 ### `docs/`
 
-Project documentation including:
+Comprehensive project documentation:
 
-- System architecture and design specs
+- System Requirements Specification (SRS)
+- Architecture and design documentation
 - API documentation
 - User guides and manuals
-- Technical requirements
+- Development guidelines
 
 ## Project Documentation
 
-- [Contributing Guide](./CONTRIBUTING.md) - Guidelines for contributing to the project, coding standards, and PR process
-- [Security Policy](./SECURITY.md) - Security protocols, vulnerability reporting, and data protection measures
+- [Contributing Guide](./CONTRIBUTING.md) - Detailed guidelines for project contribution, coding standards, and development workflow
+- [Security Policy](./SECURITY.md) - Security protocols, vulnerability reporting procedures, and data protection measures
 - [License](./LICENSE.md) - MIT license terms and conditions
 
-## Branches
+## Development Workflow
+
+### Branches
 
 - `main` - Production-ready code, thoroughly tested and reviewed
-- `user-interface` - Frontend development branch for UI/UX features and improvements
-- `backend` - Server-side development branch for API implementations and database operations
+- `user-interface` - Frontend development branch for UI/UX features
+- `backend` - Server-side development branch for API and database operations
+
+### Development Methodology
+
+- Agile development with Scrum framework
+- Weekly sprints with daily standups
+- Continuous Integration/Continuous Deployment (CI/CD)
+- Test-Driven Development (TDD)
 
 ## Development Team
 
@@ -45,43 +108,44 @@ Project documentation including:
 
 ### SDGP Group: CS-135
 
-| Name | Role | Student ID |
-|------|------|------------|
-| Channa laksen karawita | Team Member | 20232310 |
-| P.V. Didula Muthumal | Team Member | 20222096 |
-| J.A.D.S.N Jayakody | Team Member | 20222284 |
-| Don Kehan Hasnaka Liyanage | Team Member | 20222087 |
-| Thihan Jinajith Ranwella | Team Member | 20222265 |
-| Piumal Gunathilaka | Team Member | 20222440 |
+| Name | Role | IIT No. | UOW No. |
+|------|------|---------|----------|
+| Channa laksen karawita | Leader | 20232310 | w2053092 |
+| P.V. Didula Muthumal | Developer | 20222096 | w2053232 |
+| J.A.D.S.N Jayakody | Developer | 20222284 | w2052292 |
+| Don Kehan Hasnaka Liyanage | Developer | 20222087 | W2053760 |
+| Thihan Jinajith Ranwella | Developer | 20222265 | w2053244 |
+| Piumal Gunathilaka | Developer | 20222440 | w20831185 |
 
-## Technical Requirements
+## Getting Started
 
-### Hardware Requirements
+### Prerequisites
 
-#### Cloud Servers and Infrastructure
+- Node.js (v14 or higher)
+- Python 3.8+
+- MongoDB
+- Docker
 
-| Component | Technologies | Description |
-|-----------|--------------|-------------|
-| Cloud Servers | Amazon EC2, Google Cloud | Scalable cloud infrastructure for hosting backend services and ensuring reliable application performance. Enables seamless integration with Google Workspace services. |
-| Database | MongoDB Database | NoSQL database chosen for flexible data structure handling and excellent scalability in managing user data, tasks, and application content. |
-| AI | Vertex AI (Gemini) | Google's advanced AI platform for implementing machine learning capabilities and intelligent features within the application. |
+### Installation
 
-### Software Requirements
+```bash
+# Clone the repository
+git clone https://github.com/0-kodiya-0/SDGP-CS-135.git
 
-#### Development Stack
+# Install dependencies
+npm install
 
-| Category | Technologies | Description |
-|----------|--------------|-------------|
-| Frontend Development | HTML, CSS, Tailwind CSS, React Flow, React | Core web technologies with Tailwind CSS for rapid styling, React Flow for interactive workflow visualization, and React for building dynamic user interfaces. |
-| Backend Development | Node.js, Django | Dual-framework approach with Node.js for real-time features and main application server, complemented by Django for additional backend services and APIs. |
-| Desktop Development | Electron | Framework for cross-platform desktop application development, enabling native desktop experience of the web application. |
+# Start development server
+npm run dev
+```
 
-#### Integration and AI Features
+## Contributing
 
-| Category | Technologies | Description |
-|----------|--------------|-------------|
-| Communication | Twilio | API integration for implementing real-time communication features, notifications, and messaging capabilities. |
-| AI | TensorFlow, OpenAI, Gemini, LLaMA API | Comprehensive AI toolkit for implementing machine learning models, natural language processing, and intelligent assistance features. |
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+
+## Security
+
+For details about our security policy and how to report vulnerabilities, please see our [Security Policy](./SECURITY.md).
 
 ## License
 
