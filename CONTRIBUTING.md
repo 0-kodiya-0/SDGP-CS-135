@@ -15,6 +15,13 @@
   - [Development Guidelines](#development-guidelines)
     - [Technology Stack](#technology-stack)
     - [Coding Standards](#coding-standards)
+  - [Code Review Process](#code-review-process)
+    - [Review Requirements](#review-requirements)
+    - [Review Guidelines](#review-guidelines)
+  - [Commit Guidelines](#commit-guidelines)
+    - [Commit Message Template](#commit-message-template)
+    - [Template Setup](#template-setup)
+    - [Commit Structure](#commit-structure)
   - [Pull Request Process](#pull-request-process)
     - [PR Requirements](#pr-requirements)
     - [PR Title Format](#pr-title-format)
@@ -22,9 +29,6 @@
   - [Issue Reporting](#issue-reporting)
     - [Bug Reports](#bug-reports)
     - [Feature Requests](#feature-requests)
-  - [Code Review Process](#code-review-process)
-    - [Review Requirements](#review-requirements)
-    - [Review Guidelines](#review-guidelines)
   - [License](#license)
 
 ## Overview
@@ -122,6 +126,83 @@ npm run lint
    - 80% code coverage
    - Jest + React Testing Library
 
+## Code Review Process
+
+### Review Requirements
+
+1. Maintainer approval required
+2. All comments resolved
+3. CI checks passing
+4. Documentation updated
+
+### Review Guidelines
+
+- Check code quality
+- Verify test coverage
+- Ensure documentation
+- Validate performance
+- Review security implications
+  
+## Commit Guidelines
+
+### Commit Message Template
+
+```
+# Title: Summary, imperative, start upper case, don't end with a period
+# No more than 50 chars. #### 50 chars is here:  #
+
+# Remember blank line between title and body.
+
+# Body: Explain *what* and *why* (not *how*). Include task ID (Jira issue).
+# Wrap at 72 chars. ################################## which is here:  #
+
+# At the end: Include Co-authored-by for all contributors.
+```
+
+### Template Setup
+
+```bash
+# Create template file
+printf "# Title: Summary, imperative, start upper case, don't end with a period\n# No more than 50 chars. #### 50 chars is here:  #\n\n# Remember blank line between title and body.\n\n# Body: Explain *what* and *why* (not *how*). Include task ID (Jira issue).\n# Wrap at 72 chars. ################################## which is here:  #\n\n\n# At the end: Include Co-authored-by for all contributors. \n# Include at least one empty line before it. Format: \n# Co-authored-by: name <user@users.noreply.github.com>\n" > ~/.gitmessage
+
+# Configure Git
+git config --global commit.template ~/.gitmessage
+```
+
+### Commit Structure
+
+1. **Type**:
+   - `feat`: New feature
+   - `fix`: Bug fix
+   - `docs`: Documentation
+   - `style`: Code style
+   - `refactor`: Code restructuring
+   - `perf`: Performance
+   - `test`: Testing
+   - `chore`: Maintenance
+
+2. **Scope** (optional):
+
+```
+feat(auth): add OAuth support
+```
+
+3. **Subject**:
+   - Imperative mood
+   - No period
+   - Under 50 characters
+   - Capitalize first letter
+
+4. **Body** (optional):
+   - Explain what and why
+   - 72 character wrap
+   - Blank line after subject
+
+5. **Footer** (optional):
+   - Reference issues
+   - Note breaking changes
+   - List co-authors
+
 ## Pull Request Process
 
 ### PR Requirements
@@ -206,23 +287,6 @@ Your suggested implementation
 ### Alternative Solutions
 Other considered approaches
 ```
-
-## Code Review Process
-
-### Review Requirements
-
-1. Maintainer approval required
-2. All comments resolved
-3. CI checks passing
-4. Documentation updated
-
-### Review Guidelines
-
-- Check code quality
-- Verify test coverage
-- Ensure documentation
-- Validate performance
-- Review security implications
 
 ## License
 
