@@ -1,11 +1,6 @@
 @startuml FusionSpace Login and Registration Use Cases
 
 left to right direction
-skinparam actorStyle awesome
-skinparam usecase {
-    BackgroundColor<<extend>> LightGrey
-    BorderColor<<extend>> DarkGrey
-}
 
 ' Actors
 actor "User" as user
