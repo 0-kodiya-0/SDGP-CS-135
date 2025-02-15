@@ -4,11 +4,12 @@
   "main": "app.js",
   "scripts": {
     "start": "node dist/app.js",
-    "dev": "nodemon src/app.ts",
+    "dev": "nodemon",
     "build": "tsc",
     "lint": "eslint \"src/**/*.{js,ts}\" --fix",
     "test": "echo \"No test specified\" && exit 1"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -16,11 +17,15 @@
   "devDependencies": {
     "@eslint/js": "^9.20.0",
     "@types/express": "^5.0.0",
+    "@types/lowdb": "^1.0.15",
     "@types/passport": "^1.0.17",
+    "@types/passport-facebook": "^3.0.3",
+    "@types/passport-google-oauth20": "^2.0.16",
+    "@types/passport-microsoft": "^1.0.3",
     "eslint": "^9.20.1",
     "globals": "^15.15.0",
     "nodemon": "^3.1.9",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.0"
   },
