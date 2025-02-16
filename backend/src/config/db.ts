@@ -1,6 +1,7 @@
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
-import { OAuthAccount, OAuthState, SignInState, SignUpState } from '../types/data';
+import { OAuthAccount } from '../feature/account/Account.types';
+import { OAuthState, SignUpState, SignInState } from '../feature/oauth/Auth.types';
 
 interface DBSchema {
     oauthAccounts: OAuthAccount[];

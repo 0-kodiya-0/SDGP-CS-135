@@ -2,7 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import passport from 'passport';
 import setupPassport from './config/passport';
-import oauthRoutes from './routes/oauth';
+import { router as oauthRoutes } from './feature/oauth';
+import { router as accountRoutes } from "./feature/account";
 import db from './config/db';
 
 dotenv.config();
@@ -20,7 +21,7 @@ setupPassport();
 const initializeDb = async () => {
     await db.read();
     if (!db.data) {
-        db.data = { oauthAccounts: [], oauthStates: [] };
+        db.data = { oauthAccounts: [], oauthStates: [], signInStates: [], signUpStates: [] };
         await db.write();
     }
 };
@@ -28,6 +29,7 @@ initializeDb();
 
 // Routes
 app.use('/api/oauth', oauthRoutes);
+app.use('/api/account', accountRoutes);
 
 // Error handling
 app.use((req: express.Request, res: express.Response) => {

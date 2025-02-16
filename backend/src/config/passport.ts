@@ -1,9 +1,9 @@
-import passport from 'passport';
+import passport, { Profile, DoneCallback } from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as MicrosoftStrategy } from 'passport-microsoft';
 import { Strategy as FacebookStrategy } from 'passport-facebook';
-import { OAuthProviders, ProviderResponse } from '../types/data';
-import { VerifyCallback } from 'passport-oauth2';
+import { OAuthProviders } from '../feature/account/Account.types';
+import { ProviderResponse } from '../feature/oauth/Auth.types';
 
 const setupPassport = () => {
     // Google Strategy
@@ -35,7 +35,7 @@ const setupPassport = () => {
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
         callbackURL: '/api/oauth/callback/microsoft',
         scope: ['user.read']
-    }, async (accessToken: string, refreshToken: string | undefined, profile: any, done: VerifyCallback) => {
+    }, async (accessToken: string, refreshToken: string | undefined, profile: Profile, done: DoneCallback) => {
         try {
             const response: ProviderResponse = {
                 provider: OAuthProviders.Google,
