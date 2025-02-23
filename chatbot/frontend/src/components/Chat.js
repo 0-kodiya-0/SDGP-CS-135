@@ -6,7 +6,7 @@ function Chat() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [file, setFile] = useState(null);
-    const [fileName, setFileName] = useState(''); // Store file name for display
+    const [fileName, setFileName] = useState('');
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -84,25 +84,31 @@ function Chat() {
                 <div ref={messagesEndRef} />
             </div>
             <div className="chat-input">
-                <input
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".pdf,.docx,.txt"
-                />
-                {fileName && (
-                    <div className="file-info">
-                        <span>{fileName}</span>
-                        <button onClick={removeFile}>Remove File</button>
-                    </div>
-                )}
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Type your message..."
-                    onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
-                />
-                <button onClick={sendMessage}>Send</button>
+                <div className='file-input-container'>
+                     <input
+                        type="file"
+                        onChange={handleFileChange}
+                        accept=".pdf,.docx,.txt"
+                    />
+                    {fileName && (
+                        <div className="file-info">
+                            <span>{fileName}</span>
+                            <button onClick={removeFile}>Remove File</button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="input-and-button-container"> {/* Added container */}
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Type your message..."
+                        onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
+                    />
+                    <button onClick={sendMessage}>Send</button>
+                </div>
+
             </div>
         </div>
     );

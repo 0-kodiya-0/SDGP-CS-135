@@ -1,10 +1,10 @@
 import React from 'react';
 import Chat from './components/Chat';
-import './index.css';
+import './index.css'; // Make sure to import CSS
 
 function App() {
   return (
-    <div className="App">
+    <div className="app-container"> {/* Add a container with a class */}
       <header>
         <h1>My Chatbot App</h1>
       </header>
