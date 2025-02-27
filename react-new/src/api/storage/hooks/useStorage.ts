@@ -16,14 +16,23 @@ export default function useStorage<T>(
     const storage = storageApi.getStorage(options);
     const [value, setValue] = useState<T>(defaultValue);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
         // Load initial value
         const loadValue = async () => {
-            setIsLoading(true);
-            const storedValue = await storage.get<T>(key, defaultValue);
-            setValue(storedValue !== undefined ? storedValue : defaultValue);
-            setIsLoading(false);
+            try {
+                setIsLoading(true);
+                setError(null);
+                const storedValue = await storage.get<T>(key, defaultValue);
+                setValue(storedValue !== undefined ? storedValue : defaultValue);
+            } catch (err) {
+                console.error(`Error loading value for key "${key}":`, err);
+                setError(err instanceof Error ? err : new Error(String(err)));
+                setValue(defaultValue);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         loadValue();
@@ -31,14 +40,35 @@ export default function useStorage<T>(
     }, [key, storage]);
 
     const setStoredValue = async (newValue: T) => {
-        setValue(newValue);
-        await storage.set(key, newValue);
+        try {
+            setError(null);
+            setValue(newValue);
+            await storage.set(key, newValue);
+        } catch (err) {
+            console.error(`Error setting value for key "${key}":`, err);
+            setError(err instanceof Error ? err : new Error(String(err)));
+            throw err;
+        }
+    };
+
+    const removeValue = async () => {
+        try {
+            setError(null);
+            await storage.delete(key);
+            setValue(defaultValue);
+        } catch (err) {
+            console.error(`Error removing key "${key}":`, err);
+            setError(err instanceof Error ? err : new Error(String(err)));
+            throw err;
+        }
     };
 
     return {
         value,
         setValue: setStoredValue,
         isLoading,
-        remove: () => storage.delete(key),
+        error,
+        remove: removeValue,
+        reset: () => setValue(defaultValue),
     };
 }

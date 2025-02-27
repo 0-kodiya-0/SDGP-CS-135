@@ -1,11 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+/**
+ * Supported storage types
+ */
+export enum StorageType {
+    LOCALFORAGE = 'localforage',
+    INDEXEDDB = 'indexeddb',
+    SESSION = 'session',
+    AUTO = 'auto' // Default, will select the most appropriate provider
+}
+
 export interface StorageOptions {
     /** The namespace for this storage instance */
     namespace: string;
+    /** Storage type to use */
+    type?: StorageType;
     /** Default values to initialize with if not already present */
     defaults?: Record<string, any>;
     /** Schema validation (Electron only) */
     schema?: any;
+    /** Connection options for specific providers */
+    connectionOptions?: any;
 }
 
 export interface StorageProvider {

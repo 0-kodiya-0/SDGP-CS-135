@@ -1,171 +1,106 @@
-# Storage API Documentation (Web Implementation)
+# Enhanced Storage API
 
-The Storage API provides a persistent data storage interface for web environments. It uses localforage to handle browser storage while exposing a consistent API to the rest of the application.
+A flexible, provider-based storage system for web applications that provides a unified interface for different storage backends.
 
-## Architecture Overview
+## Features
 
-The Web Storage API follows a provider-based architecture with the following key components:
+- **Multiple Storage Providers**: Choose from IndexedDB, SessionStorage, or LocalForage
+- **Consistent API**: Same interface regardless of the underlying storage mechanism
+- **Type-Safe**: Full TypeScript support for all operations
+- **Promise-Based**: Modern async/await compatible API
+- **React Integration**: Easy-to-use React hooks
+- **High-Level Abstractions**: Database wrapper for collections of objects
+- **Automatic Fallbacks**: Auto-detection of best available storage mechanism
 
-1. **StorageApi**: The main entry point that creates and manages storage providers
-2. **StorageProvider**: Interface defining the methods each provider must implement
-3. **WebStorageProvider**: Implementation for web browsers using localforage
-4. **Database**: A higher-level wrapper for structured data storage
-5. **React Integration**: Hooks and utilities for integrating with React components
+## Available Storage Providers
 
-## Core API
+| Provider | Description | Best For | Persistence |
+|----------|-------------|----------|-------------|
+| **IndexedDB** | Native browser IndexedDB implementation | Large amounts of structured data | Persistent across sessions |
+| **LocalForage** | Uses IndexedDB with fallbacks to WebSQL and localStorage | General purpose with broad compatibility | Persistent across sessions |
+| **SessionStorage** | Browser's sessionStorage implementation | Temporary session data | Cleared when session ends |
 
-### Getting Started
+## Basic Usage
 
 ```typescript
 import storageApi from './api/storage';
+import { StorageType } from './api/storage/types';
 
-// Create or retrieve a storage instance
-const appSettings = storageApi.getStorage({
-  namespace: 'app-settings',
+// Create or retrieve a storage provider
+const userPrefs = storageApi.getStorage({
+  namespace: 'user-preferences',
+  type: StorageType.INDEXEDDB, // Explicitly choose IndexedDB
   defaults: {
     theme: 'light',
     fontSize: 16
   }
 });
 
-// Use the storage instance
-await appSettings.set('theme', 'dark');
-const theme = await appSettings.get('theme');
-```
-
-### StorageApi Methods
-
-#### `getStorage(options: StorageOptions): StorageProvider`
-
-Creates a new storage provider or returns an existing one with the specified namespace.
-
-```typescript
-const userPrefs = storageApi.getStorage({
-  namespace: 'user-preferences',
-  defaults: { language: 'en' }
-});
-```
-
-#### `createStorage(options: StorageOptions): StorageProvider`
-
-Always creates a new storage provider instance with the specified namespace.
-
-```typescript
-const temporaryStorage = storageApi.createStorage({
-  namespace: 'temp-data'
-});
-```
-
-### StorageProvider Interface
-
-Each storage provider implements the following methods:
-
-#### `get<T>(key: string, defaultValue?: T): Promise<T | undefined>`
-
-Retrieves a value from storage.
-
-```typescript
-const fontSize = await storage.get<number>('fontSize', 16);
-```
-
-#### `set<T>(key: string, value: T): Promise<void>`
-
-Stores a value in storage.
-
-```typescript
-await storage.set('fontSize', 18);
-```
-
-#### `has(key: string): Promise<boolean>`
-
-Checks if a key exists in storage.
-
-```typescript
-const hasDarkMode = await storage.has('darkMode');
-```
-
-#### `delete(key: string): Promise<void>`
-
-Removes a key from storage.
-
-```typescript
-await storage.delete('temporarySetting');
-```
-
-#### `clear(): Promise<void>`
-
-Removes all keys from this storage namespace.
-
-```typescript
-await storage.clear();
-```
-
-#### `keys(): Promise<string[]>`
-
-Gets all keys in this storage namespace.
-
-```typescript
-const allKeys = await storage.keys();
-```
-
-#### `values<T = any>(): Promise<T[]>`
-
-Gets all values in this storage namespace.
-
-```typescript
-const allValues = await storage.values();
-```
-
-#### `entries<T = any>(): Promise<Array<[string, T]>>`
-
-Gets all key-value pairs in this storage namespace.
-
-```typescript
-const allEntries = await storage.entries();
-```
-
-## Web Implementation Details
-
-The web implementation uses `localforage`, which provides:
-
-- IndexedDB as primary storage
-- Fallbacks to WebSQL and localStorage when necessary
-- Promise-based API
-- Cross-browser compatibility
-
-```typescript
-// src/api/storage/providers/webProvider.ts
-import localforage from 'localforage';
-
-export class WebStorageProvider implements StorageProvider {
-  private storage: LocalForage;
+// Basic operations
+async function storeUserPreferences() {
+  // Store a value
+  await userPrefs.set('theme', 'dark');
   
-  constructor(options: StorageOptions) {
-    this.storage = localforage.createInstance({
-      name: options.namespace,
-    });
-    
-    // Initialize defaults if provided
-    if (options.defaults) {
-      this.initDefaults(options.defaults);
-    }
-  }
+  // Retrieve a value (with type safety)
+  const theme = await userPrefs.get<string>('theme');
+  console.log('User theme:', theme); // 'dark'
   
-  // Implementation details...
+  // Check if a key exists
+  const hasFontSize = await userPrefs.has('fontSize');
+  console.log('Has font size setting:', hasFontSize); // true
+  
+  // Delete a key
+  await userPrefs.delete('temporarySetting');
+  
+  // Get all keys
+  const allKeys = await userPrefs.keys();
+  console.log('All settings:', allKeys); // ['theme', 'fontSize']
 }
 ```
 
-## Database Wrapper
+## Choosing a Provider
 
-The Database class provides a higher-level abstraction for working with collections of objects:
+You can explicitly choose a storage provider or let the system automatically select the best available:
 
 ```typescript
+// Explicitly choose IndexedDB
+const dbStorage = storageApi.getStorage({
+  namespace: 'app-data',
+  type: StorageType.INDEXEDDB
+});
+
+// Explicitly choose SessionStorage
+const sessionData = storageApi.getStorage({
+  namespace: 'session-data',
+  type: StorageType.SESSION
+});
+
+// Explicitly choose LocalForage
+const compatStorage = storageApi.getStorage({
+  namespace: 'compat-data',
+  type: StorageType.LOCALFORAGE
+});
+
+// Auto-detect the best available (defaults to StorageType.AUTO)
+const autoStorage = storageApi.getStorage({
+  namespace: 'auto-detect-storage'
+});
+```
+
+## Database Abstraction
+
+The Storage API includes a higher-level Database abstraction for working with collections of objects:
+
+```typescript
+import { Database } from './api/storage/database';
+
 interface User {
   id: string;
   name: string;
   email: string;
 }
 
+// Create a database for users
 const userDb = new Database<User>('app-data', 'users');
 
 // Add a user
@@ -178,63 +113,62 @@ await userDb.add({
 // Get all users
 const users = await userDb.getAll();
 
-// Query specific users
-const admins = await userDb.query(user => user.email.endsWith('@admin.com'));
+// Get a specific user
+const user = await userDb.getById('user-1');
+
+// Update a user
+await userDb.update('user-1', { name: 'John Smith' });
+
+// Query users
+const adminUsers = await userDb.query(user => 
+  user.email.endsWith('@admin.com')
+);
+
+// Remove a user
+await userDb.remove('user-1');
 ```
-
-### Database Methods
-
-#### `getAll(): Promise<T[]>`
-
-Retrieves all items in the collection.
-
-#### `getById(id: string): Promise<T | undefined>`
-
-Retrieves a specific item by ID.
-
-#### `add(item: T): Promise<T>`
-
-Adds a new item to the collection.
-
-#### `update(id: string, updateData: Partial<T>): Promise<T | undefined>`
-
-Updates an existing item by ID.
-
-#### `remove(id: string): Promise<boolean>`
-
-Removes an item from the collection.
-
-#### `query(predicate: (item: T) => boolean): Promise<T[]>`
-
-Finds items that match the given predicate function.
 
 ## React Integration
 
-### useStorage Hook
+Use the `useStorage` hook to easily integrate with React components:
 
-The `useStorage` hook provides an easy way to use storage in React components:
+```tsx
+import { useStorage } from './api/storage';
+import { StorageType } from './api/storage/types';
 
-```typescript
 function SettingsPanel() {
   const { 
     value: fontSize, 
     setValue: setFontSize,
-    isLoading
+    isLoading,
+    error,
+    remove,
+    reset
   } = useStorage<number>(
     'fontSize',
     16,
-    { namespace: 'user-preferences' }
+    { 
+      namespace: 'user-preferences',
+      type: StorageType.INDEXEDDB
+    }
   );
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading settings...</div>;
+  }
+  
+  if (error) {
+    return <div>Error loading settings: {error.message}</div>;
   }
 
   return (
     <div>
-      <label>Font Size: {fontSize}px</label>
+      <h2>Font Size Settings</h2>
+      <div>Current font size: {fontSize}px</div>
       <button onClick={() => setFontSize(fontSize + 1)}>Increase</button>
       <button onClick={() => setFontSize(fontSize - 1)}>Decrease</button>
+      <button onClick={reset}>Reset to Default</button>
+      <button onClick={remove}>Remove Setting</button>
     </div>
   );
 }
@@ -250,6 +184,29 @@ Organize your application's storage into logical namespaces:
 - `user-preferences`: User-specific settings
 - `app-data`: Application data storage
 - `cache`: Temporary cached data
+- `session-data`: Session-specific data
+
+### Provider Selection
+
+Choose the appropriate provider based on your needs:
+
+- **IndexedDB**: For large amounts of structured data that needs to persist
+- **SessionStorage**: For temporary data that should be cleared when the session ends
+- **LocalForage**: For maximum compatibility when you're unsure about browser support
+
+### Error Handling
+
+Always implement proper error handling:
+
+```typescript
+try {
+  await storage.set('important-data', data);
+} catch (error) {
+  console.error('Failed to save data:', error);
+  // Show user-friendly error message
+  notifyUser('Could not save your data. Please try again.');
+}
+```
 
 ### Type Safety
 
@@ -263,494 +220,81 @@ const theme = await storage.get<string>('theme');
 const theme = await storage.get('theme');
 ```
 
-### Error Handling
-
-Always wrap storage operations in try/catch blocks:
-
-```typescript
-try {
-  await storage.set('important-data', data);
-} catch (error) {
-  console.error('Failed to save data:', error);
-  // Show user-friendly error message
-}
-```
-
-### Default Values
-
-Provide default values whenever getting data:
-
-```typescript
-const fontSize = await storage.get<number>('fontSize', 16);
-```
-
-### Storage Initialization
-
-Initialize your storage with defaults when creating it:
-
-```typescript
-const appSettings = storageApi.getStorage({
-  namespace: 'app-settings',
-  defaults: {
-    theme: 'light',
-    fontSize: 16,
-    notifications: true
-  }
-});
-```
-
-## Integration with Other APIs
-
-### File System API Integration
-
-For large data sets, use the File System API in conjunction with the Storage API:
-
-```typescript
-import { fileSystemApi } from '../fileSystem';
-
-async function saveUserData(userId, data) {
-  // Save reference in Storage API
-  const storage = storageApi.getStorage({ namespace: 'user-data' });
-  await storage.set(`user-${userId}-path`, `users/${userId}/data.json`);
-  
-  // Save actual data via File System API
-  await fileSystemApi.writeJson(`users/${userId}/data.json`, data);
-}
-```
-
-### Network API Integration
-
-For data synchronization with remote servers:
-
-```typescript
-import { networkApi } from '../network';
-
-async function syncUserPreferences() {
-  const storage = storageApi.getStorage({ namespace: 'user-preferences' });
-  const preferences = await storage.entries();
-  
-  // Send to server
-  await networkApi.post('/api/sync/preferences', { preferences });
-  
-  // Update last sync timestamp
-  await storage.set('lastSyncTime', new Date().toISOString());
-}
-```
-
-## Web Security Considerations
-
-When using the Web Storage API, be mindful that:
-
-- IndexedDB/localStorage data isn't encrypted by default
-- User can clear browser storage at any time
-- Storage limits vary by browser (typically 5-10MB for localStorage, and 50-100MB for IndexedDB)
-- Data is accessible to JavaScript from the same origin, so don't store sensitive data without additional encryption
-
-## Testing the Storage API
-
-### Mock Implementation
-
-For testing, create a mock storage provider that uses an in-memory Map:
-
-```typescript
-// src/api/storage/providers/mockProvider.ts
-export class MockStorageProvider implements StorageProvider {
-  private data: Map<string, any> = new Map();
-  
-  async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
-    return this.data.has(key) ? this.data.get(key) : defaultValue;
-  }
-  
-  async set<T>(key: string, value: T): Promise<void> {
-    this.data.set(key, value);
-  }
-  
-  async has(key: string): Promise<boolean> {
-    return this.data.has(key);
-  }
-  
-  async delete(key: string): Promise<void> {
-    this.data.delete(key);
-  }
-  
-  async clear(): Promise<void> {
-    this.data.clear();
-  }
-  
-  async keys(): Promise<string[]> {
-    return Array.from(this.data.keys());
-  }
-  
-  async values<T = any>(): Promise<T[]> {
-    return Array.from(this.data.values()) as T[];
-  }
-  
-  async entries<T = any>(): Promise<Array<[string, T]>> {
-    return Array.from(this.data.entries()) as Array<[string, T]>;
-  }
-}
-```
-
-### Setting Up Test Environment
-
-In your test setup file, configure the Storage API to use the mock provider:
-
-```typescript
-// src/api/storage/__tests__/setup.ts
-import { StorageApi } from '../storageApi';
-import { MockStorageProvider } from '../providers/mockProvider';
-
-// Override the provider factory in the StorageApi
-jest.mock('../storageApi', () => {
-  const original = jest.requireActual('../storageApi');
-  
-  return {
-    ...original,
-    StorageApi: class extends original.StorageApi {
-      getStorage(options) {
-        return new MockStorageProvider();
-      }
-      
-      createStorage(options) {
-        return new MockStorageProvider();
-      }
-    },
-    default: new StorageApi()
-  };
-});
-```
-
-### Unit Testing Example
-
-Here's an example of how to test a component that uses the storage hook:
-
-```typescript
-// src/components/features/settings/ThemeSelector.test.tsx
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import ThemeSelector from './ThemeSelector';
-import storageApi from '../../../api/storage/storageApi';
-
-// Mock storage for testing
-const mockStorage = {
-  get: jest.fn(),
-  set: jest.fn(),
-  has: jest.fn(),
-  delete: jest.fn(),
-  clear: jest.fn(),
-  keys: jest.fn(),
-  values: jest.fn(),
-  entries: jest.fn()
-};
-
-jest.mock('../../../api/storage/storageApi', () => ({
-  getStorage: jest.fn(() => mockStorage)
-}));
-
-describe('ThemeSelector', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockStorage.get.mockImplementation((key, defaultValue) => 
-      Promise.resolve(defaultValue)
-    );
-  });
-  
-  it('renders with default theme', async () => {
-    render(<ThemeSelector />);
-    
-    // Initially shows loading
-    expect(screen.getByText(/Loading theme preference/i)).toBeInTheDocument();
-    
-    // Then shows the theme
-    await waitFor(() => {
-      expect(screen.getByText(/Current theme: light/i)).toBeInTheDocument();
-    });
-  });
-  
-  it('updates theme when button is clicked', async () => {
-    render(<ThemeSelector />);
-    
-    await waitFor(() => {
-      expect(screen.getByText(/Current theme: light/i)).toBeInTheDocument();
-    });
-    
-    // Click dark theme button
-    fireEvent.click(screen.getByText('Dark'));
-    
-    // Check that set was called
-    expect(mockStorage.set).toHaveBeenCalledWith('theme', 'dark');
-  });
-});
-```
-
-## Performance Considerations
-
-### Caching Strategy
-
-For frequently accessed data, implement an in-memory cache:
-
-```typescript
-class CachedStorageProvider implements StorageProvider {
-  private provider: StorageProvider;
-  private cache: Map<string, any> = new Map();
-  
-  constructor(provider: StorageProvider) {
-    this.provider = provider;
-  }
-  
-  async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
-    if (this.cache.has(key)) {
-      return this.cache.get(key);
-    }
-    
-    const value = await this.provider.get<T>(key, defaultValue);
-    this.cache.set(key, value);
-    return value;
-  }
-  
-  async set<T>(key: string, value: T): Promise<void> {
-    this.cache.set(key, value);
-    await this.provider.set(key, value);
-  }
-  
-  // Implement remaining methods...
-}
-```
-
 ### Batch Operations
 
-For multiple operations, use batch processing where possible:
+For multiple operations, process them in parallel:
 
 ```typescript
-async function batchUpdate(storage: StorageProvider, updates: Record<string, any>) {
+async function batchUpdate(updates: Record<string, any>) {
   const promises = Object.entries(updates).map(
     ([key, value]) => storage.set(key, value)
   );
   
   await Promise.all(promises);
 }
+
+// Usage
+await batchUpdate({
+  theme: 'dark',
+  fontSize: 18,
+  notifications: false
+});
 ```
 
-### Storage Size Monitoring
+## Advanced Configuration
 
-Monitor storage size to prevent exceeding browser limits:
+### LocalForage Provider Options
+
+You can pass additional options to the LocalForage provider:
 
 ```typescript
-async function getStorageSize(namespace: string): Promise<number> {
-  const storage = storageApi.getStorage({ namespace });
-  const entries = await storage.entries();
-  
-  // Calculate size in bytes (approximation)
-  return entries.reduce((size, [key, value]) => {
-    return size + key.length + JSON.stringify(value).length;
-  }, 0);
-}
+const storage = storageApi.getStorage({
+  namespace: 'custom-storage',
+  type: StorageType.LOCALFORAGE,
+  connectionOptions: {
+    driver: [localforage.INDEXEDDB, localforage.WEBSQL],
+    description: 'Custom storage instance',
+    version: 1.0,
+    size: 4980736, // Size in bytes (default is ~5MB)
+    storeName: 'keyvaluepairs',
+  }
+});
 ```
 
-## Browser Storage Limitations
+### IndexedDB Provider Configuration
 
-Be aware of these browser storage limitations:
+The IndexedDB provider includes options to customize its behavior:
+
+```typescript
+const storage = storageApi.getStorage({
+  namespace: 'db-storage',
+  type: StorageType.INDEXEDDB,
+  connectionOptions: {
+    version: 1, // Database version
+    storeName: 'customStore', // Name of the object store
+  }
+});
+```
+
+## Storage Limitations
+
+Be aware of storage limitations in browsers:
 
 | Storage Type | Typical Limit | Notes |
 |--------------|---------------|-------|
-| localStorage | 5-10MB | Synchronous, blocks the main thread |
-| IndexedDB    | 50-100MB | Asynchronous, used by localforage |
-| WebSQL       | 50MB | Deprecated, but used as fallback |
+| IndexedDB    | 50-100MB      | Varies by browser/device |
+| SessionStorage | 5-10MB      | Cleared when session ends |
+| LocalStorage | 5-10MB        | Used as fallback by LocalForage |
 
-These limits vary by browser and device. Always implement a strategy to handle cases where storage limits are exceeded.
+## Contributing
 
-## Migration Strategies
+Contributions are welcome! To add a new storage provider:
 
-### Version-Based Migration
+1. Implement the `StorageProvider` interface
+2. Add the provider type to the `StorageType` enum
+3. Update the factory method in `StorageApi`
+4. Add tests for the new provider
 
-Handle storage schema changes with version-based migrations:
+## License
 
-```typescript
-async function migrateStorage(namespace: string, currentVersion: number) {
-  const storage = storageApi.getStorage({ namespace });
-  const version = await storage.get<number>('version', 0);
-  
-  if (version < currentVersion) {
-    // Run migrations based on version
-    if (version < 1) {
-      await migrateV0ToV1(storage);
-    }
-    
-    if (version < 2) {
-      await migrateV1ToV2(storage);
-    }
-    
-    // Update version
-    await storage.set('version', currentVersion);
-  }
-}
-
-async function migrateV0ToV1(storage: StorageProvider) {
-  // Example: Rename a key
-  const oldValue = await storage.get('oldKey');
-  if (oldValue !== undefined) {
-    await storage.set('newKey', oldValue);
-    await storage.delete('oldKey');
-  }
-}
-```
-
-### Data Backup
-
-Implement a backup mechanism before migrations:
-
-```typescript
-async function backupStorage(namespace: string) {
-  const storage = storageApi.getStorage({ namespace });
-  const backupStorage = storageApi.createStorage({ namespace: `${namespace}-backup` });
-  
-  const data = await storage.entries();
-  
-  for (const [key, value] of data) {
-    await backupStorage.set(key, value);
-  }
-  
-  await backupStorage.set('backup-time', new Date().toISOString());
-}
-```
-
-## Common Patterns
-
-### Observer Pattern
-
-Implement observers to react to storage changes:
-
-```typescript
-class ObservableStorage {
-  private storage: StorageProvider;
-  private observers: Map<string, Set<(value: any) => void>> = new Map();
-  
-  constructor(namespace: string) {
-    this.storage = storageApi.getStorage({ namespace });
-  }
-  
-  async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
-    return this.storage.get(key, defaultValue);
-  }
-  
-  async set<T>(key: string, value: T): Promise<void> {
-    await this.storage.set(key, value);
-    this.notifyObservers(key, value);
-  }
-  
-  observe<T>(key: string, callback: (value: T) => void) {
-    if (!this.observers.has(key)) {
-      this.observers.set(key, new Set());
-    }
-    
-    this.observers.get(key)!.add(callback);
-    
-    // Initial notification
-    this.get<T>(key).then(value => {
-      if (value !== undefined) {
-        callback(value);
-      }
-    });
-    
-    // Return unsubscribe function
-    return () => {
-      const observers = this.observers.get(key);
-      if (observers) {
-        observers.delete(callback);
-      }
-    };
-  }
-  
-  private notifyObservers(key: string, value: any) {
-    const observers = this.observers.get(key);
-    if (observers) {
-      for (const callback of observers) {
-        callback(value);
-      }
-    }
-  }
-}
-```
-
-### Singleton Pattern
-
-Ensure consistent access to storage instances:
-
-```typescript
-// src/api/storage/instances.ts
-import storageApi from './storageApi';
-
-// Singleton instances for common storage namespaces
-export const appSettings = storageApi.getStorage({
-  namespace: 'app-settings',
-  defaults: {
-    theme: 'light',
-    fontSize: 16,
-    notifications: true
-  }
-});
-
-export const userPreferences = storageApi.getStorage({
-  namespace: 'user-preferences'
-});
-
-export const appData = storageApi.getStorage({
-  namespace: 'app-data'
-});
-```
-
-## Offline-First Considerations
-
-When building web applications with the Storage API, consider these offline-first patterns:
-
-1. **Cache network responses** in the Storage API
-2. **Queue operations** when offline for later synchronization
-3. **Implement conflict resolution** for data synchronized after being offline
-4. **Provide feedback** to users about online/offline status
-
-Example of a network caching pattern:
-
-```typescript
-async function fetchWithCache(url, namespace = 'api-cache') {
-  const storage = storageApi.getStorage({ namespace });
-  const cacheKey = `url:${url}`;
-  
-  try {
-    // Try to fetch fresh data
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    // Update cache
-    await storage.set(cacheKey, {
-      data,
-      timestamp: Date.now()
-    });
-    
-    return data;
-  } catch (error) {
-    // If offline, try to use cached data
-    const cached = await storage.get(cacheKey);
-    
-    if (cached) {
-      return cached.data;
-    }
-    
-    // No cached data available
-    throw new Error('Cannot fetch data and no cache available');
-  }
-}
-```
-
-## Conclusion
-
-The Web Storage API provides a robust solution for data persistence in your web application. By using localforage, it offers a consistent API with good cross-browser compatibility and handles the complexities of browser storage for you.
-
-Key advantages of this design include:
-
-1. **Promise-based API**: Modern async/await compatibility
-2. **Type Safety**: Full TypeScript support
-3. **React Integration**: Easy-to-use hooks
-4. **Extensibility**: Higher-level abstractions like Database
-5. **Fallback Support**: Works across all modern browsers
-
-When implementing your application's data persistence needs, leverage the Storage API to ensure a seamless experience for your users, even when offline.
+MIT
