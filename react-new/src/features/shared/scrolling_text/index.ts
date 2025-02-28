@@ -1,1 +1,0 @@
-export { ScrollingText } from "./components/ScrollingText.tsx";

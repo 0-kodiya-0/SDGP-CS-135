@@ -1,1 +1,0 @@
-export { NavbarSearch } from "./Search.tsx";
