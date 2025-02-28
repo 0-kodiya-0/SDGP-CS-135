@@ -1,0 +1,17 @@
+{
+    "id": "counter-plugin",
+    "name": "Counter Plugin",
+    "description": "An interactive counter plugin with increment and reset functionality",
+    "version": "1.0.0",
+    "ui": {
+        "entryPoint": "src/ui.tsx"
+    },
+    "worker": {
+        "entryPoint": "./worker.ts"
+    },
+    "settings": {
+        "initialCount": 0,
+        "incrementBy": 1,
+        "refreshInterval": 1000
+    }
+}
