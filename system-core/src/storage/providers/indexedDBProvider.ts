@@ -1,12 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { StorageOptions, StorageProvider } from '../types';
+
+/**
+ * Type for event target with error property
+ */
+interface ErrorEventTarget extends EventTarget {
+    error: Error | DOMException;
+}
 
 export class IndexedDBProvider implements StorageProvider {
     private namespace: string;
     private dbName: string;
     private storeName: string;
     private dbPromise: Promise<IDBDatabase>;
-    private defaults?: Record<string, any>;
+    private defaults?: Record<string, unknown>;
 
     constructor(options: StorageOptions) {
         this.namespace = options.namespace;
@@ -25,7 +31,8 @@ export class IndexedDBProvider implements StorageProvider {
             const request = indexedDB.open(this.dbName, 1);
 
             request.onerror = (event) => {
-                reject(new Error(`Failed to open IndexedDB: ${(event.target as any).error}`));
+                const target = event.target as ErrorEventTarget;
+                reject(new Error(`Failed to open IndexedDB: ${target.error.message}`));
             };
 
             request.onsuccess = (event) => {
@@ -34,7 +41,9 @@ export class IndexedDBProvider implements StorageProvider {
 
                 // Initialize defaults after DB is ready
                 if (this.defaults) {
-                    this.initDefaults(this.defaults).catch(console.error);
+                    this.initDefaults(this.defaults).catch((error: Error) =>
+                        console.error('Error initializing defaults:', error)
+                    );
                 }
             };
 
@@ -49,11 +58,11 @@ export class IndexedDBProvider implements StorageProvider {
         });
     }
 
-    private async initDefaults(defaults: Record<string, any>): Promise<void> {
+    private async initDefaults<T>(defaults: Record<string, T>): Promise<void> {
         const entries = Object.entries(defaults);
         for (const [key, value] of entries) {
             if (!(await this.has(key))) {
-                await this.set(key, value);
+                await this.set<T>(key, value as T);
             }
         }
     }
@@ -76,7 +85,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB get error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB get error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -96,7 +106,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB set error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB set error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -116,7 +127,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB has error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB has error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -136,7 +148,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB delete error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB delete error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -156,7 +169,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB clear error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB clear error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -173,7 +187,7 @@ export class IndexedDBProvider implements StorageProvider {
                 const request = store.openCursor();
 
                 request.onsuccess = (event) => {
-                    const cursor = (event.target as IDBRequest).result;
+                    const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
                     if (cursor) {
                         keys.push(cursor.key as string);
                         cursor.continue();
@@ -183,7 +197,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB keys error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB keys error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -192,7 +207,7 @@ export class IndexedDBProvider implements StorageProvider {
         }
     }
 
-    async values<T = any>(): Promise<T[]> {
+    async values<T>(): Promise<T[]> {
         try {
             const store = await this.getObjectStore();
             return new Promise<T[]>((resolve, reject) => {
@@ -200,9 +215,9 @@ export class IndexedDBProvider implements StorageProvider {
                 const request = store.openCursor();
 
                 request.onsuccess = (event) => {
-                    const cursor = (event.target as IDBRequest).result;
+                    const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
                     if (cursor) {
-                        values.push(cursor.value);
+                        values.push(cursor.value as T);
                         cursor.continue();
                     } else {
                         resolve(values);
@@ -210,7 +225,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB values error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB values error: ${target.error.message}`));
                 };
             });
         } catch (error) {
@@ -219,7 +235,7 @@ export class IndexedDBProvider implements StorageProvider {
         }
     }
 
-    async entries<T = any>(): Promise<Array<[string, T]>> {
+    async entries<T>(): Promise<Array<[string, T]>> {
         try {
             const store = await this.getObjectStore();
             return new Promise<Array<[string, T]>>((resolve, reject) => {
@@ -227,9 +243,9 @@ export class IndexedDBProvider implements StorageProvider {
                 const request = store.openCursor();
 
                 request.onsuccess = (event) => {
-                    const cursor = (event.target as IDBRequest).result;
+                    const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
                     if (cursor) {
-                        entries.push([cursor.key as string, cursor.value]);
+                        entries.push([cursor.key as string, cursor.value as T]);
                         cursor.continue();
                     } else {
                         resolve(entries);
@@ -237,7 +253,8 @@ export class IndexedDBProvider implements StorageProvider {
                 };
 
                 request.onerror = (event) => {
-                    reject(new Error(`IndexedDB entries error: ${(event.target as any).error}`));
+                    const target = event.target as ErrorEventTarget;
+                    reject(new Error(`IndexedDB entries error: ${target.error.message}`));
                 };
             });
         } catch (error) {

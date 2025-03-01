@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import localforage from 'localforage';
 import { StorageOptions, StorageProvider } from '../types';
 
@@ -18,11 +17,11 @@ export class WebStorageProvider implements StorageProvider {
         }
     }
 
-    private async initDefaults(defaults: Record<string, any>): Promise<void> {
+    private async initDefaults<T>(defaults: Record<string, T>): Promise<void> {
         const entries = Object.entries(defaults);
         for (const [key, value] of entries) {
             if (!(await this.has(key))) {
-                await this.set(key, value);
+                await this.set<T>(key, value as T);
             }
         }
     }
@@ -53,7 +52,7 @@ export class WebStorageProvider implements StorageProvider {
         return this.storage.keys();
     }
 
-    async values<T = any>(): Promise<T[]> {
+    async values<T>(): Promise<T[]> {
         const keys = await this.keys();
         const values: T[] = [];
 
@@ -67,7 +66,7 @@ export class WebStorageProvider implements StorageProvider {
         return values;
     }
 
-    async entries<T = any>(): Promise<Array<[string, T]>> {
+    async entries<T>(): Promise<Array<[string, T]>> {
         const keys = await this.keys();
         const entries: Array<[string, T]> = [];
 
