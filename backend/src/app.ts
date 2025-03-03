@@ -1,42 +1,41 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import passport from 'passport';
-import setupPassport from './config/passport';
-import { router as oauthRoutes } from './feature/oauth';
-import { router as accountRoutes } from "./feature/account";
-import db from './config/db';
+import express from "express";
+import dotenv from "dotenv";
+import passport from "passport";
+import setupPassport from "./config/passport";
+import connectDB from "./config/db";
 
+// Import Routes
+import accountRoutes  from "./feature/account/Account.routes";
+import oauthRoutes from "./feature/oauth/Auth.routes";
+
+// Load environment variables
 dotenv.config();
 
+// Initialize Express App
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(passport.initialize());
 
-// Setup Passport
+// Setup Passport authentication strategies
 setupPassport();
 
-// Initialize database
-const initializeDb = async () => {
-    await db.read();
-    if (!db.data) {
-        db.data = { oauthAccounts: [], oauthStates: [], signInStates: [], signUpStates: [] };
-        await db.write();
-    }
-};
-initializeDb();
+// Initialize database connection
+connectDB();
 
-// Routes
-app.use('/api/oauth', oauthRoutes);
-app.use('/api/account', accountRoutes);
+// Register Routes
+app.use("/account", accountRoutes);
+app.use("/oauth", oauthRoutes);
 
-// Error handling
-app.use((req: express.Request, res: express.Response) => {
-    res.status(500).json({ error: 'Something went wrong!' });
+// Global Error Handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(err.stack);
+    res.status(500).json({ error: "Internal Server Error" });
 });
 
-const PORT = process.env.PORT || 3000;
+// Start Server
+const PORT = process.env.PORT ?? 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

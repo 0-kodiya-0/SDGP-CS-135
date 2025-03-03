@@ -1,16 +1,14 @@
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
-import { OAuthAccount } from '../feature/account/Account.types';
-import { OAuthState, SignUpState, SignInState } from '../feature/oauth/Auth.types';
+import mongoose from 'mongoose';
 
-interface DBSchema {
-    oauthAccounts: OAuthAccount[];
-    oauthStates: OAuthState[];
-    signUpStates: SignUpState[];
-    signInStates: SignInState[];
-}
+const connectDB = async (): Promise<void> => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI as string, {
+        });
+        console.log('✅ MongoDB connected successfully');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        process.exit(1); // Exit the process with failure
+    }
+};
 
-const adapter = new JSONFile<DBSchema>('db.json');
-const db = new Low<DBSchema>(adapter, { oauthAccounts: [], oauthStates: [], signInStates: [], signUpStates: [] });
-
-export default db;
+export default connectDB;

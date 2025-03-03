@@ -3,6 +3,7 @@ export enum AccountStatus {
     Inactive = 'inactive'
 }
 
+
 export enum OAuthProviders {
     Google = 'google',
     Microsoft = 'microsoft',
@@ -57,6 +58,7 @@ export interface TokenDetails {
 export interface BaseAccount {
     id: string;
     created: string;
+    email: string;
     updated: string;
     device: Device
     accountType: AccountType;

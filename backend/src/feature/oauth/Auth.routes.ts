@@ -277,4 +277,4 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
     }
 });
 
-export { router };
+export default router;

@@ -1,103 +1,137 @@
-import express, { Request, Response } from 'express';
-import { AccountType, OAuthAccount } from './Account.types';
-import crypto from 'crypto';
-import db from '../../config/db';
-import { sendSuccess, sendError } from '../../utils/response';
-import { ApiErrorCode } from '../../types/response.types';
+import express, { Request, Response } from "express";
+import { LocalAccountModel } from "./Account.model";
+import { AccountStatus } from "./Account.types"; // Import AccountStatus from your types
+import bcrypt from "bcrypt"; // For password hashing
+import jwt from "jsonwebtoken"; // For generating JWT tokens
 
-export const router = express.Router();
+const router = express.Router();
 
-// Get OAuth accounts
-router.get('/', (req: Request, res: Response) => {
-    sendSuccess(res, 200, db.data.oauthAccounts);
-});
+// Register new local account
+router.post("/register", async (req: Request, res: Response): Promise<any> => {
+  const { email, password, name } = req.body;
 
-// Update OAuth account
-router.patch('/:id', async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const updates = req.body;
+  if (!email || !password || !name) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
 
-    const accountIndex = db.data.oauthAccounts.findIndex(acc => acc.id === id);
-    if (accountIndex === -1) {
-        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-        return;
+  try {
+    // Check if the user already exists
+    const existingUser = await LocalAccountModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already in use" });
     }
 
-    const updatedAccount: OAuthAccount = {
-        ...db.data.oauthAccounts[accountIndex],
-        ...updates,
-        updated: new Date().toISOString(),
-    };
+    // Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    db.data.oauthAccounts[accountIndex] = updatedAccount;
-    await db.write();
+    // Create a new local account
+    const newAccount = new LocalAccountModel({
+      email,
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      accountType: "local",
+      status: AccountStatus.Active,
+      userDetails: { name, email },
+      security: { password: hashedPassword },
+      device: { id: "device123", name: "MyDevice", os: "Windows", version: "10", uniqueIdentifier: "deviceUniqueId", preferences: { theme: "light", language: "en", notifications: true } }
+    });
 
-    sendSuccess(res, 200, updatedAccount);
+    // Save the new account to the database
+    await newAccount.save();
+
+    return res.status(201).json({ message: "Account created successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Internal server error", error: err });
+  }
 });
 
-// Remove OAuth account
-router.delete('/:id', async (req: Request, res: Response) => {
-    const { id } = req.params;
-    db.data.oauthAccounts = db.data.oauthAccounts.filter(acc => acc.id !== id);
-    await db.write();
+// Local account login
+router.post("/login", async (req: Request, res: Response): Promise<any> => {
+  const { email, password } = req.body;
 
-    res.status(204).send();
-});
+  try {
 
-// Refresh OAuth token
-router.post('/:id/refresh', async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const account = db.data.oauthAccounts.find(acc => acc.id === id);
-
-    if (!account) {
-        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-        return;
+    if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+    // Find the user by email
+    const user = await LocalAccountModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    try {
-        const tokenDetails = {
-            accessToken: crypto.randomBytes(32).toString('hex'),
-            refreshToken: account.tokenDetails.refreshToken,
-        };
-
-        const accountIndex = db.data.oauthAccounts.findIndex(acc => acc.id === id);
-        const updatedAccount: OAuthAccount = {
-            ...account,
-            tokenDetails,
-            updated: new Date().toISOString(),
-            accountType: AccountType.OAuth,
-        };
-
-        db.data.oauthAccounts[accountIndex] = updatedAccount;
-        await db.write();
-        sendSuccess(res, 200, tokenDetails);
-    } catch {
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Token refresh failed');
-    }
-});
-
-// Update OAuth account security settings
-router.patch('/:id/security', async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const securityUpdates = req.body;
-
-    const accountIndex = db.data.oauthAccounts.findIndex(acc => acc.id === id);
-    if (accountIndex === -1) {
-        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-        return;
+    // Compare the password with the stored hashed password
+    const isMatch = await bcrypt.compare(password, user.security.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const updatedAccount: OAuthAccount = {
-        ...db.data.oauthAccounts[accountIndex],
-        security: {
-            ...db.data.oauthAccounts[accountIndex].security,
-            ...securityUpdates,
-        },
-        updated: new Date().toISOString(),
-    };
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET ?? "your_jwt_secret",
+      { expiresIn: "1h" }
+    );
 
-    db.data.oauthAccounts[accountIndex] = updatedAccount;
-    await db.write();
-
-    sendSuccess(res, 200, updatedAccount);
+    return res.status(200).json({ message: "Login successful", token });
+  } catch (err) {
+    return res.status(500).json({ message: "Internal server error", error: err });
+  }
 });
+
+// Update local account details (e.g., name, email)
+router.put("/update", async (req: Request, res: Response): Promise<any> => {
+  const { userId, name, email } = req.body;
+
+  if (!userId || !name || !email) {
+    return res.status(400).json({ message: "User ID, name, and email are required" });
+  }
+
+  try {
+    // Find the user by ID and update the details
+    const user = await LocalAccountModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.userDetails.name = name;
+    user.userDetails.email = email;
+    user.updated = new Date().toISOString();
+
+    // Save the updated user details
+    await user.save();
+
+    return res.status(200).json({ message: "Account updated successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Internal server error", error: err });
+  }
+});
+
+// Deactivate local account
+router.put("/deactivate", async (req: Request, res: Response): Promise<any> => {
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  try {
+    // Find the user by ID and deactivate the account
+    const user = await LocalAccountModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.status = AccountStatus.Inactive;
+    user.updated = new Date().toISOString();
+
+    // Save the changes
+    await user.save();
+
+    return res.status(200).json({ message: "Account deactivated successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Internal server error", error: err });
+  }
+});
+
+export default router;
