@@ -1,0 +1,9 @@
+{
+    "plugins": [
+      {
+        "id": "example-plugin",
+        "path": "example-plugin",
+        "enabled": true
+      }
+    ]
+  }

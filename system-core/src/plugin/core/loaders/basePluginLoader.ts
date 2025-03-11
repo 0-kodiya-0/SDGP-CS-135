@@ -1,101 +1,116 @@
-import { PluginRegistry } from "../pluginRegister";
-import { PluginConfig } from "../types";
+import { PluginConfig, PluginId } from '../types';
+import pluginClient from '../api/pluginClientApi';
 
 /**
  * Base class for plugin loaders with common functionality
- * Focuses on plugin discovery, loading configurations, and validation
+ * Focuses on plugin discovery and validation only
  */
 abstract class BasePluginLoader {
-    protected registry: PluginRegistry;
+  /**
+   * Load all plugins managed by this loader
+   * Note: This is primarily implemented by InternalPluginLoader
+   */
+  abstract loadAllPlugins(): Promise<PluginConfig[]>;
 
-    constructor() {
-        this.registry = PluginRegistry.getInstance();
-        console.log(`Base plugin loader initialized`);
+  /**
+   * Load a specific plugin by ID
+   * @param pluginId ID of the plugin to load
+   * @returns Promise resolving to plugin configuration or null if failed
+   */
+  abstract loadPluginById(pluginId: PluginId): Promise<PluginConfig | null>;
+
+  /**
+   * Unload functionality is not needed in the loader
+   * This is a stub method that can be overridden if needed
+   */
+  abstract unloadAllPlugins(): void;
+
+  /**
+   * Unload functionality is not needed in the loader
+   * This is a stub method that can be overridden if needed
+   */
+  abstract unloadPlugin(pluginId: PluginId): void;
+
+  /**
+   * Validate plugin configuration
+   * @param config The plugin configuration to validate
+   * @returns Boolean indicating if the config is valid
+   */
+  protected validatePluginConfig(config: PluginConfig): boolean {
+    // Check required fields
+    if (!config.id || !config.name || !config.version) {
+      console.error('Plugin config missing required fields (id, name, or version)');
+      return false;
     }
 
-    /**
-     * Load all plugins managed by this loader
-     */
-    abstract loadAllPlugins(): Promise<PluginConfig[]>;
-
-    /**
-     * Unload all plugins managed by this loader
-     */
-    abstract unloadAllPlugins(): void;
-
-    /**
-     * Unload a specific plugin by ID
-     * @param pluginId The ID of the plugin to unload
-     */
-    unloadPlugin(pluginId: string): void {
-        this.registry.unregisterPlugin(pluginId);
+    // Background entry point is only required for plugins with background functionality
+    if (config.background && !config.background.entryPoint) {
+      console.error(`Plugin ${config.id} has background defined but missing entry point`);
+      return false;
     }
 
-    /**
-     * Validate plugin configuration
-     * @param config The plugin configuration to validate
-     * @returns Boolean indicating if the config is valid
-     */
-    protected validatePluginConfig(config: PluginConfig): boolean {
-        // Check required fields
-        if (!config.id || !config.name || !config.version) {
-            console.error('Plugin config missing required fields (id, name, or version)');
-            return false;
-        }
+    // View entry points are only required for plugins with UI functionality
+    if (config.view) {
+      if (config.view.summary && !config.view.summary.entryPoint) {
+        console.error(`Plugin ${config.id} has summary view defined but missing entry point`);
+        return false;
+      }
 
-        // Check worker entry point (required)
-        if (!config.worker || !config.worker.entryPoint) {
-            console.error(`Plugin ${config.id} is missing required worker entry point`);
-            return false;
-        }
-
-        // Additional validation as needed
-        return true;
+      if (config.view.expand && !config.view.expand.entryPoint) {
+        console.error(`Plugin ${config.id} has expand view defined but missing entry point`);
+        return false;
+      }
     }
 
-    /**
-     * Validate plugin authenticity
-     * This is a placeholder for future authentication mechanisms
-     * @param pluginId The plugin ID to validate
-     * @param config The plugin configuration
-     * @returns Boolean indicating if the plugin is authentic
-     */
-    protected validatePluginAuthenticity(pluginId: string, config: PluginConfig): boolean {
-        // Basic validation: Check if the ID in the config matches the expected ID
-        if (config.id !== pluginId) {
-            console.error(`Plugin ID mismatch: Expected ${pluginId}, found ${config.id}`);
-            return false;
-        }
+    return true;
+  }
 
-        // Additional authentication checks could be added here:
-        // - Digital signatures
-        // - Checksums
-        // - Trusted source verification
+  /**
+   * Validate plugin files existence
+   * @param pluginId The plugin ID to validate
+   * @param config The plugin configuration
+   * @returns Promise resolving to boolean indicating if all required files exist
+   */
+  protected async validatePluginFiles(pluginId: PluginId, config: PluginConfig): Promise<boolean> {
+    try {
+      const validation = await pluginClient.validatePluginFiles(pluginId, config);
+      
+      if (!validation.valid) {
+        console.error(`Plugin ${pluginId} has missing files:`, validation.missingFiles);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Failed to validate files for plugin ${pluginId}:`, error);
+      return false;
+    }
+  }
 
-        return true;
+  /**
+   * Placeholder for plugin authenticity validation
+   * This will be implemented in the future
+   * 
+   * @param pluginId The plugin ID to validate
+   * @param config The plugin configuration
+   * @returns Boolean always returns true for now
+   */
+  protected validatePluginAuthenticity(pluginId: PluginId, config: PluginConfig): boolean {
+    // TODO: Implement proper plugin authenticity validation in the future
+    // Possible validations to add:
+    // - Digital signatures verification
+    // - Checksums validation
+    // - Trusted source verification
+    // - Code signing verification
+    
+    // For now, just do a basic ID match
+    if (config.id !== pluginId) {
+      console.warn(`Plugin ID mismatch: Expected ${pluginId}, found ${config.id}`);
+      // Still returning true for now to allow development
     }
 
-    /**
-     * Perform additional validation on the plugin
-     * @param pluginId The plugin ID
-     * @param config The plugin configuration
-     * @returns Boolean indicating if the plugin passes additional validation
-     */
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    protected performAdditionalValidation(_pluginId: string, _config: PluginConfig): boolean {
-        // This is a hook for derived classes to add more validation
-        // By default, no additional validation is performed
-        return true;
-    }
-
-    /**
-     * Register a plugin with the registry
-     * @param config The validated plugin configuration
-     * @returns Boolean indicating if registration was successful
-     */
-    protected registerPlugin(config: PluginConfig): boolean {
-        return this.registry.registerPlugin(config);
-    }
+    return true;
+  }
 }
 
 export default BasePluginLoader;

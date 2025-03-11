@@ -1,11 +1,16 @@
-import { StorageOptions } from "../../storage/types";
+import * as Comlink from "comlink";
+import { StorageOptions } from "../../api/storage/types";
 import { WrappedStorageProvider } from "./wrappers/storage";
+import { PluginWorkerAPI } from "./pluginWorkerApi";
+import { HttpApiWrapper } from "./wrappers/network/httpApiWrapper";
+import { SocketIOApiWrapper } from "./wrappers/network/socketIOApiWrapper";
+import { WebSocketApiWrapper } from "./wrappers/network/webSocketApiWrapper";
 
-// Base permission types
-export type PermissionResourceType = 'network' | 'storage' | 'dom' | 'file' | 'system';
+// Base types and IDs
+export type PluginId = string;
 
 // Network subpermission types
-export type NetworkSubPermissionType = 'http' | 'websocket';
+export type NetworkSubPermissionType = 'http' | 'websocket' | 'socketio';
 
 // Storage subpermission types
 export type StorageSubPermissionType = 'read' | 'write';
@@ -14,6 +19,7 @@ export type StorageSubPermissionType = 'read' | 'write';
 export interface NetworkPermission {
     http?: boolean;
     websocket?: boolean;
+    socketio?: boolean;
 }
 
 // Storage subpermissions
@@ -31,110 +37,124 @@ export interface PermissionObject {
     system?: boolean;
 }
 
-export interface RegisteredPlugin {
-    id: PluginId;
-    pluginConfig: PluginConfig;
-    permissions: PermissionObject;
-    approved: boolean;
+// Plugin Settings Interface
+export interface PluginSettings {
+    enabled?: boolean;
+    autoStart?: boolean;
+    displayMode?: 'hidden' | 'minimal' | 'full';
+    customOptions?: Record<string, unknown>;
+    [key: string]: unknown;
 }
 
-/**
- * Interface representing a loaded plugin configuration
- * Note: This does not include execution-related properties
- * as those will be managed by the plugin manager
- */
-export interface LoadedPlugin {
-    id: string;
-    name: string;
-    config: PluginConfig;
-    path?: string;  // Path to the plugin directory from the plugins root
-    hasUI: boolean;
-    hasBackground: boolean;
-    isDevelopmentMock?: boolean;
+// Categories and tags for plugin search
+export interface PluginTaxonomy {
+    categories?: string[];
+    tags?: string[];
 }
 
-export type PluginId = string;
-
-// Add additional metadata to PluginConfig
+// Updated Plugin Config Structure
 export interface PluginConfig {
-    // Existing fields from your current definition
     id: string;
     name: string;
     version: string;
     description?: string;
     icon?: string;
+    author?: string;
     internalPlugin: boolean;
 
-    ui?: {
-        entryPoint: string;
-        summaryView?: string;
-        expandView?: string;
+    // UI components
+    view?: {
+        summary?: {
+            entryPoint: string;
+        };
+        expand?: {
+            entryPoint: string;
+        };
     };
 
+    // Background process
     background?: {
         entryPoint: string;
     };
 
-    worker: {
-        entryPoint: string;
-    };
-
+    // Permissions requested by the plugin
     permissions?: PermissionObject;
 
+    // Plugin assets
     assets?: {
         bundles?: string[];
         images?: string[];
         other?: string[];
     };
 
-    settings?: Record<string, unknown>;
+    // Settings
+    settings?: PluginSettings;
 
-    // New metadata field for internal use (not in the actual config file)
+    // Taxonomy for search
+    categories?: string[];
+    tags?: string[];
+
+    // Plugin popularity/stats for sorting in search
+    popularity?: number;
+    lastUpdated?: string;
+    created?: string;
+
+    // Metadata (internal use only, not in actual config file)
     _meta?: {
         basePath: string;
         [key: string]: unknown;
     };
 }
 
-export interface PluginMetaInformation {
-    id: string;
-    path: string;
-    enabled: boolean;
-}
+/**
+ * Interface for a registered plugin with active components tracking
+ */
+export interface RegisteredPlugin {
+    id: PluginId;
+    pluginConfig: PluginConfig;
+    permissions: PermissionObject;
+    approved: boolean;
 
-export interface PluginGlobalConfig {
-    version: string;
-    lastUpdated: string;
-    internalPlugins: PluginMetaInformation[];
-    settings: {
-        autoLoad: boolean;
-        defaultTimeout: number;
+    // Active background worker information
+    activeBackground?: {
+        worker: Worker;
+        proxy: Comlink.Remote<PluginWorkerAPI>;
+        blobUrl?: string;
     };
-}
 
+    // Active view instances
+    activeViews: {
+        id: string;  // Unique identifier for the view instance
+        type: 'summary' | 'expand';
+        iframe?: HTMLIFrameElement;
+    }[];
+}
 
 /**
- * Plugin API configuration
+ * Interface for a loaded plugin (with additional details)
  */
-export interface PluginApiConfig {
-    // Plugin identification
-    pluginId: string;
-    pluginName: string;
+export interface LoadedPlugin {
+    id: string;
+    name: string;
+    config: PluginConfig;
+    path?: string;  // Path to the plugin directory
+    hasUI: boolean;  // Has any view entry points
+    hasBackground: boolean; // Has background entry point
+}
 
-    // Plugin permissions - updated to match new format
-    permissions: {
-        storage?: {
-            read?: boolean;
-            write?: boolean;
-        };
-        network?: {
-            http?: boolean;
-            websocket?: boolean;
-        };
-        dom?: boolean;
-        file?: boolean;
-        system?: boolean;
+/**
+ * Plugin status information
+ */
+export interface PluginStatus {
+    isActive: boolean;
+    version: string;
+    features?: string[];
+    lastError?: string;
+    resourceUsage?: {
+        memory?: number;
+        cpu?: number;
     };
+    [key: string]: unknown;
 }
 
 /**
@@ -148,16 +168,103 @@ export interface PluginGlobalApi {
     };
 
     // Storage APIs
-    storage: {
+    storage?: {
         // Default storage for this plugin
         default: WrappedStorageProvider;
 
-        // Create custom storage (permissions are determined by system based on plugin's allowed permissions)
+        // Create custom storage (permissions are determined by system)
         create: (options: StorageOptions) => WrappedStorageProvider;
     };
 
+    network?: {
+        http?: HttpApiWrapper;
+        websocket?: WebSocketApiWrapper;
+        socketio?: SocketIOApiWrapper;
+    }
+
     // Additional APIs can be added here as the system grows
-    // network: { ... },
-    // dom: { ... },
+    // network?: { ... };
+    // dom?: { ... };
     // etc.
+
+    // Allow for future extensions
+    [key: string]: unknown;
+}
+
+/**
+ * Plugin global configuration
+ */
+export interface PluginGlobalConfig {
+    version: string;
+    lastUpdated: string;
+    internalPlugins: {
+        id: string;
+        path: string;
+        enabled: boolean;
+    }[];
+    settings: {
+        autoLoad: boolean;
+        defaultTimeout: number;
+    };
+}
+
+/**
+ * Plugin worker configuration
+ */
+export interface PluginWorkerConfig {
+    pluginId: PluginId;
+    pluginName: string;
+    entryPoint: string;
+    permissions: PermissionObject;
+}
+
+/**
+ * Plugin search options
+ */
+export interface PluginSearchOptions {
+    query?: string;
+    categories?: string[];
+    tags?: string[];
+    page?: number;
+    limit?: number;
+    sortBy?: 'name' | 'popularity' | 'updated' | 'created';
+    sortDirection?: 'asc' | 'desc';
+    includeInternal?: boolean;
+    includeExternal?: boolean;
+}
+
+/**
+ * Plugin search results
+ */
+export interface PluginSearchResults {
+    plugins: PluginConfig[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+}
+
+/**
+ * Extended plugin status with more details
+ */
+export interface ExtendedPluginStatus {
+    id: PluginId;
+    isLoaded: boolean;
+    isRegistered: boolean;
+    isApproved: boolean;
+    isActive: boolean;
+    workerStatus?: PluginStatus;
+    config?: PluginConfig;
+    lastError?: string;
+    activeViews?: number;
+}
+
+/**
+ * Plugin validation result
+ */
+export interface PluginValidationResult {
+    valid: boolean;
+    missingFiles: string[];
+    warnings?: string[];
+    errors?: string[];
 }
