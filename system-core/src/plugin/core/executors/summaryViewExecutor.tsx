@@ -125,7 +125,7 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
             );
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const sendMessageFunction = Comlink.proxy((target: string, topic: string, payload: any) => {
+            const sendMessageFunction = (target: string, topic: string, payload: any) => {
                 return pluginMessageBus.sendMessage(
                     pluginId,
                     MessageTarget.SUMMARY,
@@ -133,7 +133,7 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
                     topic,
                     payload
                 );
-            });
+            };
 
             // Expose the plugin API to the iframe
             Comlink.expose(

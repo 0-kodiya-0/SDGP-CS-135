@@ -1,55 +1,89 @@
 import { PluginId, PluginConfig } from "../types";
 import BasePluginLoader from "./basePluginLoader";
+import pluginClient from "../api/pluginClientApi";
 
 /**
  * Loader for external plugins from remote sources
- * This is a placeholder implementation that will be expanded later
+ * Focuses only on loading and validating individual plugins
  */
 class ExternalPluginLoader extends BasePluginLoader {
-    private loadedPluginIds: Set<PluginId>;
+  constructor() {
+    super();
+    console.log('External plugin loader initialized');
+  }
 
-    constructor() {
-        super();
-        this.loadedPluginIds = new Set<PluginId>();
-        console.log('External plugin loader initialized (placeholder)');
+  /**
+   * Load a specific external plugin by ID
+   * @param pluginId ID of the plugin to load
+   * @returns Promise resolving to plugin configuration or null if failed
+   */
+  async loadPluginById(pluginId: PluginId): Promise<PluginConfig | null> {
+    try {
+      console.log(`Loading external plugin by ID: ${pluginId}`);
+
+      // Check if plugin exists
+      const exists = await pluginClient.pluginExists(pluginId, false);
+      if (!exists) {
+        console.error(`External plugin ${pluginId} does not exist`);
+        return null;
+      }
+
+      // Get plugin configuration
+      const config = await pluginClient.getPluginConfig(pluginId, false);
+      if (!config) {
+        console.error(`Failed to load configuration for plugin ${pluginId}`);
+        return null;
+      }
+
+      // Validate plugin configuration
+      if (!this.validatePluginConfig(config)) {
+        console.error(`Invalid configuration for plugin ${pluginId}`);
+        return null;
+      }
+
+      // Plugin authenticity validation is a placeholder for now
+      // Will be properly implemented in the future
+      this.validatePluginAuthenticity(pluginId, config);
+
+      // Validate plugin files
+      const filesValid = await this.validatePluginFiles(pluginId, config);
+      if (!filesValid) {
+        console.error(`Plugin ${pluginId} failed file validation`);
+        return null;
+      }
+
+      console.log(`External plugin ${pluginId} loaded successfully`);
+      return config;
+    } catch (error) {
+      console.error(`Error loading external plugin ${pluginId}:`, error);
+      return null;
     }
+  }
 
-    /**
-     * Load all external plugins
-     * This is a placeholder that will be implemented in the future
-     */
-    async loadAllPlugins(): Promise<PluginConfig[]> {
-        console.log('External plugin loading not yet implemented');
-        return [];
-    }
+  /**
+   * Not implemented for external plugins - use loadPluginById instead
+   * This is intentionally left as a stub that returns an empty array
+   */
+  async loadAllPlugins(): Promise<PluginConfig[]> {
+    console.warn('loadAllPlugins is not implemented for external plugins. Use loadPluginById instead.');
+    return [];
+  }
 
-    /**
-     * Unload all external plugins
-     */
-    unloadAllPlugins(): void {
-        // Unload each external plugin
-        for (const pluginId of this.loadedPluginIds) {
-            this.unloadPlugin(pluginId);
-        }
+  /**
+   * Unload functionality is not needed in the loader
+   * This method is required by the base class but does nothing
+   */
+  unloadAllPlugins(): void {
+    // No implementation needed - handled by PluginManager
+  }
 
-        // Clear the set of loaded plugin IDs
-        this.loadedPluginIds.clear();
-
-        console.log('All external plugins unloaded');
-    }
-
-    /**
-     * Future implementation to load external plugins from a registry server
-     * @param registryUrl URL of the external plugin registry
-     */
-    async loadFromRegistry(registryUrl: string): Promise<PluginConfig[]> {
-        console.log(`Loading external plugins from registry: ${registryUrl}`);
-
-        // This would be implemented to fetch plugin metadata from a remote registry
-        // Then validate and register each plugin's configuration
-
-        return [];
-    }
+  /**
+   * Unload functionality is not needed in the loader
+   * This method is required by the base class but does nothing
+   */
+  unloadPlugin(pluginId: PluginId): void {
+    // No implementation needed - handled by PluginManager
+  }
 }
 
 export default ExternalPluginLoader;

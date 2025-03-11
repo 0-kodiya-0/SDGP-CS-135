@@ -1,5 +1,5 @@
 import { StorageProvider } from "../../../../storage/types";
-import { PermissionError } from "./types";
+import { PluginPermissionError } from "../../types.error";
 
 /**
  * A wrapped storage provider with permission controls
@@ -32,7 +32,7 @@ export class WrappedStorageProvider implements Partial<StorageProvider> {
      */
     private validateReadPermission(): void {
         if (!this.hasReadPermission) {
-            throw new PermissionError('read');
+            throw new PluginPermissionError('read');
         }
     }
 
@@ -42,7 +42,7 @@ export class WrappedStorageProvider implements Partial<StorageProvider> {
      */
     private validateWritePermission(): void {
         if (!this.hasWritePermission) {
-            throw new PermissionError('write');
+            throw new PluginPermissionError('write');
         }
     }
 

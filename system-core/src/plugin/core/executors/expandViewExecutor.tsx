@@ -126,7 +126,7 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
             );
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const sendMessageFunction = Comlink.proxy((target: string, topic: string, payload: any) => {
+            const sendMessageFunction = (target: string, topic: string, payload: any) => {
                 return pluginMessageBus.sendMessage(
                     pluginId,
                     MessageTarget.EXPAND,
@@ -134,7 +134,7 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
                     topic,
                     payload
                 );
-            });
+            };
 
             // Expose the plugin API to the iframe
             Comlink.expose(

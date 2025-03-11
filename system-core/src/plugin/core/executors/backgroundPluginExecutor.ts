@@ -2,12 +2,13 @@ import * as Comlink from "comlink";
 import { PluginId, PluginConfig, PluginStatus, PermissionObject } from "../types";
 import { PluginWorkerAPI } from "../pluginWorkerApi";
 import { PluginWorkerErrorEvent } from "../types.event";
-import { exposePluginApi } from "../pluginApi";
+import { createPluginWorkerApi } from "../pluginApi";
+import { PluginExecutionError } from "../types.error";
+import { MessageTarget } from "../types.message";
+
 import pluginClient from "../api/pluginClientApi";
 import pluginRegistry from "../pluginRegistry";
 import eventBus from "../../../events";
-import { PluginExecutionError } from "../types.error";
-import { MessageTarget } from "../types.message";
 
 /**
  * BackgroundPluginExecutor - Responsible for executing plugin background workers
@@ -220,10 +221,7 @@ export class BackgroundPluginExecutor {
 
       try {
 
-        exposePluginApi(pluginId,
-          config.name || pluginId,
-          MessageTarget.BACKGROUND,
-          permissions, worker);
+        createPluginWorkerApi(pluginId, config.name || pluginId,permissions);
 
         // Initialize the plugin
         await proxy.initialize();

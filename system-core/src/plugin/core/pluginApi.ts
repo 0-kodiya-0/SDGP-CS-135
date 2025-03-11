@@ -1,8 +1,31 @@
-import { PermissionObject } from "../../permissions/types";
-import storageApi from "../../storage";
+import * as Comlink from "comlink";
+import wrappedStorageApi from "./wrappers/storage/wrappedStorageApi";
 import { StorageOptions, StorageType } from "../../storage/types";
-import { PluginApiConfig, PluginGlobalApi } from "./types";
-import { WrappedStorageProvider } from "./wrappers/storage";
+import { WrappedStorageProvider } from "./wrappers/storage/wrappedStorageProvider";
+import { HttpApiWrapper } from "./wrappers/network/httpApiWrapper";
+import { WebSocketApiWrapper } from "./wrappers/network/webSocketApiWrapper";
+import { SocketIOApiWrapper } from "./wrappers/network/socketIOApiWrapper";
+import { PermissionObject, PluginGlobalApi } from "./types";
+
+/**
+ * Configuration for creating a plugin API
+ */
+export interface PluginApiConfig {
+    /**
+     * Plugin unique identifier
+     */
+    pluginId: string;
+    
+    /**
+     * Plugin human-readable name
+     */
+    pluginName: string;
+    
+    /**
+     * Plugin permissions
+     */
+    permissions: PermissionObject;
+}
 
 /**
  * Factory class to create plugin global API objects
@@ -33,6 +56,25 @@ export class PluginApiFactory {
             }
         };
 
+        // Add network API if permissions exist
+        if (config.permissions.network) {
+            globalApi.network = {};
+
+            // Add HTTP API if permission exists
+            if (config.permissions.network.http) {
+                globalApi.network.http = new HttpApiWrapper(config.permissions.network);
+            }
+
+            // Add WebSocket API if permission exists
+            if (config.permissions.network.websocket) {
+                globalApi.network.websocket = new WebSocketApiWrapper(config.permissions.network);
+
+                // Add Socket.IO API if WebSocket permission exists
+                // (Socket.IO depends on WebSocket permission)
+                globalApi.network.socketio = new SocketIOApiWrapper(config.permissions.network);
+            }
+        }
+
         return globalApi;
     }
 
@@ -50,14 +92,15 @@ export class PluginApiFactory {
             type: StorageType.LOCALFORAGE
         };
 
-        // Create storage provider with plugin's storage permissions
-        const provider = storageApi.getStorage(storageOptions);
-
         // Get storage permissions from config
         const canRead = !!config.permissions.storage?.read;
         const canWrite = !!config.permissions.storage?.write;
 
-        return new WrappedStorageProvider(provider, canRead, canWrite);
+        // Use the comlink-compatible storage API
+        return wrappedStorageApi.createStorage(
+            storageOptions,
+            { canRead, canWrite }
+        );
     }
 
     /**
@@ -72,15 +115,15 @@ export class PluginApiFactory {
         config: PluginApiConfig,
         options: StorageOptions
     ): WrappedStorageProvider {
-        // Create the storage provider
-        const provider = storageApi.getStorage(options);
-
         // Use plugin's permissions directly - no ability for plugin to specify custom permissions
         const canRead = !!config.permissions.storage?.read;
         const canWrite = !!config.permissions.storage?.write;
 
-        // Create and return the wrapped provider
-        return new WrappedStorageProvider(provider, canRead, canWrite);
+        // Use the comlink-compatible storage API
+        return wrappedStorageApi.createStorage(
+            options,
+            { canRead, canWrite }
+        );
     }
 }
 
@@ -114,3 +157,18 @@ export function createPluginWorkerApi(
     const factory = new PluginApiFactory();
     return factory.createPluginApi(config);
 }
+
+// /**
+//  * Expose the plugin worker API with comlink
+//  * @param pluginId Plugin ID
+//  * @param pluginName Plugin name
+//  * @param permissions Permissions object
+//  */
+// export function exposePluginWorkerApi(
+//     pluginId: string,
+//     pluginName: string,
+//     permissions: PermissionObject
+// ): void {
+//     const api = createPluginWorkerApi(pluginId, pluginName, permissions);
+//     Comlink.expose(api);
+// }

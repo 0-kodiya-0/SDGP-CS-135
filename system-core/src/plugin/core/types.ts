@@ -2,9 +2,7 @@ import * as Comlink from "comlink";
 import { StorageOptions } from "../../api/storage/types";
 import { WrappedStorageProvider } from "./wrappers/storage";
 import { PluginWorkerAPI } from "./pluginWorkerApi";
-import { HttpApiWrapper } from "./wrappers/network/httpApiWrapper";
-import { SocketIOApiWrapper } from "./wrappers/network/socketIOApiWrapper";
-import { WebSocketApiWrapper } from "./wrappers/network/webSocketApiWrapper";
+import { HttpApiWrapper, WebSocketApiWrapper, SocketIOApiWrapper } from "./wrappers/network";
 
 // Base types and IDs
 export type PluginId = string;

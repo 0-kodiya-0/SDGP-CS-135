@@ -1,235 +1,124 @@
-import { PluginId, PluginConfig, PluginGlobalConfig } from "../types";
+import { PluginId, PluginConfig } from "../types";
 import BasePluginLoader from "./basePluginLoader";
+import pluginClient from "../api/pluginClientApi";
 
 /**
- * Loader for internal plugins located in the plugins directory
- * Responsible for discovering, loading, and validating plugin configurations
+ * Loader for internal plugins
+ * Responsible for discovering and validating internal plugin configurations
  */
 class InternalPluginLoader extends BasePluginLoader {
-    private pluginsPath: string;
-    private loadedPluginIds: Set<PluginId>;
-
     constructor() {
         super();
-        // Internal plugins are located in a plugins folder outside src
-        this.pluginsPath = '/plugins';
-        this.loadedPluginIds = new Set<PluginId>();
-        console.log(`Internal plugin loader initialized with path: ${this.pluginsPath}`);
+        console.log('Internal plugin loader initialized');
     }
 
     /**
      * Load all internal plugins
-     * This only loads plugin configurations, not the actual plugin code
+     * This only loads and validates plugin configurations, not the actual plugin code
      */
     async loadAllPlugins(): Promise<PluginConfig[]> {
         try {
-            // Get the list of internal plugins to load from global config
-            const pluginIds = await this.getInternalPluginsList();
-            console.log(`Loading internal plugins: ${pluginIds.join(', ')}`);
+            // Get the list of available internal plugins
+            const pluginConfigs = await pluginClient.getInternalPlugins();
+            console.log(`Found ${pluginConfigs.length} internal plugins`);
 
-            const results: PluginConfig[] = [];
+            const validatedPlugins: PluginConfig[] = [];
 
-            // Load plugins one by one to isolate errors
-            for (const id of pluginIds) {
+            // Validate each plugin
+            for (const config of pluginConfigs) {
                 try {
-                    // Load plugin configuration
-                    const pluginConfig = await this.loadPluginById(id);
-
-                    // Skip plugins that aren't marked as internal
-                    if (pluginConfig.internalPlugin) {
-                        results.push(pluginConfig);
-                        this.loadedPluginIds.add(id);
-                    } else {
-                        console.warn(`Plugin ${id} is not marked as internal, skipping`);
-                        this.unloadPlugin(id);
+                    // Validate plugin configuration
+                    if (!this.validatePluginConfig(config)) {
+                        console.error(`Invalid configuration for plugin ${config.id}`);
+                        continue;
                     }
+
+                    // Plugin authenticity validation is a placeholder for now
+                    // Will be properly implemented in the future
+                    this.validatePluginAuthenticity(config.id, config);
+
+                    // Validate plugin files
+                    const filesValid = await this.validatePluginFiles(config.id, config);
+                    if (!filesValid) {
+                        console.error(`Plugin ${config.id} failed file validation`);
+                        continue;
+                    }
+
+                    validatedPlugins.push(config);
+                    console.log(`Internal plugin ${config.id} loaded successfully`);
                 } catch (error) {
-                    console.error(`Failed to load internal plugin ${id}:`, error);
-                    // Continue with other plugins
+                    console.error(`Error validating plugin ${config.id}:`, error);
                 }
             }
 
-            return results;
+            return validatedPlugins;
         } catch (error) {
-            console.error('Error in loadAllPlugins:', error);
+            console.error('Error loading internal plugins:', error);
             return [];
         }
     }
 
     /**
-     * Unload all internal plugins
+     * Load a specific internal plugin by ID
+     * @param pluginId ID of the plugin to load
      */
-    unloadAllPlugins(): void {
-        // Unload each internal plugin
-        for (const pluginId of this.loadedPluginIds) {
-            this.unloadPlugin(pluginId);
-        }
-
-        // Clear the set of loaded plugin IDs
-        this.loadedPluginIds.clear();
-
-        console.log('All internal plugins unloaded');
-    }
-
-    /**
-     * Get the list of available internal plugins from the global configuration file
-     */
-    private async getInternalPluginsList(): Promise<string[]> {
-        try {
-            // Path to the global plugin configuration file
-            const globalConfigPath = `${this.pluginsPath}/plugin.global.conf.json`;
-            console.log(`Fetching global plugin configuration from: ${globalConfigPath}`);
-
-            const response = await fetch(globalConfigPath);
-
-            if (!response.ok) {
-                console.error(`Failed to load global plugin config: ${response.status} ${response.statusText}`);
-                throw new Error(`Failed to load global plugin config: ${response.status} ${response.statusText}`);
-            }
-
-            const configText = await response.text();
-            const globalConfig: PluginGlobalConfig = JSON.parse(configText);
-
-            if (!globalConfig.internalPlugins || !Array.isArray(globalConfig.internalPlugins)) {
-                console.error('Invalid global plugin configuration: missing or invalid internalPlugins array');
-                return [];
-            }
-
-            // Filter only enabled plugins
-            const enabledPlugins = globalConfig.internalPlugins.filter(plugin => plugin.enabled);
-
-            // Extract plugin IDs
-            const pluginIds = enabledPlugins.map(plugin => plugin.id);
-            console.log(`Found ${pluginIds.length} enabled internal plugins: ${pluginIds.join(', ')}`);
-
-            return pluginIds;
-        } catch (error) {
-            console.error('Error fetching internal plugins list:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Load a plugin by ID
-     * This only loads the plugin configuration, not the plugin code
-     * @param pluginId The ID of the plugin to load
-     */
-    private async loadPluginById(pluginId: string): Promise<PluginConfig> {
+    async loadPluginById(pluginId: PluginId): Promise<PluginConfig | null> {
         try {
             console.log(`Loading internal plugin by ID: ${pluginId}`);
 
-            // Get the plugin path from the global configuration
-            const pluginPath = await this.getPluginPathById(pluginId);
-            if (!pluginPath) {
-                throw new Error(`Plugin path not found for ${pluginId}`);
+            // Check if plugin exists
+            const exists = await pluginClient.pluginExists(pluginId, true);
+            if (!exists) {
+                console.error(`Internal plugin ${pluginId} does not exist`);
+                return null;
             }
 
-            // Construct path to plugin.conf.json
-            const configPath = `${this.pluginsPath}/${pluginPath}/plugin.conf.json`;
-            console.log(`Fetching config from: ${configPath}`);
+            // Get plugin configuration
+            const config = await pluginClient.getPluginConfig(pluginId, true);
+            if (!config) {
+                console.error(`Failed to load configuration for plugin ${pluginId}`);
+                return null;
+            }
 
-            // Load and parse the plugin configuration
-            const config = await this.loadPluginConfig(configPath, pluginPath);
-
-            // Validate the plugin configuration
+            // Validate plugin configuration
             if (!this.validatePluginConfig(config)) {
-                throw new Error(`Invalid configuration for plugin ${pluginId}`);
+                console.error(`Invalid configuration for plugin ${pluginId}`);
+                return null;
             }
 
-            // Validate plugin authenticity
-            if (!this.validatePluginAuthenticity(pluginId, config)) {
-                throw new Error(`Plugin ${pluginId} failed authenticity validation`);
+            // Plugin authenticity validation is a placeholder for now
+            // Will be properly implemented in the future
+            this.validatePluginAuthenticity(pluginId, config);
+
+            // Validate plugin files
+            const filesValid = await this.validatePluginFiles(pluginId, config);
+            if (!filesValid) {
+                console.error(`Plugin ${pluginId} failed file validation`);
+                return null;
             }
 
-            // Register the plugin with the registry
-            if (this.registerPlugin(config)) {
-                console.log(`Internal plugin ${config.name} registered successfully`);
-            } else {
-                console.warn(`Internal plugin ${config.name} registration failed, might already be registered`);
-            }
-
+            console.log(`Internal plugin ${pluginId} loaded successfully`);
             return config;
         } catch (error) {
-            console.error(`Failed to load internal plugin ${pluginId}:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get the plugin path from the global configuration file
-     * @param pluginId The ID of the plugin to find
-     * @returns The path to the plugin directory or null if not found
-     */
-    private async getPluginPathById(pluginId: string): Promise<string | null> {
-        try {
-            // Path to the global plugin configuration file
-            const globalConfigPath = `${this.pluginsPath}/plugin.global.conf.json`;
-
-            const response = await fetch(globalConfigPath);
-
-            if (!response.ok) {
-                console.error(`Failed to load global plugin config: ${response.status} ${response.statusText}`);
-                return null;
-            }
-
-            const configText = await response.text();
-            const globalConfig: PluginGlobalConfig = JSON.parse(configText);
-
-            if (!globalConfig.internalPlugins || !Array.isArray(globalConfig.internalPlugins)) {
-                console.error('Invalid global plugin configuration: missing or invalid internalPlugins array');
-                return null;
-            }
-
-            // Find the plugin with matching ID
-            const pluginInfo = globalConfig.internalPlugins.find(plugin => plugin.id === pluginId);
-
-            if (!pluginInfo) {
-                console.error(`Plugin ${pluginId} not found in global configuration`);
-                return null;
-            }
-
-            return pluginInfo.path;
-        } catch (error) {
-            console.error(`Error getting plugin path for ${pluginId}:`, error);
+            console.error(`Error loading internal plugin ${pluginId}:`, error);
             return null;
         }
     }
 
     /**
-     * Load and parse a plugin configuration file
-     * @param configPath Path to the plugin.conf.json file
-     * @param pluginPath Path to the plugin directory (for reference)
+     * Unload functionality is not needed in the loader
+     * This method is required by the base class but does nothing
      */
-    private async loadPluginConfig(configPath: string, pluginPath: string): Promise<PluginConfig> {
-        try {
-            const response = await fetch(configPath);
+    unloadAllPlugins(): void {
+        // No implementation needed - handled by PluginManager
+    }
 
-            if (!response.ok) {
-                throw new Error(`Failed to load plugin config: ${response.status} ${response.statusText}`);
-            }
-
-            const configText = await response.text();
-            console.log(`Raw config text:`, configText.substring(0, 200) + (configText.length > 200 ? '...' : ''));
-
-            try {
-                const config = JSON.parse(configText) as PluginConfig;
-
-                // Add plugin path metadata for future reference
-                // This doesn't modify the actual config file but helps with loading assets
-                config._meta = {
-                    basePath: pluginPath
-                };
-
-                return config;
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError);
-                console.error('Invalid JSON content:', configText);
-                throw new Error(`Failed to parse plugin config: ${parseError}`);
-            }
-        } catch (error) {
-            console.error(`Failed to load plugin config from ${configPath}:`, error);
-            throw error;
-        }
+    /**
+     * Unload functionality is not needed in the loader
+     * This method is required by the base class but does nothing
+     */
+    unloadPlugin(pluginId: PluginId): void {
+        // No implementation needed - handled by PluginManager
     }
 }
 
