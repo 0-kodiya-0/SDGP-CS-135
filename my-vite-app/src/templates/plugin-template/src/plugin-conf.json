@@ -1,0 +1,40 @@
+{
+    "id": "example-plugin",
+    "name": "Example Plugin",
+    "version": "1.0.0",
+    "description": "A plugin template",
+    "author": "Your Name",
+    "view": {
+      "summary": {
+        "entryPoint": "src/summary/index.html"
+      },
+      "expand": {
+        "entryPoint": "src/expand/index.html"
+      }
+    },
+    "background": {
+      "entryPoint": "src/background/index.js"
+    },
+    "permissions": {
+      "storage": { "read": true, "write": true },
+      "network": { "http": true, "websocket": false }
+    },
+    "assets": {
+      "bundles": [
+        "assets/main.css",
+        "assets/main.js"
+      ],
+      "images": [],
+      "other": [
+        "src/views/expand/index.html",
+        "src/views/summary/index.html"
+      ]
+    },
+    "settings": {
+      "enabled": true,
+      "autoStart": true
+    },
+    "categories": ["data", "utility"],
+    "tags": ["sync", "network", "storage"]
+  }
+  
