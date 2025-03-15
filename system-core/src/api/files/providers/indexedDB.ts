@@ -1,6 +1,10 @@
 import { FileMetadata, FileEntry, FileReadOptions, PersistenceProvider } from '../types';
 import { StorageApi } from '../../storage';
 import { StorageType } from '../../storage/types';
+import { filesLogger } from '../../logger';
+
+// Get the IndexedDB provider logger
+const indexedDbLogger = filesLogger.extend('indexeddb');
 
 /**
  * Storage namespace for persisted files
@@ -22,18 +26,23 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
     private filesStorage: ReturnType<StorageApi['getStorage']>;
 
     constructor(storageApi: StorageApi) {
+        indexedDbLogger('Initializing IndexedDBFileSystemProvider');
         this.storageApi = storageApi;
 
         // Initialize storage providers
+        indexedDbLogger('Creating metadata storage namespace: %s', METADATA_STORAGE_NAMESPACE);
         this.metadataStorage = this.storageApi.getStorage({
             namespace: METADATA_STORAGE_NAMESPACE,
             type: StorageType.INDEXEDDB
         });
 
+        indexedDbLogger('Creating files storage namespace: %s', FILES_STORAGE_NAMESPACE);
         this.filesStorage = this.storageApi.getStorage({
             namespace: FILES_STORAGE_NAMESPACE,
             type: StorageType.INDEXEDDB
         });
+        
+        indexedDbLogger('IndexedDBFileSystemProvider initialized successfully');
     }
 
     /**
@@ -84,18 +93,23 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving to an ArrayBuffer
      */
     private async readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+        indexedDbLogger('Reading file as ArrayBuffer: %s', file.name);
         return new Promise<ArrayBuffer>((resolve, reject) => {
             const reader = new FileReader();
 
             reader.onload = () => {
                 if (reader.result instanceof ArrayBuffer) {
+                    indexedDbLogger('Successfully read file as ArrayBuffer: %s (%d bytes)', 
+                                  file.name, reader.result.byteLength);
                     resolve(reader.result);
                 } else {
+                    indexedDbLogger('Failed to read file as ArrayBuffer: %s', file.name);
                     reject(new Error('Failed to read file as ArrayBuffer'));
                 }
             };
 
             reader.onerror = () => {
+                indexedDbLogger('Error reading file: %s', file.name);
                 reject(new Error('Error reading file'));
             };
 
@@ -118,6 +132,8 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
             const fileId = metadata?.id || this.generateUniqueId();
 
             if (file instanceof File) {
+                indexedDbLogger('Storing File object in IndexedDB: %s (%s, %d bytes)', 
+                              file.name, file.type, file.size);
                 content = await this.readFileAsArrayBuffer(file);
                 fileMetadata = {
                     id: fileId,
@@ -130,9 +146,12 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
             } else {
                 // If direct ArrayBuffer, require metadata with at least name
                 if (!metadata || !metadata.name) {
+                    indexedDbLogger('Missing name when storing ArrayBuffer content');
                     throw new Error('Filename is required when storing ArrayBuffer content');
                 }
 
+                indexedDbLogger('Storing ArrayBuffer in IndexedDB: %s (%s, %d bytes)', 
+                              metadata.name, metadata.type || 'unknown', file.byteLength);
                 content = file;
                 const type = metadata.type || this.getTypeFromName(metadata.name);
 
@@ -152,14 +171,17 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
             }
 
             // Store file content as Uint8Array (more compatible with IndexedDB)
+            indexedDbLogger('Storing file content in IndexedDB: %s', fileId);
             await this.filesStorage.set(fileId, Array.from(new Uint8Array(content)));
 
             // Store metadata
+            indexedDbLogger('Storing file metadata in IndexedDB: %s', fileId);
             await this.metadataStorage.set(fileId, fileMetadata);
 
+            indexedDbLogger('File stored in IndexedDB with ID: %s', fileId);
             return fileMetadata;
         } catch (error) {
-            console.error('Error storing file in IndexedDB:', error);
+            indexedDbLogger('Error storing file in IndexedDB: %o', error);
             throw new Error('Failed to store file in IndexedDB');
         }
     }
@@ -170,11 +192,13 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving to the file entry
      */
     async readFile(fileId: string): Promise<FileEntry> {
+        indexedDbLogger('Reading file from IndexedDB: %s', fileId);
         try {
             // Get metadata from storage
             const metadata = await this.metadataStorage.get<FileMetadata>(fileId);
 
             if (!metadata) {
+                indexedDbLogger('File metadata not found in IndexedDB: %s', fileId);
                 throw new Error(`File metadata with ID ${fileId} not found in IndexedDB`);
             }
 
@@ -182,15 +206,18 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
             const contentArray = await this.filesStorage.get<number[]>(fileId);
 
             if (!contentArray) {
+                indexedDbLogger('File content not found in IndexedDB: %s', fileId);
                 throw new Error(`File content with ID ${fileId} not found in IndexedDB`);
             }
 
             // Convert array back to ArrayBuffer
             const content = new Uint8Array(contentArray).buffer;
-
+            
+            indexedDbLogger('Successfully read file from IndexedDB: %s (%s, %d bytes)', 
+                          fileId, metadata.name, metadata.size);
             return { metadata, content };
         } catch (error) {
-            console.error('Error reading file from IndexedDB:', error);
+            indexedDbLogger('Error reading file from IndexedDB: %s, %o', fileId, error);
             throw new Error(`Failed to read file with ID ${fileId} from IndexedDB`);
         }
     }
@@ -203,12 +230,17 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      */
     async readFileAsText(fileId: string, options?: FileReadOptions): Promise<string> {
         const encoding = options?.encoding || 'utf-8';
+        indexedDbLogger('Reading file as text: %s (encoding: %s)', fileId, encoding);
+        
         const fileEntry = await this.readFile(fileId);
 
         try {
-            return new TextDecoder(encoding).decode(fileEntry.content);
+            const text = new TextDecoder(encoding).decode(fileEntry.content);
+            indexedDbLogger('Successfully read file as text: %s (%d characters)', 
+                          fileId, text.length);
+            return text;
         } catch (error) {
-            console.error('Error decoding file as text:', error);
+            indexedDbLogger('Error decoding file as text: %s, %o', fileId, error);
             throw new Error(`Failed to decode file as text with encoding ${encoding}`);
         }
     }
@@ -219,14 +251,19 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving once the file is deleted
      */
     async deleteFile(fileId: string): Promise<void> {
+        indexedDbLogger('Deleting file from IndexedDB: %s', fileId);
         try {
             // Delete content
             await this.filesStorage.delete(fileId);
+            indexedDbLogger('Deleted file content: %s', fileId);
 
             // Delete metadata
             await this.metadataStorage.delete(fileId);
+            indexedDbLogger('Deleted file metadata: %s', fileId);
+            
+            indexedDbLogger('File successfully deleted from IndexedDB: %s', fileId);
         } catch (error) {
-            console.error('Error deleting file from IndexedDB:', error);
+            indexedDbLogger('Error deleting file from IndexedDB: %s, %o', fileId, error);
             throw new Error(`Failed to delete file with ID ${fileId} from IndexedDB`);
         }
     }
@@ -236,9 +273,11 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving to an array of file metadata
      */
     async listFiles(): Promise<FileMetadata[]> {
+        indexedDbLogger('Listing all files in IndexedDB');
         try {
             // Get all persisted file IDs
             const fileIds = await this.metadataStorage.keys();
+            indexedDbLogger('Found %d file IDs in IndexedDB', fileIds.length);
 
             // Get metadata for each file
             const metadataPromises = fileIds.map(fileId =>
@@ -248,9 +287,11 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
             const metadataResults = await Promise.all(metadataPromises);
 
             // Filter out any null values
-            return metadataResults.filter((metadata): metadata is FileMetadata => !!metadata);
+            const files = metadataResults.filter((metadata): metadata is FileMetadata => !!metadata);
+            indexedDbLogger('Retrieved metadata for %d files', files.length);
+            return files;
         } catch (error) {
-            console.error('Error listing files from IndexedDB:', error);
+            indexedDbLogger('Error listing files from IndexedDB: %o', error);
             throw new Error('Failed to list files from IndexedDB');
         }
     }
@@ -261,26 +302,26 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving to a boolean indicating if the file exists
      */
     async hasFile(fileId: string): Promise<boolean> {
+        indexedDbLogger('Checking if file exists in IndexedDB: %s', fileId);
         try {
             const metadata = await this.metadataStorage.get<FileMetadata>(fileId);
-            return !!metadata;
-        } catch {
+            const exists = !!metadata;
+            indexedDbLogger('File %s exists in IndexedDB: %s', fileId, exists);
+            return exists;
+        } catch (error) {
+            indexedDbLogger('Error checking if file exists in IndexedDB: %s, %o', fileId, error);
             return false;
         }
     }
 
-    /**
-     * Updates a file's metadata in IndexedDB
-     * @param fileId The file ID to update
-     * @param metadata The new metadata
-     * @returns Promise resolving to the updated metadata
-     */
     async updateFileMetadata(fileId: string, metadata: Partial<FileMetadata>): Promise<FileMetadata> {
+        indexedDbLogger('Updating metadata for file: %s', fileId);
         try {
             // Get existing metadata
             const existingMetadata = await this.metadataStorage.get<FileMetadata>(fileId);
 
             if (!existingMetadata) {
+                indexedDbLogger('File not found for metadata update: %s', fileId);
                 throw new Error(`File with ID ${fileId} not found in IndexedDB`);
             }
 
@@ -293,10 +334,11 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
 
             // Store updated metadata
             await this.metadataStorage.set(fileId, updatedMetadata);
+            indexedDbLogger('Metadata updated for file: %s', fileId);
 
             return updatedMetadata;
         } catch (error) {
-            console.error('Error updating file metadata in IndexedDB:', error);
+            indexedDbLogger('Error updating file metadata in IndexedDB: %s, %o', fileId, error);
             throw new Error(`Failed to update metadata for file with ID ${fileId}`);
         }
     }
@@ -306,13 +348,15 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving once all files are cleared
      */
     async clearAll(): Promise<void> {
+        indexedDbLogger('Clearing all files from IndexedDB');
         try {
             await Promise.all([
                 this.filesStorage.clear(),
                 this.metadataStorage.clear()
             ]);
+            indexedDbLogger('Successfully cleared all files from IndexedDB');
         } catch (error) {
-            console.error('Error clearing files from IndexedDB:', error);
+            indexedDbLogger('Error clearing files from IndexedDB: %o', error);
             throw new Error('Failed to clear files from IndexedDB');
         }
     }
@@ -323,6 +367,9 @@ export class IndexedDBFileSystemProvider implements PersistenceProvider {
      * @returns Promise resolving to a boolean indicating if the file is persisted
      */
     async isFilePersisted(fileId: string): Promise<boolean> {
-        return this.hasFile(fileId);
+        indexedDbLogger('Checking if file is persisted in IndexedDB: %s', fileId);
+        const isPersisted = await this.hasFile(fileId);
+        indexedDbLogger('File %s is persisted in IndexedDB: %s', fileId, isPersisted);
+        return isPersisted;
     }
 }

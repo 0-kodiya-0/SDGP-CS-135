@@ -1,8 +1,12 @@
 import { useRef, useEffect, useState } from "react";
-import { CreateEnvironmentInputProps } from "../types/props.ts";
-import { useCreateEnvironment } from "../hooks/useEnvironments.ts";
 import { useEnvironmentStore } from "../store";
-import { EnvironmentPrivacy, EnvironmentStatus } from "../types/data.ts";
+import { EnvironmentPrivacy, EnvironmentStatus } from "../types/types.data";
+import { ActiveAccount } from "../../user_account";
+
+export interface CreateEnvironmentInputProps {
+    activeAccount: ActiveAccount;
+    onCancel: () => void;
+}
 
 export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
     activeAccount,
@@ -13,13 +17,12 @@ export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
     const [isLoading, setIsLoading] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
+    const addEnvironment = useEnvironmentStore(state => state.addEnvironment);
+    const setEnvironment = useEnvironmentStore(state => state.setEnvironment);
 
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
-
-    const createEnvironment = useCreateEnvironment(activeAccount.id);
-    const setEnvironment = useEnvironmentStore(state => state.setEnvironment);
 
     const handleCreateEnvironment = async () => {
         const trimmedName = inputEnvName.trim();
@@ -32,15 +35,27 @@ export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
         setIsLoading(true);
 
         try {
-            const created = await createEnvironment.mutateAsync({
+            console.log(`[CreateEnvironment] Creating new environment "${trimmedName}" for account ${activeAccount.id}`);
+            
+            // Create a new environment in the store
+            const newEnvironment = addEnvironment({
                 accountId: activeAccount.id,
                 name: trimmedName,
                 status: EnvironmentStatus.Active,
                 privacy: EnvironmentPrivacy.Global
             });
-            setEnvironment(created);
-            onCancel(); // Close the input form after successful creation
+            
+            // Set as selected environment for this account
+            setEnvironment(newEnvironment, activeAccount.id);
+            
+            console.log(`[CreateEnvironment] Environment created: ${newEnvironment.id} (${newEnvironment.name})`);
+            
+            // Delay closing the modal slightly to ensure state updates are processed
+            setTimeout(() => {
+                onCancel(); // Close the input form after successful creation
+            }, 100);
         } catch (error) {
+            console.error('[CreateEnvironment] Error creating environment:', error);
             setError(error instanceof Error ? error.message : 'Failed to create environment');
         } finally {
             setIsLoading(false);

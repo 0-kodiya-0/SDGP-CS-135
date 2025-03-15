@@ -3,7 +3,7 @@ import {
     UserDetails,
     DeviceType,
     OsType
-} from '../types/data.types.ts';
+} from '../types/types.data.ts';
 
 /**
  * Creates a new Device object with detected values

@@ -10,13 +10,13 @@ import {
   PluginRegisteredEvent,
   PluginUnregisteredEvent,
   PluginApprovedEvent,
-  PluginApprovalRevokedEvent,
   PluginWorkerStartedEvent,
   PluginWorkerStoppedEvent,
   PluginUiDisplayEvent,
   PluginUiHideEvent
 } from "./types.event";
 import eventBus from "../../events";
+import { pluginRegistryLogger } from "./utils/logger";
 
 /**
  * Plugin Registry - Central store for all plugin information
@@ -30,7 +30,9 @@ export class PluginRegistry {
   private registeredPlugins: Map<PluginId, RegisteredPlugin> = new Map();
   private approvedPlugins: Set<PluginId> = new Set();
 
-  private constructor() { }
+  private constructor() {
+    pluginRegistryLogger('Plugin registry initialized');
+  }
 
   /**
    * Get the singleton instance of the PluginRegistry
@@ -50,9 +52,10 @@ export class PluginRegistry {
    */
   public registerPlugin(pluginConfig: PluginConfig): boolean {
     const pluginId = pluginConfig.id;
+    pluginRegistryLogger('Registering plugin %s', pluginId);
 
     if (this.registeredPlugins.has(pluginId)) {
-      console.warn(`Plugin ${pluginId} is already registered.`);
+      pluginRegistryLogger('Plugin %s is already registered', pluginId);
       return false;
     }
 
@@ -74,7 +77,7 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginRegisteredEvent);
 
-    console.log(`Plugin ${pluginId} registered (pending approval) with requested permissions:`, pluginConfig.permissions);
+    pluginRegistryLogger('Plugin %s registered (pending approval)', pluginId);
     return true;
   }
 
@@ -85,15 +88,16 @@ export class PluginRegistry {
    * @returns true if approval was successful
    */
   public approvePlugin(pluginId: PluginId): boolean {
+    pluginRegistryLogger('Approving plugin %s', pluginId);
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return false;
     }
 
     if (plugin.approved) {
-      console.warn(`Plugin ${pluginId} is already approved.`);
+      pluginRegistryLogger('Plugin %s is already approved', pluginId);
       return false;
     }
 
@@ -114,44 +118,7 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginApprovedEvent);
 
-    console.log(`Plugin ${pluginId} approved with permissions:`, plugin.permissions);
-    return true;
-  }
-
-  /**
-   * Set plugin approval status
-   * 
-   * @param pluginId - Unique identifier for the plugin
-   * @param approved - Whether to approve the plugin
-   * @returns true if successful
-   */
-  public setPluginApproval(pluginId: PluginId, approved: boolean): boolean {
-    const plugin = this.registeredPlugins.get(pluginId);
-
-    if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
-      return false;
-    }
-
-    if (approved) {
-      // If approving, use the full approve flow
-      if (!plugin.approved) {
-        return this.approvePlugin(pluginId);
-      }
-    } else {
-      // If revoking approval
-      plugin.approved = false;
-      this.approvedPlugins.delete(pluginId);
-
-      // Emit event
-      eventBus.emit('pluginApprovalRevoked', {
-        pluginId,
-        timestamp: Date.now()
-      } as PluginApprovalRevokedEvent);
-
-      console.log(`Approval revoked for plugin ${pluginId}`);
-    }
-
+    pluginRegistryLogger('Plugin %s approved with permissions: %o', pluginId, plugin.permissions);
     return true;
   }
 
@@ -170,10 +137,11 @@ export class PluginRegistry {
     proxy: Comlink.Remote<PluginWorkerAPI>,
     blobUrl?: string
   ): boolean {
+    pluginRegistryLogger('Registering worker for plugin %s', pluginId);
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return false;
     }
 
@@ -190,7 +158,7 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginWorkerStartedEvent);
 
-    console.log(`Worker registered for plugin ${pluginId}`);
+    pluginRegistryLogger('Worker registered for plugin %s', pluginId);
     return true;
   }
 
@@ -202,10 +170,11 @@ export class PluginRegistry {
    * @returns true if successful
    */
   public unregisterWorker(pluginId: PluginId, reason: 'user' | 'system' | 'error' = 'user'): boolean {
+    pluginRegistryLogger('Unregistering worker for plugin %s (reason: %s)', pluginId, reason);
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin || !plugin.activeBackground) {
-      console.warn(`No active worker found for plugin ${pluginId}`);
+      pluginRegistryLogger('No active worker found for plugin %s', pluginId);
       return false;
     }
 
@@ -233,7 +202,7 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginWorkerStoppedEvent);
 
-    console.log(`Worker unregistered for plugin ${pluginId}`);
+    pluginRegistryLogger('Worker unregistered for plugin %s', pluginId);
     return true;
   }
 
@@ -250,12 +219,14 @@ export class PluginRegistry {
     pluginId: PluginId,
     viewId: string,
     type: 'summary' | 'expand',
-    iframe?: HTMLIFrameElement
+    proxy: Comlink.Remote<PluginWorkerAPI>,
+    iframe?: HTMLIFrameElement,
   ): boolean {
+    pluginRegistryLogger('Registering view for plugin %s: %s (%s)', pluginId, viewId, type);
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return false;
     }
 
@@ -263,10 +234,12 @@ export class PluginRegistry {
     const existingViewIndex = plugin.activeViews.findIndex(v => v.id === viewId);
     if (existingViewIndex >= 0) {
       // Update existing view
-      plugin.activeViews[existingViewIndex] = { id: viewId, type, iframe };
+      pluginRegistryLogger('Updating existing view %s for plugin %s', viewId, pluginId);
+      plugin.activeViews[existingViewIndex] = { id: viewId, type, iframe, proxy };
     } else {
       // Add new view
-      plugin.activeViews.push({ id: viewId, type, iframe });
+      pluginRegistryLogger('Adding new view %s for plugin %s', viewId, pluginId);
+      plugin.activeViews.push({ id: viewId, type, iframe, proxy });
     }
 
     // Update the plugin in the registry
@@ -281,7 +254,6 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginUiDisplayEvent);
 
-    console.log(`View registered for plugin ${pluginId}: ${viewId} (${type})`);
     return true;
   }
 
@@ -293,22 +265,24 @@ export class PluginRegistry {
    * @returns true if successful
    */
   public unregisterView(pluginId: PluginId, viewId: string): boolean {
+    pluginRegistryLogger('Unregistering view %s for plugin %s', viewId, pluginId);
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return false;
     }
 
     // Find the view
     const viewIndex = plugin.activeViews.findIndex(v => v.id === viewId);
     if (viewIndex < 0) {
-      console.warn(`View ${viewId} not found for plugin ${pluginId}`);
+      pluginRegistryLogger('View %s not found for plugin %s', viewId, pluginId);
       return false;
     }
 
     // Remove the view
     plugin.activeViews.splice(viewIndex, 1);
+    pluginRegistryLogger('View %s removed from plugin %s', viewId, pluginId);
 
     // Update the plugin in the registry
     this.registeredPlugins.set(pluginId, plugin);
@@ -319,7 +293,6 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginUiHideEvent);
 
-    console.log(`View unregistered for plugin ${pluginId}: ${viewId}`);
     return true;
   }
 
@@ -331,8 +304,10 @@ export class PluginRegistry {
    * @returns true if unregistration was successful
    */
   public unregisterPlugin(pluginId: PluginId, reason?: string): boolean {
+    pluginRegistryLogger('Unregistering plugin %s', pluginId);
+    
     if (!this.registeredPlugins.has(pluginId)) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return false;
     }
 
@@ -341,6 +316,7 @@ export class PluginRegistry {
 
     // Clean up background worker if active
     if (plugin.activeBackground) {
+      pluginRegistryLogger('Cleaning up background worker for plugin %s', pluginId);
       this.unregisterWorker(pluginId, 'system');
     }
 
@@ -355,7 +331,7 @@ export class PluginRegistry {
       timestamp: Date.now()
     } as PluginUnregisteredEvent);
 
-    console.log(`Plugin ${pluginId} unregistered.`);
+    pluginRegistryLogger('Plugin %s unregistered successfully', pluginId);
     return true;
   }
 
@@ -402,82 +378,17 @@ export class PluginRegistry {
   }
 
   /**
-   * Check if a plugin has any active views
-   * 
-   * @param pluginId Plugin ID to check
-   * @returns true if the plugin has any active views
-   */
-  public hasActiveViews(pluginId: PluginId): boolean {
-    const plugin = this.registeredPlugins.get(pluginId);
-    return !!plugin?.activeViews.length;
-  }
-
-  /**
-   * Get active views for a plugin
-   * 
-   * @param pluginId Plugin ID
-   * @returns Array of active view information
-   */
-  public getActiveViews(pluginId: PluginId): RegisteredPlugin['activeViews'] {
-    const plugin = this.registeredPlugins.get(pluginId);
-    return plugin?.activeViews || [];
-  }
-
-  /**
-   * Get all registered plugin IDs
-   * 
-   * @returns Array of registered plugin IDs
-   */
-  public getRegisteredPluginIds(): PluginId[] {
-    return Array.from(this.registeredPlugins.keys());
-  }
-
-  /**
-   * Get all pending approval plugin IDs
-   * 
-   * @returns Array of plugin IDs pending approval
-   */
-  public getPendingApprovalPluginIds(): PluginId[] {
-    return Array.from(this.registeredPlugins.entries())
-      .filter(([id]) => !this.approvedPlugins.has(id))
-      .map(([id]) => id);
-  }
-
-  /**
-   * Get all approved plugin IDs
-   * 
-   * @returns Array of approved plugin IDs
-   */
-  public getApprovedPluginIds(): PluginId[] {
-    return Array.from(this.approvedPlugins);
-  }
-
-  /**
    * Get all active plugin IDs (plugins with running workers)
    * 
    * @returns Array of active plugin IDs
    */
   public getActivePluginIds(): PluginId[] {
-    return Array.from(this.registeredPlugins.entries())
+    const activeIds = Array.from(this.registeredPlugins.entries())
       .filter(([, plugin]) => !!plugin.activeBackground)
       .map(([id]) => id);
-  }
-
-  /**
-   * Get requested permissions for a plugin (from pluginConfig)
-   * 
-   * @param pluginId - Unique identifier for the plugin
-   * @returns Object containing requested permissions or undefined if plugin not registered
-   */
-  public getRequestedPermissions(pluginId: PluginId): PermissionObject | undefined {
-    const plugin = this.registeredPlugins.get(pluginId);
-
-    if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
-      return undefined;
-    }
-
-    return plugin.pluginConfig.permissions as PermissionObject;
+    
+    pluginRegistryLogger('Found %d active plugins', activeIds.length);
+    return activeIds;
   }
 
   /**
@@ -490,12 +401,12 @@ export class PluginRegistry {
     const plugin = this.registeredPlugins.get(pluginId);
 
     if (!plugin) {
-      console.warn(`Plugin ${pluginId} is not registered.`);
+      pluginRegistryLogger('Plugin %s is not registered', pluginId);
       return undefined;
     }
 
     if (!plugin.approved) {
-      console.warn(`Plugin ${pluginId} is not approved.`);
+      pluginRegistryLogger('Plugin %s is not approved', pluginId);
       return undefined;
     }
 
@@ -530,6 +441,37 @@ export class PluginRegistry {
    */
   public getAllPlugins(): RegisteredPlugin[] {
     return Array.from(this.registeredPlugins.values());
+  }
+
+  /**
+   * Get all registered plugin IDs
+   * 
+   * @returns Array of registered plugin IDs
+   */
+  public getRegisteredPluginIds(): PluginId[] {
+    return Array.from(this.registeredPlugins.keys());
+  }
+
+  /**
+   * Check if a plugin has any active views
+   * 
+   * @param pluginId Plugin ID to check
+   * @returns true if the plugin has any active views
+   */
+  public hasActiveViews(pluginId: PluginId): boolean {
+    const plugin = this.registeredPlugins.get(pluginId);
+    return !!plugin?.activeViews.length;
+  }
+
+  /**
+   * Get active views for a plugin
+   * 
+   * @param pluginId Plugin ID
+   * @returns Array of active view information
+   */
+  public getActiveViews(pluginId: PluginId): RegisteredPlugin['activeViews'] {
+    const plugin = this.registeredPlugins.get(pluginId);
+    return plugin?.activeViews || [];
   }
 }
 

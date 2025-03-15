@@ -1,160 +1,84 @@
-// src/App.tsx
-import React, { useState } from 'react';
-import { PluginProvider } from './plugin/core/context/pluginContext';
-import PluginManagerUI from './plugin/core/ui/PluginManagerUI';
-import SummaryViewExecutor from './plugin/core/executors/summaryViewExecutor';
-import ExpandViewExecutor from './plugin/core/executors/expandViewExecutor';
-import pluginRegistry from './plugin/core/pluginRegistry';
-import { usePlugins } from './plugin/core/context/pluginContext';
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Footer, Header, Navbar } from "./layout";
+import { queryClient } from './mock/persistConfig';
+import { useEnvironmentStore } from "./features/default/environment";
+import { useAccountStore } from "./features/default/user_account";
+import { PluginProvider } from "./plugin/core";
+import { useEffect, useState } from "react";
+import { EnvironmentPrivacy, EnvironmentStatus } from "./features/default/environment/types/types.data";
 
-/**
- * PluginRenderer component
- * Manages plugin UI rendering
- */
-const PluginRenderer: React.FC = () => {
-  const { activePluginIds } = usePlugins();
-  const [visiblePlugins, setVisiblePlugins] = useState<{
-    [key: string]: {
-      view: 'summary' | 'expand' | null;
-    }
-  }>({});
+export const App = () => {
+    const activeAccount = useAccountStore(state => state.activeAccount);
+    const [isInitializing, setIsInitializing] = useState(false);
+    
+    // Get all store functions directly
+    const getEnvironment = useEnvironmentStore(state => state.getEnvironment);
+    const getEnvironmentsByAccount = useEnvironmentStore(state => state.getEnvironmentsByAccount);
+    const addEnvironment = useEnvironmentStore(state => state.addEnvironment);
+    const setEnvironment = useEnvironmentStore(state => state.setEnvironment);
+    const environments = useEnvironmentStore(state => state.environments);
+    
+    // Calculate the environment based on the active account
+    const environment = activeAccount ? getEnvironment(activeAccount.id) : null;
+    
+    // Create a default environment if no environments exist for this account
+    useEffect(() => {
+        if (!activeAccount || isInitializing) return;
+        
+        const accountEnvironments = getEnvironmentsByAccount(activeAccount.id);
+        
+        if (accountEnvironments.length === 0) {
+            console.log(`[App] No environments found for account ${activeAccount.id}. Creating default environment.`);
+            setIsInitializing(true);
+            
+            // Create a default environment
+            try {
+                const defaultEnvironment = addEnvironment({
+                    accountId: activeAccount.id,
+                    name: 'Default Environment',
+                    status: EnvironmentStatus.Active,
+                    privacy: EnvironmentPrivacy.Private
+                });
+                
+                // Set it as the selected environment for this account
+                setEnvironment(defaultEnvironment, activeAccount.id);
+                console.log(`[App] Default environment created: ${defaultEnvironment.id} (${defaultEnvironment.name})`);
+            } catch (error) {
+                console.error('[App] Error creating default environment:', error);
+            } finally {
+                setIsInitializing(false);
+            }
+        }
+    }, [activeAccount, getEnvironmentsByAccount, addEnvironment, setEnvironment, isInitializing]);
+    
+    // Debug logging to trace re-renders and environment state
+    useEffect(() => {
+        console.log("[App] Environment state updated:", 
+            environments.length > 0 ? `${environments.length} environments` : "No environments",
+            "Current environment:", environment?.name || "None");
+    }, [environments, environment]);
 
-  // Toggle a plugin's view
-  const togglePluginView = (pluginId: string, view: 'summary' | 'expand' | null) => {
-    setVisiblePlugins(prev => ({
-      ...prev,
-      [pluginId]: {
-        view
-      }
-    }));
-  };
-
-  // Render active plugins
-  return (
-    <div className="plugin-renderer">
-      <div className="active-plugins">
-        <h3>Active Plugins</h3>
-        <div className="plugin-buttons">
-          {activePluginIds.map(pluginId => {
-            const config = pluginRegistry.getPluginConfig(pluginId);
-            const permissions = pluginRegistry.getPluginPermissions(pluginId);
-
-            if (!config || !permissions) return null;
-
-            const currentView = visiblePlugins[pluginId]?.view || null;
-
-            return (
-              <div key={pluginId} className="plugin-button-container">
-                <button
-                  className="plugin-button"
-                  onClick={() => {
-                    // Toggle between summary and null
-                    const newView = currentView === 'summary' ? null : 'summary';
-                    togglePluginView(pluginId, newView);
-                  }}
-                >
-                  {config.name || pluginId}
-                </button>
-
-                {config.view?.expand && (
-                  <button
-                    className="plugin-expand-button"
-                    onClick={() => {
-                      // Toggle between expand and null
-                      const newView = currentView === 'expand' ? null : 'expand';
-                      togglePluginView(pluginId, newView);
-                    }}
-                  >
-                    {currentView === 'expand' ? 'Minimize' : 'Expand'}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+    if (!activeAccount) {
+        return <div className="w-full h-full flex justify-center items-center">
+            No Active account. Please login first
         </div>
-      </div>
+    }
 
-      <div className="plugin-views">
-        {activePluginIds.map(pluginId => {
-          const view = visiblePlugins[pluginId]?.view;
-          if (!view) return null;
-
-          const config = pluginRegistry.getPluginConfig(pluginId);
-          const permissions = pluginRegistry.getPluginPermissions(pluginId);
-
-          if (!config || !permissions) return null;
-
-          if (view === 'summary' && config.view?.summary) {
-            return (
-              <SummaryViewExecutor
-                key={`${pluginId}-summary`}
-                pluginId={pluginId}
-                config={config}
-                permissions={permissions}
-                onClose={() => togglePluginView(pluginId, null)}
-              />
-            );
-          }
-
-          if (view === 'expand' && config.view?.expand) {
-            return (
-              <ExpandViewExecutor
-                key={`${pluginId}-expand`}
-                pluginId={pluginId}
-                config={config}
-                permissions={permissions}
-                onClose={() => togglePluginView(pluginId, null)}
-                onMinimize={() => togglePluginView(pluginId, 'summary')}
-              />
-            );
-          }
-
-          return null;
-        })}
-      </div>
-    </div>
-  );
-};
-
-/**
- * Main App component
- */
-const App: React.FC = () => {
-  const [showPluginManager, setShowPluginManager] = useState(false);
-
-  return (
-    <PluginProvider>
-      <div className="app-container">
-        <header className="app-header">
-          <h1>Plugin System Demo</h1>
-          <button
-            className="toggle-plugin-manager"
-            onClick={() => setShowPluginManager(!showPluginManager)}
-          >
-            {showPluginManager ? 'Hide Plugin Manager' : 'Show Plugin Manager'}
-          </button>
-        </header>
-
-        <main className="app-content">
-          {showPluginManager ? (
-            <div className="plugin-manager-container">
-              <PluginManagerUI />
-            </div>
-          ) : (
-            <div className="app-main-content">
-              <h2>Main Application</h2>
-              <p>This is the main application content. Plugin views will be rendered here.</p>
-              <PluginRenderer />
-            </div>
-          )}
-        </main>
-
-        <footer className="app-footer">
-          <p>&copy; 2025 Plugin System Demo</p>
-        </footer>
-      </div>
-    </PluginProvider>
-  );
+    return (
+        <div className="flex flex-col h-screen bg-white">
+            <QueryClientProvider client={queryClient}>
+                <Navbar activeAccount={activeAccount} />
+                <PluginProvider environment={environment}>
+                    <Header 
+                        key={`env-${environment?.id || 'none'}`} 
+                        environment={environment} 
+                        isLoading={isInitializing}
+                    />
+                </PluginProvider>
+                <Footer />
+            </QueryClientProvider>
+        </div>
+    );
 };
 
 export default App;

@@ -1,5 +1,7 @@
+// Import for BasePluginLoader
 import { PluginConfig, PluginId } from '../types';
 import pluginClient from '../api/pluginClientApi';
+import { pluginLoaderLogger } from '../utils/logger';
 
 /**
  * Base class for plugin loaders with common functionality
@@ -39,25 +41,25 @@ abstract class BasePluginLoader {
   protected validatePluginConfig(config: PluginConfig): boolean {
     // Check required fields
     if (!config.id || !config.name || !config.version) {
-      console.error('Plugin config missing required fields (id, name, or version)');
+      pluginLoaderLogger('Plugin config missing required fields (id, name, or version)');
       return false;
     }
 
     // Background entry point is only required for plugins with background functionality
     if (config.background && !config.background.entryPoint) {
-      console.error(`Plugin ${config.id} has background defined but missing entry point`);
+      pluginLoaderLogger('Plugin %s has background defined but missing entry point', config.id);
       return false;
     }
 
     // View entry points are only required for plugins with UI functionality
     if (config.view) {
       if (config.view.summary && !config.view.summary.entryPoint) {
-        console.error(`Plugin ${config.id} has summary view defined but missing entry point`);
+        pluginLoaderLogger('Plugin %s has summary view defined but missing entry point', config.id);
         return false;
       }
 
       if (config.view.expand && !config.view.expand.entryPoint) {
-        console.error(`Plugin ${config.id} has expand view defined but missing entry point`);
+        pluginLoaderLogger('Plugin %s has expand view defined but missing entry point', config.id);
         return false;
       }
     }
@@ -73,16 +75,18 @@ abstract class BasePluginLoader {
    */
   protected async validatePluginFiles(pluginId: PluginId, config: PluginConfig): Promise<boolean> {
     try {
+      pluginLoaderLogger('Validating files for plugin %s', pluginId);
       const validation = await pluginClient.validatePluginFiles(pluginId, config);
       
       if (!validation.valid) {
-        console.error(`Plugin ${pluginId} has missing files:`, validation.missingFiles);
+        pluginLoaderLogger('Plugin %s has missing files: %o', pluginId, validation.missingFiles);
         return false;
       }
       
+      pluginLoaderLogger('Plugin %s files validated successfully', pluginId);
       return true;
     } catch (error) {
-      console.error(`Failed to validate files for plugin ${pluginId}:`, error);
+      pluginLoaderLogger('Failed to validate files for plugin %s: %o', pluginId, error);
       return false;
     }
   }
@@ -97,15 +101,10 @@ abstract class BasePluginLoader {
    */
   protected validatePluginAuthenticity(pluginId: PluginId, config: PluginConfig): boolean {
     // TODO: Implement proper plugin authenticity validation in the future
-    // Possible validations to add:
-    // - Digital signatures verification
-    // - Checksums validation
-    // - Trusted source verification
-    // - Code signing verification
     
     // For now, just do a basic ID match
     if (config.id !== pluginId) {
-      console.warn(`Plugin ID mismatch: Expected ${pluginId}, found ${config.id}`);
+      pluginLoaderLogger('Plugin ID mismatch: Expected %s, found %s', pluginId, config.id);
       // Still returning true for now to allow development
     }
 

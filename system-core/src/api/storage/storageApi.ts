@@ -1,20 +1,27 @@
+import localforage from 'localforage';
 import { StorageOptions, StorageProvider, StorageType } from './types';
-import {
-    LocalForageProvider,
-    IndexedDBProvider,
-    SessionStorageProvider
-} from './providers';
+import { LocalForageProvider, SessionStorageProvider } from './providers';
+import { storageLogger } from '../logger';
 
 /**
  * Main Storage API class that provides a unified interface
- * for persistent storage across different providers
+ * using localForage as the underlying implementation
  */
 export class StorageApi {
-    private providers: Map<string, StorageProvider> = new Map();
+    private instances: Map<string, StorageProvider> = new Map();
     private static instance: StorageApi;
 
     private constructor() {
-
+        storageLogger('Initializing StorageApi');
+        // Set default localforage driver order
+        localforage.config({
+            driver: [
+                localforage.INDEXEDDB,
+                localforage.WEBSQL,
+                localforage.LOCALSTORAGE
+            ]
+        });
+        storageLogger('LocalForage configured with drivers: INDEXEDDB, WEBSQL, LOCALSTORAGE');
     }
 
     public static getInstance(): StorageApi {
@@ -25,80 +32,109 @@ export class StorageApi {
     }
 
     /**
-     * Creates or retrieves a storage provider for the given namespace
-     * @param options Configuration options for the storage provider
+     * Gets or creates a storage provider for the given namespace
      */
     getStorage(options: StorageOptions): StorageProvider {
-        const key = this.getProviderKey(options);
+        const { namespace, type } = options;
+        const key = `${type || 'auto'}:${namespace}`;
+        storageLogger('Getting storage provider: %s', key);
 
-        if (this.providers.has(key)) {
-            return this.providers.get(key)!;
+        // Return existing instance if available
+        if (this.instances.has(key)) {
+            storageLogger('Using existing provider for %s', key);
+            return this.instances.get(key)!;
         }
 
-        const provider = this.createProviderInstance(options);
-        this.providers.set(key, provider);
+        // Create a new storage provider
+        storageLogger('Creating new provider for %s', key);
+        const provider = this.createStorageProvider(options);
+        this.instances.set(key, provider);
         return provider;
     }
 
     /**
-     * Creates a new instance of a storage provider
-     * @param options Configuration options for the storage provider
+     * Creates a new storage provider
      */
     createStorage(options: StorageOptions): StorageProvider {
-        const provider = this.createProviderInstance(options);
-        const key = this.getProviderKey(options);
-        this.providers.set(key, provider);
+        storageLogger('Explicitly creating new storage provider: %s:%s',
+            options.type || 'auto', options.namespace);
+        const provider = this.createStorageProvider(options);
+        const key = `${options.type || 'auto'}:${options.namespace}`;
+        this.instances.set(key, provider);
         return provider;
     }
 
     /**
-     * Gets the provider type based on options or auto-detects the best available
+     * Creates the appropriate storage provider based on the options
      */
-    getProviderType(options: StorageOptions): StorageType {
-        if (options.type && options.type !== StorageType.AUTO) {
-            return options.type;
+    private createStorageProvider(options: StorageOptions): StorageProvider {
+        const { namespace, type, defaults } = options;
+        storageLogger('Creating storage provider: namespace=%s, type=%s', namespace, type);
+
+        // Configure storage based on type
+        const config: LocalForageOptions = {
+            name: namespace,
+            storeName: `store-${namespace}`,
+            description: `Storage for ${namespace}`,
+            ...(options.connectionOptions || {})
+        };
+
+        // Set driver based on type
+        if (type === StorageType.LOCALFORAGE) {
+            storageLogger('Using default localforage driver order for %s', namespace);
+            // Use default driver order
+        } else if (type === StorageType.INDEXEDDB) {
+            storageLogger('Using dedicated IndexedDB driver for %s', namespace);
+            config.driver = localforage.INDEXEDDB;
+        } else if (type === StorageType.SESSION) {
+            storageLogger('Using SessionStorage provider for %s', namespace);
+            // For session storage, we'll use a custom implementation
+            return new SessionStorageProvider(options);
         }
 
-        // Auto-detect the best available storage
-        try {
-            // Check for IndexedDB support
-            if (typeof indexedDB !== 'undefined') {
-                return StorageType.INDEXEDDB;
+        storageLogger('Creating localforage instance with config: %o', config);
+        // Create the instance
+        const instance = localforage.createInstance(config);
+
+        // Create and return the provider
+        const provider = new LocalForageProvider(instance);
+
+        // Initialize defaults if provided
+        if (defaults) {
+            storageLogger('Initializing defaults for %s', namespace);
+            this.initDefaults(provider, defaults);
+        }
+
+        return provider;
+    }
+
+    /**
+     * Initialize default values for a provider
+     */
+    private async initDefaults<T>(provider: StorageProvider, defaults: Record<string, T>): Promise<void> {
+        // Check if defaults were already initialized
+        const initialized = await provider.get<boolean>('__defaults_initialized');
+        if (initialized) {
+            storageLogger('Defaults already initialized');
+            return;
+        }
+
+        // Set defaults for any keys that don't exist
+        const entries = Object.entries(defaults);
+        storageLogger('Setting %d default entries', entries.length);
+
+        for (const [key, value] of entries) {
+            if (!(await provider.has(key))) {
+                storageLogger('Setting default value for key: %s', key);
+                await provider.set(key, value);
+            } else {
+                storageLogger('Key already exists, skipping default: %s', key);
             }
-
-            // Fallback to LocalForage which handles multiple storage types
-            return StorageType.LOCALFORAGE;
-        } catch (error) {
-            console.warn('Auto-detection failed, using LocalForage as fallback:', error);
-            return StorageType.LOCALFORAGE;
         }
-    }
 
-    /**
-     * Creates a unique key for the provider in the internal map
-     */
-    private getProviderKey(options: StorageOptions): string {
-        const type = this.getProviderType(options);
-        return `${type}:${options.namespace}`;
-    }
-
-    /**
-     * Creates a provider instance based on the specified type
-     */
-    private createProviderInstance(options: StorageOptions): StorageProvider {
-        const type = this.getProviderType(options);
-
-        switch (type) {
-            case StorageType.INDEXEDDB:
-                return new IndexedDBProvider(options);
-
-            case StorageType.SESSION:
-                return new SessionStorageProvider(options);
-
-            case StorageType.LOCALFORAGE:
-            default:
-                return new LocalForageProvider(options);
-        }
+        // Mark as initialized
+        await provider.set('__defaults_initialized', true);
+        storageLogger('Defaults initialization complete');
     }
 }
 

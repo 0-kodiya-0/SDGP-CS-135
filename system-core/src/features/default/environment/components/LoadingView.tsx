@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { LoadingViewProps } from "../types/props.ts";
+import { LoadingViewProps } from "../types/types.props.ts";
 
 export const LoadingView = ({ getSliderStyle }: LoadingViewProps) => (
     <div className="fixed inset-0 z-50">

@@ -3,24 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import tailwindcss from '@tailwindcss/vite';
 
-// Import our modularized plugin system
-import { discoverPlugins } from './build/pluginDiscovery';
-import { copyPluginConfigsPlugin, ensureProperExportsPlugin } from './build/vitePlugins';
-
-// Discover all plugins and their entry points
-const { pluginEntries, configFiles } = discoverPlugins();
-
 export default defineConfig((): UserConfig => {
-  // Create input object for rollup
-  const input: Record<string, string> = {
-    main: resolve(__dirname, 'index.html')
-  };
-
-  // Add all plugin entries to the input
-  pluginEntries.forEach(entry => {
-    input[`${entry.pluginId}-${entry.type}`] = entry.entryPath;
-  });
-
   return {
     plugins: [
       react({
@@ -36,40 +19,13 @@ export default defineConfig((): UserConfig => {
           }
         }
       }),
-      ensureProperExportsPlugin(),
-      copyPluginConfigsPlugin(configFiles),
       tailwindcss()
     ],
     build: {
       outDir: 'dist',
       emptyOutDir: true,
       // Add sourcemaps for easier debugging
-      sourcemap: true,
-      rollupOptions: {
-        input,
-        output: {
-          // Ensure files maintain their paths within assets directory
-          entryFileNames: (chunkInfo) => {
-            // For plugin entries, use the preserved path structure inside assets
-            const matchingEntry = pluginEntries.find(entry =>
-              chunkInfo.name === `${entry.pluginId}-${entry.type}`
-            );
-
-            if (matchingEntry) {
-              return `assets/${matchingEntry.outputPath}`;
-            }
-
-            // Default output for other chunks
-            return 'assets/[name]-[hash].js';
-          },
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]',
-          // Preserve the module format
-          format: 'es'
-        },
-        // Add preserveEntrySignatures to ensure exports are preserved
-        preserveEntrySignatures: 'strict'
-      }
+      sourcemap: true
     },
     resolve: {
       alias: {

@@ -1,142 +1,132 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { PluginId, PluginConfig, ExtendedPluginStatus } from '../types';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import pluginManager from '../pluginManager';
-import eventBus from '../../../events';
+import { PluginConfig, PluginId } from '../types';
+import { Environment } from '../../../features/default/environment';
+import { pluginContextLogger } from '../utils/logger';
 
-export interface PluginContextType {
-    // Plugin system state
+interface PluginContextState {
+    loadedPlugins: PluginConfig[];
     isInitialized: boolean;
     isLoading: boolean;
-    loadedPlugins: PluginConfig[];
-    activePluginIds: PluginId[];
-
-    // Plugin actions
+    error: Error | null;
     initializePlugins: () => Promise<void>;
-    loadPlugin: (pluginId: PluginId, isInternal?: boolean) => Promise<PluginConfig | null>;
-    registerPlugin: (pluginId: PluginId) => Promise<boolean>;
-    approvePlugin: (pluginId: PluginId) => Promise<boolean>;
-    executePlugin: (pluginId: PluginId) => Promise<boolean>;
-    stopPlugin: (pluginId: PluginId, reason?: 'user' | 'system' | 'error') => Promise<boolean>;
-    unregisterPlugin: (pluginId: PluginId, reason?: string) => Promise<boolean>;
-    setupPlugin: (pluginId: PluginId, isInternal?: boolean) => Promise<boolean>;
-
-    // Plugin status
-    isPluginActive: (pluginId: PluginId) => boolean;
-    getPluginStatus: (pluginId: PluginId) => Promise<ExtendedPluginStatus>;
+    executePlugin: (pluginId: PluginId, environmentId: number) => Promise<boolean>;
 }
 
-export const PluginContext = createContext<PluginContextType | undefined>(undefined);
+export const PluginContext = createContext<PluginContextState>({
+    loadedPlugins: [],
+    isInitialized: false,
+    isLoading: false,
+    error: null,
+    initializePlugins: async () => { },
+    executePlugin: async () => false,
+});
 
-export interface PluginProviderProps {
-    children: React.ReactNode;
+interface PluginProviderProps {
+    children: ReactNode;
+    environment: Environment | null;
 }
 
-export const PluginProvider: React.FC<PluginProviderProps> = ({ children }) => {
-    const [isInitialized, setIsInitialized] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+export const PluginProvider: React.FC<PluginProviderProps> = ({ children, environment }) => {
+    pluginContextLogger('Creating PluginProvider, environment: %o', environment?.id || 'none');
+    
     const [loadedPlugins, setLoadedPlugins] = useState<PluginConfig[]>([]);
-    const [activePluginIds, setActivePluginIds] = useState<PluginId[]>([]);
+    const [isInitialized, setIsInitialized] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<Error | null>(null);
 
-    // Initialize plugin system
-    const initializePlugins = async (): Promise<void> => {
-        if (isInitialized) {
+    // Initialize plugins system
+    const initializePlugins = async () => {
+        if (isInitialized || isLoading) {
+            pluginContextLogger('Skipping initialization: already %s', isInitialized ? 'initialized' : 'loading');
             return;
         }
 
-        try {
-            setIsLoading(true);
+        pluginContextLogger('Initializing plugin system');
+        setIsLoading(true);
+        setError(null);
 
+        try {
             // Initialize the plugin system
+            pluginContextLogger('Calling pluginManager.initialize()');
             await pluginManager.initialize();
 
-            // Get loaded plugins
-            setLoadedPlugins(pluginManager.getLoadedPlugins());
-
-            // Get active plugin IDs
-            setActivePluginIds(pluginManager.getActivePluginIds());
+            // Get all loaded plugins
+            pluginContextLogger('Getting loaded plugins');
+            const plugins = pluginManager.getLoadedPlugins();
+            setLoadedPlugins(plugins);
 
             setIsInitialized(true);
-        } catch (error) {
-            console.error('Failed to initialize plugins:', error);
+            pluginContextLogger('Plugin system initialized with %d plugins', plugins.length);
+        } catch (err) {
+            const error = err instanceof Error ? err : new Error('Failed to initialize plugins');
+            pluginContextLogger('Error initializing plugins: %o', error);
+            setError(error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Listen for plugin events to keep state updated
+    // Execute all internal plugins when environment changes
     useEffect(() => {
-        const onPluginRegistered = () => {
-            setLoadedPlugins(pluginManager.getLoadedPlugins());
+        if (!isInitialized || !environment) {
+            pluginContextLogger('Skipping internal plugin execution: initialized=%s, environment=%s', 
+                        isInitialized, environment?.id || 'none');
+            return;
+        }
+
+        const executeInternalPlugins = async () => {
+            pluginContextLogger('Executing internal plugins for environment %d', environment.id);
+            try {
+                const executedCount = await pluginManager.executeAllInternalPlugins(environment.id);
+                pluginContextLogger('Executed %d internal plugins for environment %d', executedCount, environment.id);
+            } catch (err) {
+                pluginContextLogger('Error executing internal plugins for environment %d: %o', environment.id, err);
+            }
         };
 
-        const onPluginWorkerStarted = () => {
-            setActivePluginIds(pluginManager.getActivePluginIds());
-        };
+        executeInternalPlugins();
+    }, [isInitialized, environment]);
 
-        const onPluginWorkerStopped = () => {
-            setActivePluginIds(pluginManager.getActivePluginIds());
-        };
-
-        // Subscribe to events
-        eventBus.on('pluginRegistered', onPluginRegistered);
-        eventBus.on('pluginWorkerStarted', onPluginWorkerStarted);
-        eventBus.on('pluginWorkerStopped', onPluginWorkerStopped);
-
-        // Clean up event listeners
+    // Auto-initialize plugins on mount
+    useEffect(() => {
+        pluginContextLogger('PluginProvider mounted, initialized=%s, loading=%s', isInitialized, isLoading);
+        if (!isInitialized && !isLoading) {
+            pluginContextLogger('Auto-initializing plugins on mount');
+            initializePlugins();
+        }
+        
         return () => {
-            eventBus.off('pluginRegistered', onPluginRegistered);
-            eventBus.off('pluginWorkerStarted', onPluginWorkerStarted);
-            eventBus.off('pluginWorkerStopped', onPluginWorkerStopped);
+            pluginContextLogger('PluginProvider unmounting');
         };
     }, []);
 
-    // Clean up on unmount
-    useEffect(() => {
-        return () => {
-            // Shutdown the plugin system when the component unmounts
-            pluginManager.shutdown().catch(error => {
-                console.error('Error shutting down plugin system:', error);
-            });
-        };
-    }, []);
-
-    // Context value - all functions are delegated to the pluginManager
-    const contextValue: PluginContextType = {
-        // State
-        isInitialized: isInitialized,
-        isLoading,
-        loadedPlugins,
-        activePluginIds,
-
-        // Actions - delegating to pluginManager
-        initializePlugins,
-        loadPlugin: (pluginId, isInternal = true) => pluginManager.loadPlugin(pluginId, isInternal),
-        registerPlugin: (pluginId) => pluginManager.registerPlugin(pluginId),
-        approvePlugin: (pluginId) => pluginManager.approvePlugin(pluginId),
-        executePlugin: (pluginId) => pluginManager.executePlugin(pluginId),
-        stopPlugin: (pluginId, reason = 'user') => pluginManager.stopPlugin(pluginId, reason),
-        unregisterPlugin: (pluginId, reason) => pluginManager.unregisterPlugin(pluginId, reason),
-        setupPlugin: (pluginId, isInternal = true) => pluginManager.setupPlugin(pluginId, isInternal),
-
-        // Status
-        isPluginActive: (pluginId) => pluginManager.isPluginActive(pluginId),
-        getPluginStatus: (pluginId) => pluginManager.getPluginStatus(pluginId),
+    // Execute a specific plugin
+    const executePlugin = async (pluginId: PluginId, environmentId: number) => {
+        pluginContextLogger('Executing plugin %s in environment %d', pluginId, environmentId);
+        try {
+            const success = await pluginManager.executePlugin(pluginId, environmentId);
+            pluginContextLogger('Plugin %s execution %s', pluginId, success ? 'succeeded' : 'failed');
+            return success;
+        } catch (err) {
+            pluginContextLogger('Error executing plugin %s: %o', pluginId, err);
+            return false;
+        }
     };
 
-    return (
-        <PluginContext.Provider value={contextValue}>
-            {children}
-        </PluginContext.Provider>
-    );
+    const value = {
+        loadedPlugins,
+        isInitialized,
+        isLoading,
+        error,
+        initializePlugins,
+        executePlugin,
+    };
+
+    pluginContextLogger('Rendering PluginProvider with %d plugins', loadedPlugins.length);
+    return <PluginContext.Provider value={value}>{children}</PluginContext.Provider>;
 };
 
-// Custom hook for using the plugin context
-export const usePlugins = (): PluginContextType => {
-    const context = useContext(PluginContext);
-    if (!context) {
-        throw new Error('usePlugins must be used within a PluginProvider');
-    }
-    return context;
-};
+export const usePlugins = () => useContext(PluginContext);
 
 export default PluginProvider;

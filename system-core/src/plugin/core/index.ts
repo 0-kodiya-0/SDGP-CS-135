@@ -15,7 +15,6 @@ export {
     usePlugins,
     PluginContext
 } from './context/pluginContext';
-export type { PluginContextType } from './context/pluginContext';
 
 // UI components
 export { default as PluginManagerUI } from './ui/PluginManagerUI';

@@ -1,4 +1,7 @@
 import { FileMetadata, FileEntry, FileReadOptions, MemoryProvider } from '../types';
+import { filesLogger } from '../../logger';
+
+const memoryLogger = filesLogger.extend('memory');
 
 /**
  * Implements an in-memory file system provider for temporary file storage
@@ -6,6 +9,10 @@ import { FileMetadata, FileEntry, FileReadOptions, MemoryProvider } from '../typ
 export class MemoryFileSystemProvider implements MemoryProvider {
     readonly name = 'memory';
     private files: Map<string, FileEntry> = new Map<string, FileEntry>();
+
+    constructor() {
+        memoryLogger('MemoryFileSystemProvider initialized');
+    }
 
     /**
      * Generates a unique ID for a file
@@ -96,18 +103,23 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving to an ArrayBuffer
      */
     private async readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+        memoryLogger('Reading file as ArrayBuffer: %s', file.name);
         return new Promise<ArrayBuffer>((resolve, reject) => {
             const reader = new FileReader();
 
             reader.onload = () => {
                 if (reader.result instanceof ArrayBuffer) {
+                    memoryLogger('Successfully read file as ArrayBuffer: %s (%d bytes)', 
+                                file.name, reader.result.byteLength);
                     resolve(reader.result);
                 } else {
+                    memoryLogger('Failed to read file as ArrayBuffer: %s', file.name);
                     reject(new Error('Failed to read file as ArrayBuffer'));
                 }
             };
 
             reader.onerror = () => {
+                memoryLogger('Error reading file: %s', file.name);
                 reject(new Error('Error reading file'));
             };
 
@@ -127,14 +139,19 @@ export class MemoryFileSystemProvider implements MemoryProvider {
             let content: ArrayBuffer;
 
             if (file instanceof File) {
+                memoryLogger('Storing File object in memory: %s (%s, %d bytes)', 
+                            file.name, file.type, file.size);
                 content = await this.readFileAsArrayBuffer(file);
                 fileMetadata = this.createFileMetadata(file);
             } else {
                 // If direct ArrayBuffer, require metadata with at least name and type
                 if (!metadata || !metadata.name) {
+                    memoryLogger('Missing name when storing ArrayBuffer content');
                     throw new Error('Filename is required when storing ArrayBuffer content');
                 }
 
+                memoryLogger('Storing ArrayBuffer in memory: %s (%s, %d bytes)', 
+                            metadata.name, metadata.type || 'unknown', file.byteLength);
                 content = file;
                 const type = metadata.type || this.getTypeFromName(metadata.name);
 
@@ -156,9 +173,10 @@ export class MemoryFileSystemProvider implements MemoryProvider {
                 content
             });
 
+            memoryLogger('File stored in memory with ID: %s', fileMetadata.id);
             return fileMetadata;
         } catch (error) {
-            console.error('Error storing file:', error);
+            memoryLogger('Error storing file: %o', error);
             throw new Error('Failed to store file in memory');
         }
     }
@@ -169,12 +187,16 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving to the file entry
      */
     async readFile(fileId: string): Promise<FileEntry> {
+        memoryLogger('Reading file from memory: %s', fileId);
         const fileEntry = this.files.get(fileId);
 
         if (!fileEntry) {
+            memoryLogger('File not found in memory: %s', fileId);
             throw new Error(`File with ID ${fileId} not found in memory`);
         }
 
+        memoryLogger('Successfully read file from memory: %s (%s, %d bytes)', 
+                    fileId, fileEntry.metadata.name, fileEntry.metadata.size);
         return fileEntry;
     }
 
@@ -186,12 +208,17 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      */
     async readFileAsText(fileId: string, options?: FileReadOptions): Promise<string> {
         const encoding = options?.encoding || 'utf-8';
+        memoryLogger('Reading file as text: %s (encoding: %s)', fileId, encoding);
+        
         const fileEntry = await this.readFile(fileId);
 
         try {
-            return new TextDecoder(encoding).decode(fileEntry.content);
+            const text = new TextDecoder(encoding).decode(fileEntry.content);
+            memoryLogger('Successfully read file as text: %s (%d characters)', 
+                        fileId, text.length);
+            return text;
         } catch (error) {
-            console.error('Error decoding file as text:', error);
+            memoryLogger('Error decoding file as text: %s, %o', fileId, error);
             throw new Error(`Failed to decode file as text with encoding ${encoding}`);
         }
     }
@@ -202,11 +229,15 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving once the file is deleted
      */
     async deleteFile(fileId: string): Promise<void> {
+        memoryLogger('Deleting file from memory: %s', fileId);
+        
         if (!this.files.has(fileId)) {
+            memoryLogger('File not found for deletion: %s', fileId);
             throw new Error(`File with ID ${fileId} not found in memory`);
         }
 
         this.files.delete(fileId);
+        memoryLogger('File deleted from memory: %s', fileId);
     }
 
     /**
@@ -214,7 +245,10 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving to an array of file metadata
      */
     async listFiles(): Promise<FileMetadata[]> {
-        return Array.from(this.files.values()).map(file => file.metadata);
+        memoryLogger('Listing all files in memory');
+        const files = Array.from(this.files.values()).map(file => file.metadata);
+        memoryLogger('Found %d files in memory', files.length);
+        return files;
     }
 
     /**
@@ -223,7 +257,10 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving to a boolean indicating if the file exists
      */
     async hasFile(fileId: string): Promise<boolean> {
-        return this.files.has(fileId);
+        memoryLogger('Checking if file exists in memory: %s', fileId);
+        const exists = this.files.has(fileId);
+        memoryLogger('File %s exists in memory: %s', fileId, exists);
+        return exists;
     }
 
     /**
@@ -233,9 +270,12 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving to the updated metadata
      */
     async updateFileMetadata(fileId: string, metadata: Partial<FileMetadata>): Promise<FileMetadata> {
+        memoryLogger('Updating metadata for file: %s', fileId);
+        
         const fileEntry = this.files.get(fileId);
 
         if (!fileEntry) {
+            memoryLogger('File not found for metadata update: %s', fileId);
             throw new Error(`File with ID ${fileId} not found in memory`);
         }
 
@@ -248,6 +288,7 @@ export class MemoryFileSystemProvider implements MemoryProvider {
         fileEntry.metadata = updatedMetadata;
         this.files.set(fileId, fileEntry);
 
+        memoryLogger('Metadata updated for file: %s', fileId);
         return updatedMetadata;
     }
 
@@ -256,6 +297,8 @@ export class MemoryFileSystemProvider implements MemoryProvider {
      * @returns Promise resolving once all files are cleared
      */
     async clearAll(): Promise<void> {
+        memoryLogger('Clearing all files from memory (%d files)', this.files.size);
         this.files.clear();
+        memoryLogger('All files cleared from memory');
     }
 }

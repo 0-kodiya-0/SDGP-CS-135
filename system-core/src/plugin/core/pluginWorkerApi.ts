@@ -1,15 +1,15 @@
-// src/plugin/core/pluginWorkerApi.ts
 import { PluginStatus } from "./types";
+import { PluginMessage } from "./types.message";
 
 /**
- * PluginWorkerAPI - Interface defining the contract between the system and plugin workers
+ * PluginWorkerAPI - Interface defining the contract between the system and plugin components
  * 
- * This interface must be implemented by all plugin background scripts to enable
- * communication with the plugin system.
+ * This interface must be implemented by all plugin components (background scripts, views)
+ * to enable communication with the plugin system.
  */
 export interface PluginWorkerAPI {
     /**
-     * Initialize the plugin worker
+     * Initialize the plugin component
      * Called when the plugin is first loaded
      * 
      * @returns A promise that resolves when initialization is complete
@@ -18,7 +18,7 @@ export interface PluginWorkerAPI {
 
     /**
      * Prepare for termination and clean up resources
-     * Called before the worker is terminated by the system
+     * Called before the component is terminated by the system
      * 
      * @returns A promise that resolves when cleanup is complete
      */
@@ -32,48 +32,12 @@ export interface PluginWorkerAPI {
     getStatus(): Promise<PluginStatus>;
 
     /**
-     * Handle a message from the system
-     * Optional method for plugins that want to receive messages
+     * Handle a message from the system or other plugin components
+     * Required for all plugin components to support messaging
      * 
-     * @param type Message type
-     * @param payload Message data
+     * @param type Message topic/type
+     * @param message Full message object with payload
      * @returns A promise that resolves when the message has been processed
      */
-    handleMessage?<T>(type: string, payload: T): Promise<void>;
-}
-
-/**
- * Default implementation of the PluginWorkerAPI for fallback/error cases
- */
-export class DefaultPluginWorkerAPI implements PluginWorkerAPI {
-    private error?: Error;
-    private pluginId: string;
-    private pluginStatus: PluginStatus;
-
-    constructor(pluginId: string, error?: Error) {
-        this.pluginId = pluginId;
-        this.error = error;
-        this.pluginStatus = {
-            isActive: !error,
-            version: '0.0.0',
-            features: [],
-            lastError: error?.message
-        };
-    }
-
-    async initialize(): Promise<void> {
-        if (this.error) {
-            throw this.error;
-        }
-        console.warn(`Default implementation of initialize() called for plugin ${this.pluginId}`);
-    }
-
-    async terminate(): Promise<void> {
-        console.warn(`Default implementation of terminate() called for plugin ${this.pluginId}`);
-        return Promise.resolve();
-    }
-
-    async getStatus(): Promise<PluginStatus> {
-        return this.pluginStatus;
-    }
+    handleMessage<T>(type: string, message: PluginMessage<T>): Promise<void>;
 }

@@ -1,6 +1,6 @@
-import { Environment } from "../../features/default/environment/types/data";
-import { TabView, Tab } from "../../features/required/tab_view/types/data";
-import { OsType, DeviceType, LocalAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "../../features/default/user_account/types/data.types";
+import { Environment } from "../../features/default/environment/types/types.data";
+import { TabView, Tab } from "../../features/required/tab_view/types/types.data";
+import { OsType, DeviceType, LocalAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "../../features/default/user_account/types/types.data";
 
 // Helper to create a device object
 const createMockDevice = (id: string, osType: OsType, deviceType: DeviceType) => {

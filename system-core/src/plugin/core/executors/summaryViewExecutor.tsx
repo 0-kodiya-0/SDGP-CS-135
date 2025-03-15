@@ -2,20 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Comlink from 'comlink';
 import { PluginId, PluginConfig, PermissionObject } from '../types';
 import { PluginUiDisplayEvent, PluginWorkerErrorEvent } from '../types.event';
-import { createPluginWorkerApi } from '../pluginApi';
+import createPluginApi from '../pluginApi';
 import pluginClient from '../api/pluginClientApi';
 import pluginRegistry from '../pluginRegistry';
 import eventBus from '../../../events';
 import { PluginExecutionError } from '../types.error';
-import pluginMessageBus from '../pluginMessageBus';
 import { MessageTarget } from '../types.message';
+import { PluginWorkerAPI } from '../pluginWorkerApi';
+import { validatePluginWorkerAPI } from '../utils/validatePluginWorkerAPI';
+import PluginErrorBoundary from '../ui/PluginErrorBoundary';
+import { pluginExecutorsLogger } from '../utils/logger';
+
+const summaryLogger = pluginExecutorsLogger.extend('summary');
 
 interface SummaryViewProps {
     pluginId: PluginId;
     config: PluginConfig;
     permissions: PermissionObject;
-    onClose: () => void;
     viewId?: string; // Optional custom view ID
+    environmentId: number;
 }
 
 /**
@@ -26,25 +31,40 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
     pluginId,
     config,
     permissions,
-    onClose,
-    viewId: propViewId
+    viewId: propViewId,
+    environmentId
 }) => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     // Generate a unique view ID if not provided
     const [viewId] = useState(() => propViewId || `summary-${pluginId}-${Date.now()}`);
+    const [iframeLoaded, setIframeLoaded] = useState(false);
+    const [viewProxy, setViewProxy] = useState<Comlink.Remote<PluginWorkerAPI> | null>(null);
+
+    // Log component mount with important details
+    useEffect(() => {
+        summaryLogger('Mounting summary view for plugin %s (viewId: %s, environment: %d)', 
+                     pluginId, viewId, environmentId);
+        
+        return () => {
+            summaryLogger('Unmounting summary view for plugin %s (viewId: %s)', pluginId, viewId);
+        };
+    }, [pluginId, viewId, environmentId]);
 
     useEffect(() => {
         let unmounted = false;
 
         const loadView = async () => {
             try {
+                if (unmounted) return;
+
                 setLoading(true);
                 setError(null);
 
                 // Check if the plugin has a summary view
                 if (!config.view?.summary?.entryPoint) {
+                    summaryLogger('Plugin %s does not have a summary view entry point', pluginId);
                     throw new Error(`Plugin ${pluginId} does not have a summary view entry point`);
                 }
 
@@ -56,16 +76,7 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
                     isInternal
                 );
 
-                // When the iframe loads, we'll set up the communication
-                if (!unmounted && iframeRef.current) {
-                    iframeRef.current.onload = () => {
-                        setupIframeApi(iframeRef.current!, pluginId, config, permissions);
-                        setLoading(false);
-
-                        // Register the view with the registry
-                        pluginRegistry.registerView(pluginId, viewId, 'summary', iframeRef.current!);
-                    };
-                }
+                summaryLogger('Loading summary view for plugin %s from %s', pluginId, viewUrl);
 
                 // Emit event that a plugin UI is being displayed with the actual URL
                 eventBus.emit('pluginUiDisplay', {
@@ -75,13 +86,14 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
                     uiPath: viewUrl,
                     timestamp: Date.now()
                 } as PluginUiDisplayEvent);
-                
             } catch (err) {
+                if (unmounted) return;
+
                 const viewError = new PluginExecutionError(
                     `Error loading summary view: ${err instanceof Error ? err.message : String(err)}`,
                     pluginId
                 );
-                console.error(viewError);
+                summaryLogger('Error loading summary view for plugin %s: %o', pluginId, viewError);
                 setError(viewError.message);
                 setLoading(false);
 
@@ -99,51 +111,98 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
         return () => {
             unmounted = true;
 
+            // Properly terminate the view proxy if it exists
+            if (viewProxy) {
+                try {
+                    summaryLogger('Terminating view proxy for plugin %s (viewId: %s)', pluginId, viewId);
+                    viewProxy.terminate().catch(err => {
+                        summaryLogger('Error terminating summary view %s: %o', viewId, err);
+                    });
+                } catch (err) {
+                    summaryLogger('Failed to call terminate on summary view %s: %o', viewId, err);
+                }
+            }
+
             // Unregister the view from the registry when component unmounts
+            summaryLogger('Unregistering summary view %s for plugin %s', viewId, pluginId);
             pluginRegistry.unregisterView(pluginId, viewId);
         };
-    }, [pluginId, config, permissions, viewId]);
+    }, [pluginId, config, viewId, environmentId, viewProxy]); // Add viewProxy to dependencies
+
+    // Handle iframe onLoad event
+    const handleIframeLoad = () => {
+        if (!iframeRef.current) return;
+
+        summaryLogger('Summary view iframe loaded for plugin %s (viewId: %s)', pluginId, viewId);
+        setIframeLoaded(true);
+        setLoading(false);
+
+        // Setup API and register the view after iframe is loaded
+        setupIframeApi(iframeRef.current);
+    };
 
     // Set up communication with the iframe
-    const setupIframeApi = (
-        iframe: HTMLIFrameElement,
-        pluginId: string,
-        config: PluginConfig,
-        permissions: PermissionObject
-    ) => {
+    const setupIframeApi = (iframe: HTMLIFrameElement) => {
         try {
             if (!iframe.contentWindow) {
-                console.error('No contentWindow available in iframe');
+                summaryLogger('No contentWindow available in iframe for plugin %s', pluginId);
                 return;
             }
 
-            // Create plugin API
-            const pluginApi = createPluginWorkerApi(
-                pluginId,
-                config.name || pluginId,
-                permissions
+            summaryLogger('Setting up API for summary view %s of plugin %s', viewId, pluginId);
+            
+            // Get current tab state if any
+            const initialState: Record<string, unknown> = {};
+
+            // Create serializable plugin API with SUMMARY source type
+            summaryLogger('Creating plugin API for summary view %s', viewId);
+            const pluginApi = createPluginApi(
+                config,
+                environmentId,
+                initialState,
+                MessageTarget.SUMMARY // Specify the source type as SUMMARY
             );
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const sendMessageFunction = (target: string, topic: string, payload: any) => {
-                return pluginMessageBus.sendMessage(
-                    pluginId,
-                    MessageTarget.SUMMARY,
-                    target,
-                    topic,
-                    payload
-                );
-            };
-
             // Expose the plugin API to the iframe
+            summaryLogger('Exposing API to iframe for summary view %s', viewId);
             Comlink.expose(
-                { sendMessage: sendMessageFunction },
+                pluginApi,
                 Comlink.windowEndpoint(iframe.contentWindow)
             );
 
-            console.log(`API exposed to summary view for plugin ${pluginId}`);
+            // Create a Comlink proxy to the iframe for PluginWorkerAPI
+            summaryLogger('Creating Comlink proxy for summary view %s', viewId);
+            const proxy = Comlink.wrap<PluginWorkerAPI>(
+                Comlink.windowEndpoint(iframe.contentWindow)
+            );
+
+            // Store the proxy for later use
+            setViewProxy(proxy);
+
+            // Validate and initialize the view
+            summaryLogger('Validating and initializing summary view %s', viewId);
+            validatePluginWorkerAPI(proxy, pluginId, 'Summary view')
+                .then(() => {
+                    summaryLogger('API validation successful for summary view %s', viewId);
+                    return proxy.initialize();
+                })
+                .then(() => {
+                    summaryLogger('Summary view %s initialized successfully', viewId);
+
+                    // Register the view with the registry including the proxy
+                    summaryLogger('Registering summary view %s with registry', viewId);
+                    pluginRegistry.registerView(pluginId, viewId, 'summary', proxy, iframe);
+                })
+                .catch(error => {
+                    summaryLogger('Failed to validate or initialize summary view %s: %o', viewId, error);
+                    eventBus.emit('pluginWorkerError', {
+                        pluginId,
+                        error: `Failed to initialize summary view: ${error}`,
+                        timestamp: Date.now()
+                    } as PluginWorkerErrorEvent);
+                });
         } catch (error) {
-            console.error(`Failed to set up API for summary view of plugin ${pluginId}:`, error);
+            summaryLogger('Failed to set up API for summary view of plugin %s: %o', pluginId, error);
         }
     };
 
@@ -161,46 +220,53 @@ export const SummaryViewExecutor: React.FC<SummaryViewProps> = ({
         );
     };
 
-    const handleClose = () => {
-        // Unregister the view from the registry before closing
-        pluginRegistry.unregisterView(pluginId, viewId);
-        onClose();
-    };
-
     if (error) {
+        summaryLogger('Rendering error state for summary view %s: %s', viewId, error);
         return (
-            <div className="plugin-error" data-plugin-id={pluginId} data-view-type="summary" data-view-id={viewId}>
-                <div className="plugin-error-content">
-                    <h3>Error Loading Plugin</h3>
-                    <p>{error}</p>
-                    <button onClick={handleClose}>Close</button>
-                </div>
+            <div
+                className="bg-red-50 text-red-700 p-4"
+                data-plugin-id={pluginId}
+                data-view-type="summary"
+                data-view-id={viewId}
+            >
+                {error}
             </div>
         );
     }
 
+    summaryLogger('Rendering summary view %s iframe', viewId);
     return (
-        <div className="plugin-view-container" data-plugin-id={pluginId} data-view-type="summary" data-view-id={viewId}>
-            {loading && (
-                <div className="plugin-loading">
-                    <div className="loading-spinner"></div>
-                    <p>Loading plugin...</p>
+        <PluginErrorBoundary
+            pluginId={pluginId}
+            viewType="summary"
+            fallback={
+                <div
+                    className="bg-red-50 text-red-700 p-4"
+                    data-plugin-id={pluginId}
+                    data-view-type="summary"
+                    data-view-id={viewId}
+                >
+                    An error occurred in the summary view. Please try reloading.
                 </div>
-            )}
-            <iframe
-                ref={iframeRef}
-                src={getIframeSrc()}
-                title={`Plugin: ${config.name || pluginId} (Summary View)`}
-                className="plugin-iframe plugin-summary-view"
-                sandbox="allow-scripts allow-same-origin"
-                allow="clipboard-read; clipboard-write"
-            />
-            <div className="plugin-controls">
-                <button className="plugin-close-btn" onClick={handleClose}>
-                    Close
-                </button>
+            }
+        >
+            <div className="w-full h-full relative">
+                {loading && !iframeLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+                        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                )}
+                <iframe
+                    ref={iframeRef}
+                    src={getIframeSrc()}
+                    title={`Plugin: ${config.name || pluginId} (Summary View)`}
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    allow="clipboard-read; clipboard-write"
+                    onLoad={handleIframeLoad}
+                />
             </div>
-        </div>
+        </PluginErrorBoundary>
     );
 };
 

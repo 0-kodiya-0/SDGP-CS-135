@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { ErrorViewProps } from "../types/props.ts";
+import { ErrorViewProps } from "../types/types.props.ts";
 
 export const ErrorView = ({ getSliderStyle, onClick, error }: ErrorViewProps) => (
     <div className="fixed inset-0 z-50" onClick={onClick}>

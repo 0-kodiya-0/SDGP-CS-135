@@ -1,16 +1,14 @@
 import { Menu, Settings, UserCircle } from 'lucide-react';
 import { NavbarSearch } from '../../features/shared/search';
 import { EnvironmentButton } from '../../features/default/environment';
-import { Environment } from '../../features/default/environment/types/data';
-import { LocalAccount, OAuthAccount } from '../../features/default/user_account/types/data.types';
+import { LocalAccount, OAuthAccount } from '../../features/default/user_account/types/types.data';
 import { AccountPopup, usePopup, UserAvatar } from '../../features/default/user_account';
 
 interface NavbarProps {
-  activeEnvironment: Environment | null;
   activeAccount: LocalAccount | OAuthAccount;
 }
 
-export function Navbar({ activeEnvironment, activeAccount }: NavbarProps) {
+export function Navbar({ activeAccount }: NavbarProps) {
   const accountPopup = usePopup();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -29,7 +27,7 @@ export function Navbar({ activeEnvironment, activeAccount }: NavbarProps) {
 
         {/* Environment section - aligns with ProjectList */}
         <div className={'w-64 border-x flex items-center h-full transition-all duration-200 ease-in-out'}>
-          <EnvironmentButton activeEnvironment={activeEnvironment} activeAccount={activeAccount} />
+          <EnvironmentButton activeAccount={activeAccount} />
         </div>
 
         {/* Main content section */}

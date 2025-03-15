@@ -1,6 +1,11 @@
 import { useRef, useEffect, useState } from "react";
-import { useUpdateEnvironment } from "../hooks/useEnvironments.ts";
-import { UpdateEnvironmentInputProps } from "../types/props.ts";
+import { useEnvironmentStore } from "../store";
+import { Environment } from "../types/types.data";
+
+export interface UpdateEnvironmentInputProps {
+    activeEnvironment: Environment;
+    onCancel: () => void;
+}
 
 export const UpdateEnvironmentInput: React.FC<UpdateEnvironmentInputProps> = ({
     activeEnvironment,
@@ -11,7 +16,7 @@ export const UpdateEnvironmentInput: React.FC<UpdateEnvironmentInputProps> = ({
     const [isLoading, setIsLoading] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
-    const updateEnvironment = useUpdateEnvironment(activeEnvironment.id);
+    const updateEnvironment = useEnvironmentStore(state => state.updateEnvironment);
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -34,12 +39,8 @@ export const UpdateEnvironmentInput: React.FC<UpdateEnvironmentInputProps> = ({
         setIsLoading(true);
 
         try {
-            await updateEnvironment.mutateAsync({
-                id: activeEnvironment.id,
-                data: {
-                    name: trimmedName,
-                    status: activeEnvironment.status
-                }
+            updateEnvironment(activeEnvironment.id, {
+                name: trimmedName
             });
             onCancel();
         } catch (error) {

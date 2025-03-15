@@ -3,6 +3,7 @@ import pluginRegistry from "./pluginRegistry";
 import { PluginId, RegisteredPlugin } from "./types";
 import { PluginMessageEvent } from "./types.event";
 import { PluginMessage, MessageTarget } from "./types.message";
+import { pluginMessageLogger } from "./utils/logger";
 
 /**
  * Plugin Message Bus - Simple messaging system for plugin components
@@ -14,10 +15,7 @@ export class PluginMessageBus {
     private static instance: PluginMessageBus;
 
     private constructor() {
-        console.log('Plugin message bus initialized');
-
-        // Listen for messages from views (via window.postMessage)
-        window.addEventListener('message', this.handleWindowMessage.bind(this));
+        pluginMessageLogger('Plugin message bus initialized');
     }
 
     /**
@@ -50,7 +48,7 @@ export class PluginMessageBus {
         try {
             // Verify plugin exists in registry
             if (!pluginRegistry.isPluginRegistered(pluginId)) {
-                console.error(`Cannot send message: Plugin ${pluginId} is not registered`);
+                pluginMessageLogger('Cannot send message: Plugin %s is not registered', pluginId);
                 return false;
             }
 
@@ -64,6 +62,9 @@ export class PluginMessageBus {
                 payload,
                 timestamp: Date.now()
             };
+
+            pluginMessageLogger('Sending message: plugin=%s, topic=%s, source=%s, target=%s',
+                pluginId, topic, source, target);
 
             // Emit event for monitoring
             eventBus.emit('pluginMessage', {
@@ -79,7 +80,7 @@ export class PluginMessageBus {
             // Deliver the message to appropriate target(s)
             return await this.deliverMessage(message);
         } catch (error) {
-            console.error(`Error sending message for plugin ${pluginId}:`, error);
+            pluginMessageLogger('Error sending message for plugin %s: %o', pluginId, error);
             return false;
         }
     }
@@ -95,7 +96,7 @@ export class PluginMessageBus {
         const plugin = pluginRegistry.getPlugin(pluginId);
 
         if (!plugin) {
-            console.error(`Cannot deliver message: Plugin ${pluginId} not found in registry`);
+            pluginMessageLogger('Cannot deliver message: Plugin %s not found in registry', pluginId);
             return false;
         }
 
@@ -123,15 +124,17 @@ export class PluginMessageBus {
     private async deliverToBackground<T>(message: PluginMessage<T>, plugin: RegisteredPlugin): Promise<boolean> {
         if (!plugin.activeBackground?.proxy?.handleMessage ||
             typeof plugin.activeBackground.proxy.handleMessage !== 'function') {
-            console.warn(`Cannot deliver message to background: Plugin ${message.pluginId} has no active background worker or no handleMessage method`);
+            pluginMessageLogger('Cannot deliver message to background: Plugin %s has no active background worker', message.pluginId);
             return false;
         }
 
         try {
+            pluginMessageLogger('Delivering message to background: plugin=%s, topic=%s',
+                message.pluginId, message.topic);
             await plugin.activeBackground.proxy.handleMessage(message.topic, message);
             return true;
         } catch (error) {
-            console.error(`Error delivering message to background for plugin ${message.pluginId}:`, error);
+            pluginMessageLogger('Error delivering message to background for plugin %s: %o', message.pluginId, error);
             return false;
         }
     }
@@ -143,24 +146,28 @@ export class PluginMessageBus {
         const views = plugin.activeViews.filter(view => view.type === viewType);
 
         if (views.length === 0) {
-            console.warn(`Cannot deliver message to ${viewType} views: Plugin ${message.pluginId} has no active ${viewType} views`);
+            pluginMessageLogger('Cannot deliver message to %s views: Plugin %s has no active %s views',
+                viewType, message.pluginId, viewType);
             return false;
         }
+
+        pluginMessageLogger('Delivering message to %d %s views: plugin=%s, topic=%s',
+            views.length, viewType, message.pluginId, message.topic);
 
         let success = true;
 
         for (const view of views) {
+            if (!view?.proxy?.handleMessage || typeof view.proxy.handleMessage !== 'function') {
+                pluginMessageLogger('View %s has no handleMessage method', view.id);
+                success = false;
+                continue;
+            }
+
             try {
-                if (view.iframe?.contentWindow) {
-                    view.iframe.contentWindow.postMessage({
-                        pluginMessage: message
-                    }, '*');
-                } else {
-                    console.warn(`View ${view.id} has no contentWindow`);
-                    success = false;
-                }
+                await view.proxy.handleMessage(message.topic, message);
             } catch (error) {
-                console.error(`Error delivering message to view ${view.id} for plugin ${message.pluginId}:`, error);
+                pluginMessageLogger('Error delivering message to view %s for plugin %s: %o',
+                    view.id, message.pluginId, error);
                 success = false;
             }
         }
@@ -173,24 +180,27 @@ export class PluginMessageBus {
      */
     private async deliverToAllViews<T>(message: PluginMessage<T>, plugin: RegisteredPlugin): Promise<boolean> {
         if (plugin.activeViews.length === 0) {
-            console.warn(`Cannot deliver message to views: Plugin ${message.pluginId} has no active views`);
+            pluginMessageLogger('Cannot deliver message to views: Plugin %s has no active views', message.pluginId);
             return false;
         }
+
+        pluginMessageLogger('Delivering message to all %d views: plugin=%s, topic=%s',
+            plugin.activeViews.length, message.pluginId, message.topic);
 
         let success = true;
 
         for (const view of plugin.activeViews) {
+            if (!view?.proxy?.handleMessage || typeof view.proxy.handleMessage !== 'function') {
+                pluginMessageLogger('View %s has no handleMessage method', view.id);
+                success = false;
+                continue;
+            }
+
             try {
-                if (view.iframe?.contentWindow) {
-                    view.iframe.contentWindow.postMessage({
-                        pluginMessage: message
-                    }, '*');
-                } else {
-                    console.warn(`View ${view.id} has no contentWindow`);
-                    success = false;
-                }
+                await view.proxy.handleMessage(message.topic, message);
             } catch (error) {
-                console.error(`Error delivering message to view ${view.id} for plugin ${message.pluginId}:`, error);
+                pluginMessageLogger('Error delivering message to view %s for plugin %s: %o',
+                    view.id, message.pluginId, error);
                 success = false;
             }
         }
@@ -205,44 +215,25 @@ export class PluginMessageBus {
         const view = plugin.activeViews.find(v => v.id === viewId);
 
         if (!view) {
-            console.warn(`Cannot deliver message to view ${viewId}: View not found for plugin ${message.pluginId}`);
+            pluginMessageLogger('Cannot deliver message to view %s: View not found for plugin %s',
+                viewId, message.pluginId);
+            return false;
+        }
+
+        if (!view?.proxy?.handleMessage || typeof view.proxy.handleMessage !== 'function') {
+            pluginMessageLogger('View %s has no handleMessage method', viewId);
             return false;
         }
 
         try {
-            if (view.iframe?.contentWindow) {
-                view.iframe.contentWindow.postMessage({
-                    pluginMessage: message
-                }, '*');
-                return true;
-            } else {
-                console.warn(`View ${viewId} has no contentWindow`);
-                return false;
-            }
+            pluginMessageLogger('Delivering message to specific view %s: plugin=%s, topic=%s',
+                viewId, message.pluginId, message.topic);
+            await view.proxy.handleMessage(message.topic, message);
+            return true;
         } catch (error) {
-            console.error(`Error delivering message to view ${viewId} for plugin ${message.pluginId}:`, error);
+            pluginMessageLogger('Error delivering message to view %s for plugin %s: %o',
+                viewId, message.pluginId, error);
             return false;
-        }
-    }
-
-    /**
-     * Handle window message event (for communication from views)
-     */
-    private handleWindowMessage<T>(event: MessageEvent): void {
-        // Check if the message is from a plugin view
-        if (event.data && event.data.pluginMessage) {
-            const message = event.data.pluginMessage as PluginMessage<T>;
-
-            // Validate message has required fields
-            if (!message.pluginId || !message.source || !message.target || !message.topic) {
-                console.warn('Invalid plugin message received:', message);
-                return;
-            }
-
-            // Process the message
-            this.deliverMessage(message).catch(error => {
-                console.error('Error processing message from view:', error);
-            });
         }
     }
 

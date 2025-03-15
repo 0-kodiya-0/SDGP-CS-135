@@ -1,7 +1,7 @@
 import { Panel } from 'react-resizable-panels';
 import { DetailPane } from './DetailPane.tsx';
 import { SummaryBar } from './SummaryBar.tsx';
-import { Environment } from '../../../default/environment/types/data.ts';
+import { Environment } from '../../../default/environment/types/types.data.ts';
 
 interface NavigationProps {
   environment: Environment
@@ -14,11 +14,10 @@ export function Navigation({ environment, summaryBarClassName, detailPaneClassNa
   return (
     <>
       <div className={`${summaryBarClassName}`}>
-        <SummaryBar environment={environment} className='w-full h-full' />
+        <SummaryBar className='w-full h-full' />
       </div>
       <Panel defaultSize={20} minSize={5} collapsible={true} collapsedSize={1} className="h-full">
-        <DetailPane
-          environment={environment} className={`${detailPaneClassName}`} />
+        <DetailPane environment={environment} className={`${detailPaneClassName}`} />
       </Panel>
     </>
   );

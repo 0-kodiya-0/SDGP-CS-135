@@ -1,5 +1,5 @@
-import { EnvironmentStatus } from "../types/data.ts";
-import { EnvironmentCardProps } from "../types/props.ts";
+import { EnvironmentStatus } from "../types/types.data.ts";
+import { EnvironmentCardProps } from "../types/types.props.ts";
 
 export const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     environment,

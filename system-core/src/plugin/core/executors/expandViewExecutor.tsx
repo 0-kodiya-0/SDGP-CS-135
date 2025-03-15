@@ -2,21 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Comlink from 'comlink';
 import { PluginId, PluginConfig, PermissionObject } from '../types';
 import { PluginUiDisplayEvent, PluginWorkerErrorEvent } from '../types.event';
-import { createPluginWorkerApi } from '../pluginApi';
+import createPluginApi from '../pluginApi';
 import pluginClient from '../api/pluginClientApi';
 import pluginRegistry from '../pluginRegistry';
 import eventBus from '../../../events';
 import { PluginExecutionError } from '../types.error';
-import pluginMessageBus from '../pluginMessageBus';
 import { MessageTarget } from '../types.message';
+import { useTabStore } from '../../../features/required/tab_view/store';
+import { PluginWorkerAPI } from '../pluginWorkerApi';
+import { validatePluginWorkerAPI } from '../utils/validatePluginWorkerAPI';
+import PluginErrorBoundary from '../ui/PluginErrorBoundary';
+import { pluginExecutorsLogger } from '../utils/logger';
+
+const expandLogger = pluginExecutorsLogger.extend('expand');
 
 interface ExpandViewProps {
     pluginId: PluginId;
     config: PluginConfig;
     permissions: PermissionObject;
-    onClose: () => void;
-    onMinimize?: () => void;
     viewId?: string; // Optional custom view ID
+    environmentId: number;
+    tabId?: string; // Optional tab ID if opened in a tab
 }
 
 /**
@@ -27,26 +33,58 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
     pluginId,
     config,
     permissions,
-    onClose,
-    onMinimize,
-    viewId: propViewId
+    viewId: propViewId,
+    environmentId,
+    tabId
 }) => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [iframeLoaded, setIframeLoaded] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);
+    const tabStore = useTabStore();
+    const [viewProxy, setViewProxy] = useState<Comlink.Remote<PluginWorkerAPI> | null>(null);
+
     // Generate a unique view ID if not provided
     const [viewId] = useState(() => propViewId || `expand-${pluginId}-${Date.now()}`);
+
+    // Get the initial state from the tab if available
+    const [initialState] = useState(() => {
+        if (tabId && environmentId) {
+            const tabView = tabStore.tabViews[environmentId];
+            if (tabView) {
+                const tab = tabView.tabs.find(t => t.id === tabId);
+                if (tab && tab.state) {
+                    expandLogger('Using initial state from tab %s for plugin %s', tabId, pluginId);
+                    return tab.state;
+                }
+            }
+        }
+        return {};
+    });
+
+    // Log component mount with important details
+    useEffect(() => {
+        expandLogger('Mounting expand view for plugin %s (viewId: %s, environment: %d, tabId: %s)',
+            pluginId, viewId, environmentId, tabId || 'none');
+
+        return () => {
+            expandLogger('Unmounting expand view for plugin %s (viewId: %s)', pluginId, viewId);
+        };
+    }, [pluginId, viewId, environmentId, tabId]);
 
     useEffect(() => {
         let unmounted = false;
 
         const loadView = async () => {
             try {
+                if (unmounted) return;
+
                 setLoading(true);
                 setError(null);
 
                 // Check if the plugin has an expand view
                 if (!config.view?.expand?.entryPoint) {
+                    expandLogger('Plugin %s does not have an expand view entry point', pluginId);
                     throw new Error(`Plugin ${pluginId} does not have an expand view entry point`);
                 }
 
@@ -58,16 +96,7 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
                     isInternal
                 );
 
-                // When the iframe loads, we'll set up the communication
-                if (!unmounted && iframeRef.current) {
-                    iframeRef.current.onload = () => {
-                        setupIframeApi(iframeRef.current!, pluginId, config, permissions);
-                        setLoading(false);
-
-                        // Register the view with the registry
-                        pluginRegistry.registerView(pluginId, viewId, 'expand', iframeRef.current!);
-                    };
-                }
+                expandLogger('Loading expand view for plugin %s from %s', pluginId, viewUrl);
 
                 // Emit event that a plugin UI is being displayed with the actual URL
                 eventBus.emit('pluginUiDisplay', {
@@ -77,12 +106,15 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
                     uiPath: viewUrl,
                     timestamp: Date.now()
                 } as PluginUiDisplayEvent);
+
             } catch (err) {
+                if (unmounted) return;
+
                 const viewError = new PluginExecutionError(
                     `Error loading expand view: ${err instanceof Error ? err.message : String(err)}`,
                     pluginId
                 );
-                console.error(viewError);
+                expandLogger('Error loading expand view for plugin %s: %o', pluginId, viewError);
                 setError(viewError.message);
                 setLoading(false);
 
@@ -100,127 +132,182 @@ export const ExpandViewExecutor: React.FC<ExpandViewProps> = ({
         return () => {
             unmounted = true;
 
+            // Properly terminate the view proxy if it exists
+            if (viewProxy) {
+                try {
+                    expandLogger('Terminating view proxy for plugin %s (viewId: %s)', pluginId, viewId);
+                    viewProxy.terminate().catch(err => {
+                        expandLogger('Error terminating expand view %s: %o', viewId, err);
+                    });
+                } catch (err) {
+                    expandLogger('Failed to call terminate on expand view %s: %o', viewId, err);
+                }
+            }
+
             // Unregister the view from the registry when component unmounts
+            expandLogger('Unregistering expand view %s for plugin %s', viewId, pluginId);
             pluginRegistry.unregisterView(pluginId, viewId);
         };
-    }, [pluginId, config, permissions, viewId]);
+    }, [pluginId, config, viewId, environmentId, tabId, viewProxy]); // Added viewProxy to dependencies
+
+    // Handle iframe onLoad event
+    const handleIframeLoad = () => {
+        if (!iframeRef.current) return;
+
+        expandLogger('Expand view iframe loaded for plugin %s (viewId: %s)', pluginId, viewId);
+        setIframeLoaded(true);
+        setLoading(false);
+
+        // Setup API and register the view after iframe is loaded
+        setupIframeApi(iframeRef.current);
+    };
 
     // Set up communication with the iframe
-    const setupIframeApi = (
-        iframe: HTMLIFrameElement,
-        pluginId: string,
-        config: PluginConfig,
-        permissions: PermissionObject
-    ) => {
+    const setupIframeApi = (iframe: HTMLIFrameElement) => {
         try {
             if (!iframe.contentWindow) {
-                console.error('No contentWindow available in iframe');
+                expandLogger('No contentWindow available in iframe for plugin %s', pluginId);
                 return;
             }
 
-            // Create plugin API
-            const pluginApi = createPluginWorkerApi(
-                pluginId,
-                config.name || pluginId,
-                permissions
+            expandLogger('Setting up API for expand view %s of plugin %s', viewId, pluginId);
+
+            // Create plugin API with initial state and EXPAND source type
+            expandLogger('Creating plugin API for expand view %s', viewId);
+            const pluginApi = createPluginApi(
+                config,
+                environmentId,
+                initialState,
+                MessageTarget.EXPAND // Specify the source type as EXPAND
             );
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const sendMessageFunction = (target: string, topic: string, payload: any) => {
-                return pluginMessageBus.sendMessage(
-                    pluginId,
-                    MessageTarget.EXPAND,
-                    target,
-                    topic,
-                    payload
-                );
-            };
+            // If tab ID is provided, handle state changes
+            if (tabId) {
+                expandLogger('Setting up state syncing with tab %s for expand view %s', tabId, viewId);
+                // Override the state.update method to sync with tab state
+                // Override the state.update method to sync with tab state
+                const originalUpdate = pluginApi.state.update;
+                pluginApi.state.update = async (updates: Record<string, unknown>) => {
+                    // Call the original update method
+                    const result = await originalUpdate(updates);
+
+                    // Sync with tab state
+                    if (result) {
+                        expandLogger('Syncing state update to tab %s: %o', tabId, updates);
+                        tabStore.updateTabState(environmentId, tabId, updates);
+                    }
+
+                    return result;
+                };
+            }
 
             // Expose the plugin API to the iframe
+            expandLogger('Exposing API to iframe for expand view %s', viewId);
             Comlink.expose(
-                { sendMessage: sendMessageFunction },
+                pluginApi,
                 Comlink.windowEndpoint(iframe.contentWindow)
             );
 
-            console.log(`API exposed to expand view for plugin ${pluginId}`);
+            // Create a Comlink proxy to the iframe for PluginWorkerAPI
+            expandLogger('Creating Comlink proxy for expand view %s', viewId);
+            const proxy = Comlink.wrap<PluginWorkerAPI>(
+                Comlink.windowEndpoint(iframe.contentWindow)
+            );
+
+            // Store the proxy for later use
+            setViewProxy(proxy);
+
+            // Validate and initialize the view
+            expandLogger('Validating and initializing expand view %s', viewId);
+            validatePluginWorkerAPI(proxy, pluginId, 'Expand view')
+                .then(() => {
+                    expandLogger('API validation successful for expand view %s', viewId);
+                    return proxy.initialize();
+                })
+                .then(() => {
+                    expandLogger('Expand view %s initialized successfully', viewId);
+
+                    // Register the view with the registry including the proxy
+                    expandLogger('Registering expand view %s with registry', viewId);
+                    pluginRegistry.registerView(pluginId, viewId, 'expand', proxy, iframe);
+                })
+                .catch(error => {
+                    expandLogger('Failed to validate or initialize expand view %s: %o', viewId, error);
+                    eventBus.emit('pluginWorkerError', {
+                        pluginId,
+                        error: `Failed to initialize expand view: ${error}`,
+                        timestamp: Date.now()
+                    } as PluginWorkerErrorEvent);
+                });
         } catch (error) {
-            console.error(`Failed to set up API for expand view of plugin ${pluginId}:`, error);
+            expandLogger('Failed to set up API for expand view of plugin %s: %o', pluginId, error);
         }
     };
 
     // Get the iframe URL for the plugin view
-    const getIframeSrc = (): string => {
+    const getIframeSrc = (): string | URL => {
         if (!config.view?.expand?.entryPoint) {
+            expandLogger('No expand view entry point defined for plugin %s, using blank page', pluginId);
             return 'about:blank';
         }
 
         const isInternal = !!config.internalPlugin;
-        return pluginClient.getEntryPointUrl(
+        const url = pluginClient.getEntryPointUrl(
             pluginId,
             config.view.expand.entryPoint,
             isInternal
         );
-    };
-
-    const handleClose = () => {
-        // Unregister the view from the registry before closing
-        pluginRegistry.unregisterView(pluginId, viewId);
-        onClose();
-    };
-
-    const handleMinimize = () => {
-        // Unregister the view from the registry before minimizing
-        pluginRegistry.unregisterView(pluginId, viewId);
-
-        if (onMinimize) {
-            onMinimize();
-        }
+        expandLogger('Using iframe source URL for plugin %s: %s', pluginId, url);
+        return url;
     };
 
     if (error) {
+        expandLogger('Rendering error state for expand view %s: %s', viewId, error);
         return (
-            <div className="plugin-error" data-plugin-id={pluginId} data-view-type="expand" data-view-id={viewId}>
-                <div className="plugin-error-content">
-                    <h3>Error Loading Plugin</h3>
-                    <p>{error}</p>
-                    <button onClick={handleClose}>Close</button>
-                </div>
+            <div
+                className="bg-red-50 text-red-700 p-4"
+                data-plugin-id={pluginId}
+                data-view-type="expand"
+                data-view-id={viewId}
+            >
+                {error}
             </div>
         );
     }
 
+    expandLogger('Rendering expand view %s iframe', viewId);
     return (
-        <div className="plugin-view-container plugin-expand-container" data-plugin-id={pluginId} data-view-type="expand" data-view-id={viewId}>
-            <div className="plugin-header">
-                <h3 className="plugin-title">{config.name || pluginId}</h3>
-                <div className="plugin-header-controls">
-                    {onMinimize && (
-                        <button className="plugin-minimize-btn" onClick={handleMinimize}>
-                            Minimize
-                        </button>
-                    )}
-                    <button className="plugin-close-btn" onClick={handleClose}>
-                        Close
-                    </button>
+        <PluginErrorBoundary
+            pluginId={pluginId}
+            viewType="expand"
+            fallback={
+                <div
+                    className="bg-red-50 text-red-700 p-4"
+                    data-plugin-id={pluginId}
+                    data-view-type="expand"
+                    data-view-id={viewId}
+                >
+                    An error occurred in the expand view. Please try reloading.
                 </div>
-            </div>
-            {loading && (
-                <div className="plugin-loading">
-                    <div className="loading-spinner"></div>
-                    <p>Loading plugin...</p>
-                </div>
-            )}
-            <div className="plugin-body">
+            }
+        >
+            <div className="w-full h-full relative">
+                {loading && !iframeLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+                        <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                )}
                 <iframe
                     ref={iframeRef}
-                    src={getIframeSrc()}
+                    src={getIframeSrc().toString()}
                     title={`Plugin: ${config.name || pluginId} (Expand View)`}
-                    className="plugin-iframe plugin-expand-view"
-                    sandbox="allow-scripts allow-same-origin"
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     allow="clipboard-read; clipboard-write"
+                    onLoad={handleIframeLoad}
                 />
             </div>
-        </div>
+        </PluginErrorBoundary>
     );
 };
 

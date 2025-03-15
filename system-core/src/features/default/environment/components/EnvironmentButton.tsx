@@ -1,35 +1,35 @@
-import { Loader2, MoreVertical } from 'lucide-react';
-import { EnvironmentButtonProps } from '../types/props.ts';
+import { MoreVertical } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useEnvironmentStore } from '../store';
-import { CreateEnvironmentInput } from './CreateEnvironmentInput.tsx';
-import { UpdateEnvironmentInput } from './UpdateEnvironmentInput.tsx';
-import { useCreateEnvironment, useEnvironmentByAccountId } from '../hooks/useEnvironments.ts';
-import { EnvironmentSlider } from './EnvironmentSlider.tsx';
-import { EnvironmentError } from '../types/props.ts';
-import { EnvironmentPrivacy, EnvironmentStatus } from '../types/data.ts';
+import { CreateEnvironmentInput } from './CreateEnvironmentInput';
+import { UpdateEnvironmentInput } from './UpdateEnvironmentInput';
+import { EnvironmentSlider } from './EnvironmentSlider';
+import { ActiveAccount } from '../../user_account';
+import { Environment } from '../types/types.data';
 
-export function EnvironmentButton({ activeEnvironment, activeAccount }: EnvironmentButtonProps) {
-  const setEnvironment = useEnvironmentStore(state => state.setEnvironment);
+export interface EnvironmentButtonProps {
+  activeAccount: ActiveAccount;
+}
 
+export function EnvironmentButton({ activeAccount }: EnvironmentButtonProps) {
+  const accountId = activeAccount.id;
+  
+  // Get functions from the store directly to avoid selector re-creation on each render
+  const getEnvironmentsByAccount = useEnvironmentStore(state => state.getEnvironmentsByAccount);
+  const getEnvironment = useEnvironmentStore(state => state.getEnvironment);
+  const setEnvironmentFn = useEnvironmentStore(state => state.setEnvironment);
+  
+  // Use the functions with the account ID
+  const environments = getEnvironmentsByAccount(accountId);
+  const selectedEnvironment = getEnvironment(accountId);
+  const setEnvironment = (env: Environment) => setEnvironmentFn(env, accountId);
+  
   const [isSliderOpen, setIsSliderOpen] = useState(false);
   const [isCreateEnvOpen, setIsCreateEnvOpen] = useState(false);
   const [isUpdateEnvOpen, setIsUpdateEnvOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [envSettingUpError, setEnvSettingUpError] = useState<EnvironmentError>({
-    isError: false,
-    message: ''
-  });
-
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const {
-    data: environments = [],
-    isLoading: isLoadingEnvironments,
-    error: fetchError
-  } = useEnvironmentByAccountId(activeAccount.id);
-
-  const createEnvironment = useCreateEnvironment(activeAccount.id);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -41,42 +41,6 @@ export function EnvironmentButton({ activeEnvironment, activeAccount }: Environm
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Environment setup logic moved from EnvironmentSlider
-  useEffect(() => {
-    if (!isLoadingEnvironments && (!activeEnvironment || activeEnvironment.accountId !== activeAccount.id)) {
-
-      const serverDefaultEnv = environments.find(env => env.accountId === activeAccount.id && env.name === 'Default Environment');
-
-      if (serverDefaultEnv) {
-        setEnvironment(serverDefaultEnv);
-        return;
-      }
-
-      createEnvironment.mutate({
-        accountId: activeAccount.id,
-        name: 'Default Environment',
-        status: EnvironmentStatus.Active,
-        privacy: EnvironmentPrivacy.Global
-      }, {
-        onError: (error) => {
-          setEnvSettingUpError({
-            isError: true,
-            message: error instanceof Error ? error.message : 'Environment setup failed'
-          });
-        }
-      });
-    }
-  }, [isLoadingEnvironments]);
-
-  useEffect(() => {
-    if (!activeEnvironment || activeEnvironment.accountId !== activeAccount.id) {
-      const env = environments.find(env => env.name === "Default Environment");
-      if (env) {
-        setEnvironment(env);
-      }
-    }
-  }, [environments]);
 
   const handleEnvironmentClick = useCallback(() => {
     setIsSliderOpen(true);
@@ -109,10 +73,6 @@ export function EnvironmentButton({ activeEnvironment, activeAccount }: Environm
     setIsUpdateEnvOpen(false);
   }, []);
 
-  if (isLoadingEnvironments) {
-    return <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-  }
-
   return (
     <div className="flex items-center h-full w-full">
       <button
@@ -120,12 +80,12 @@ export function EnvironmentButton({ activeEnvironment, activeAccount }: Environm
         className="flex-1 h-full px-4 flex items-center min-w-0 transition-colors hover:bg-gray-50"
       >
         <div className="flex items-center min-w-0 w-full">
-          {activeEnvironment ? (
+          {selectedEnvironment ? (
             <>
-              <span className="text-sm font-medium truncate">{activeEnvironment.name}</span>
-              {activeEnvironment.status !== 'active' && (
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${activeEnvironment.status === 'archived' ? 'bg-gray-200 text-gray-600' : 'bg-red-100 text-red-600'}`}>
-                  {activeEnvironment.status}
+              <span className="text-sm font-medium truncate">{selectedEnvironment.name}</span>
+              {selectedEnvironment.status !== 'active' && (
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${selectedEnvironment.status === 'archived' ? 'bg-gray-200 text-gray-600' : 'bg-red-100 text-red-600'}`}>
+                  {selectedEnvironment.status}
                 </span>
               )}
             </>
@@ -146,12 +106,14 @@ export function EnvironmentButton({ activeEnvironment, activeAccount }: Environm
 
         {isDropdownOpen && (
           <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-            <button
-              onClick={handleEditClick}
-              className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Edit Environment
-            </button>
+            {selectedEnvironment && (
+              <button
+                onClick={handleEditClick}
+                className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Edit Environment
+              </button>
+            )}
             <button
               onClick={handleCreateClick}
               className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
@@ -166,16 +128,14 @@ export function EnvironmentButton({ activeEnvironment, activeAccount }: Environm
         <CreateEnvironmentInput activeAccount={activeAccount} onCancel={handleCreateEnvClose} />
       )}
 
-      {isUpdateEnvOpen && activeEnvironment && (
-        <UpdateEnvironmentInput activeEnvironment={activeEnvironment} onCancel={handleUpdateEnvClose} />
+      {isUpdateEnvOpen && selectedEnvironment && (
+        <UpdateEnvironmentInput activeEnvironment={selectedEnvironment} onCancel={handleUpdateEnvClose} />
       )}
 
       {isSliderOpen && (
         <EnvironmentSlider
           environments={environments}
-          selectedEnvironment={activeEnvironment}
-          isLoading={isLoadingEnvironments || createEnvironment.isPending}
-          error={fetchError?.message || (envSettingUpError.isError ? envSettingUpError.message : undefined)}
+          selectedEnvironment={selectedEnvironment}
           onEnvironmentSelect={setEnvironment}
           onClose={handleSliderClose}
         />

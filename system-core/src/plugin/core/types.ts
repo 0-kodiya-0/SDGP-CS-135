@@ -1,8 +1,5 @@
 import * as Comlink from "comlink";
-import { StorageOptions } from "../../api/storage/types";
-import { WrappedStorageProvider } from "./wrappers/storage";
 import { PluginWorkerAPI } from "./pluginWorkerApi";
-import { HttpApiWrapper, WebSocketApiWrapper, SocketIOApiWrapper } from "./wrappers/network";
 
 // Base types and IDs
 export type PluginId = string;
@@ -76,7 +73,7 @@ export interface PluginConfig {
     };
 
     // Permissions requested by the plugin
-    permissions?: PermissionObject;
+    permissions: PermissionObject;
 
     // Plugin assets
     assets?: {
@@ -124,6 +121,7 @@ export interface RegisteredPlugin {
     activeViews: {
         id: string;  // Unique identifier for the view instance
         type: 'summary' | 'expand';
+        proxy: Comlink.Remote<PluginWorkerAPI>;
         iframe?: HTMLIFrameElement;
     }[];
 }
@@ -164,21 +162,6 @@ export interface PluginGlobalApi {
         id: string;
         name: string;
     };
-
-    // Storage APIs
-    storage?: {
-        // Default storage for this plugin
-        default: WrappedStorageProvider;
-
-        // Create custom storage (permissions are determined by system)
-        create: (options: StorageOptions) => WrappedStorageProvider;
-    };
-
-    network?: {
-        http?: HttpApiWrapper;
-        websocket?: WebSocketApiWrapper;
-        socketio?: SocketIOApiWrapper;
-    }
 
     // Additional APIs can be added here as the system grows
     // network?: { ... };

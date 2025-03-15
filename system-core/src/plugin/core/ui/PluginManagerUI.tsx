@@ -42,35 +42,56 @@ const PluginListItem: React.FC<PluginListItemProps> = ({
     }, [pluginId, getPluginStatus]);
 
     if (loading || !status) {
-        return <div className="plugin-list-item loading">Loading plugin info...</div>;
+        return (
+            <div className="p-4 bg-gray-100 rounded-md animate-pulse">
+                <div className="h-4 bg-gray-300 rounded w-3/4 mb-3"></div>
+                <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+            </div>
+        );
     }
 
     const config = pluginRegistry.getPluginConfig(pluginId);
     const isActive = isPluginActive(pluginId);
 
     return (
-        <div className="plugin-list-item">
-            <div className="plugin-header">
-                <h3>{config?.name || pluginId}</h3>
-                <div className="plugin-status">
-                    {status.isRegistered ? <span className="status-badge registered">Registered</span> : null}
-                    {status.isApproved ? <span className="status-badge approved">Approved</span> : null}
-                    {isActive ? <span className="status-badge active">Active</span> : null}
+        <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm mb-4">
+            <div className="flex justify-between items-start mb-2">
+                <h3 className="text-lg font-medium text-gray-800">{config?.name || pluginId}</h3>
+                <div className="flex flex-wrap gap-2">
+                    {status.isRegistered && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                            Registered
+                        </span>
+                    )}
+                    {status.isApproved && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                            Approved
+                        </span>
+                    )}
+                    {isActive && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
+                            Active
+                        </span>
+                    )}
                 </div>
             </div>
 
-            <div className="plugin-description">
+            <div className="text-gray-600 text-sm mb-2">
                 {config?.description || 'No description available'}
             </div>
 
-            <div className="plugin-version">
+            <div className="text-gray-500 text-xs mb-4">
                 Version: {config?.version || 'Unknown'}
             </div>
 
-            <div className="plugin-actions">
+            <div className="flex flex-wrap gap-2">
                 {!status.isApproved && (
                     <button
-                        className="approve-button"
+                        className={`px-3 py-1.5 rounded text-sm font-medium ${
+                            status.isRegistered
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        } transition-colors`}
                         onClick={() => onApprove(pluginId)}
                         disabled={!status.isRegistered}
                     >
@@ -80,7 +101,7 @@ const PluginListItem: React.FC<PluginListItemProps> = ({
 
                 {status.isApproved && !isActive && config?.background && (
                     <button
-                        className="execute-button"
+                        className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
                         onClick={() => onExecute(pluginId)}
                     >
                         Execute
@@ -89,7 +110,7 @@ const PluginListItem: React.FC<PluginListItemProps> = ({
 
                 {isActive && (
                     <button
-                        className="stop-button"
+                        className="px-3 py-1.5 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 transition-colors"
                         onClick={() => onStop(pluginId)}
                     >
                         Stop
@@ -97,7 +118,11 @@ const PluginListItem: React.FC<PluginListItemProps> = ({
                 )}
 
                 <button
-                    className="unregister-button"
+                    className={`px-3 py-1.5 rounded text-sm font-medium ${
+                        isActive
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-red-600 text-white hover:bg-red-700'
+                    } transition-colors`}
                     onClick={() => onUnregister(pluginId)}
                     disabled={isActive}
                 >
@@ -181,36 +206,38 @@ const PluginManagerUI: React.FC = () => {
     const registeredPluginIds = pluginRegistry.getRegisteredPluginIds();
 
     return (
-        <div className="plugin-manager-ui">
-            <h2>Plugin Manager</h2>
+        <div className="w-full max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Plugin Manager</h2>
 
-            <div className="plugin-status-summary">
-                <div className="status-count">
-                    <span>Loaded: {loadedPlugins.length}</span>
+            <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex flex-wrap gap-4">
+                <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-md">
+                    <span className="font-medium">Loaded:</span> {loadedPlugins.length}
                 </div>
-                <div className="status-count">
-                    <span>Registered: {registeredPluginIds.length}</span>
+                <div className="px-4 py-2 bg-green-100 text-green-800 rounded-md">
+                    <span className="font-medium">Registered:</span> {registeredPluginIds.length}
                 </div>
-                <div className="status-count">
-                    <span>Active: {activePluginIds.length}</span>
+                <div className="px-4 py-2 bg-purple-100 text-purple-800 rounded-md">
+                    <span className="font-medium">Active:</span> {activePluginIds.length}
                 </div>
             </div>
 
-            <div className="plugin-list">
-                <h3>Loaded Plugins</h3>
+            <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Loaded Plugins</h3>
                 {loadedPlugins.length === 0 ? (
-                    <p>No plugins loaded</p>
+                    <p className="text-gray-500 italic">No plugins loaded</p>
                 ) : (
-                    loadedPlugins.map(plugin => (
-                        <PluginListItem
-                            key={plugin.id}
-                            pluginId={plugin.id}
-                            onApprove={handleApprove}
-                            onExecute={handleExecute}
-                            onStop={handleStop}
-                            onUnregister={handleUnregister}
-                        />
-                    ))
+                    <div className="space-y-4">
+                        {loadedPlugins.map(plugin => (
+                            <PluginListItem
+                                key={plugin.id}
+                                pluginId={plugin.id}
+                                onApprove={handleApprove}
+                                onExecute={handleExecute}
+                                onStop={handleStop}
+                                onUnregister={handleUnregister}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

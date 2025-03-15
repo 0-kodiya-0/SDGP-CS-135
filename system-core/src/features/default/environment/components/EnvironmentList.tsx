@@ -1,4 +1,4 @@
-import { EnvironmentListProps } from "../types/props.ts";
+import { EnvironmentListProps } from "../types/types.props.ts";
 import { EnvironmentCard } from "./EnvironmentCard.tsx";
 
 export const EnvironmentList = ({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { OAuthAccount, AccountType, LocalAccount, OAuthProviders } from '../types/data.types.ts';
+import { OAuthAccount, AccountType, LocalAccount, OAuthProviders } from '../types/types.data.ts';
 import { KeyRound, Mail, UserCircle } from 'lucide-react';
 
 interface UserAvatarProps {

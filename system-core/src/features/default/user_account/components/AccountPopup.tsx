@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PlusCircle, ChevronUp, ChevronDown, LogOut, UserCircle } from 'lucide-react';
 import { UserAvatar } from './UserAvatar.tsx';
-import { LocalAccount, OAuthAccount } from '../types/data.types.ts';
+import { LocalAccount, OAuthAccount } from '../types/types.data.ts';
 import { useAccountStore } from '../store';
 
 interface AccountPopupProps {
