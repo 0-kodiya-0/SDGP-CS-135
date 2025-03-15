@@ -1,0 +1,25 @@
+{
+    "name": "plugin-name",
+    "version": "1.0.0",
+    "description": "A brief description of what the plugin does",
+    "main": "index.js",   
+    "author": "Your Name",
+    "license": "MIT",     
+    "dependencies": {
+      "some-package": "^1.2.3"   
+    },
+    "scripts": {
+      "start": "node index.js"    
+    },
+    "plugin-specific-configuration": {
+      "config1": "value1",
+      "config2": "value2"
+    },
+    "bin": {
+        "plugin-cli": "./bin/cli.js"
+
+    }
+    
+    
+  }
+  
