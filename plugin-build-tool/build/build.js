@@ -1,6 +1,11 @@
 
-import path from 'path';
+import path, { dirname } from 'path';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const TEMPLATE_DIR = path.resolve(__dirname, '../templates/plugin-template');
 const DIST_DIR = path.resolve(__dirname, '../dist');

@@ -3,6 +3,7 @@
 import inquirer from 'inquirer';
 import { buildPlugin, packagePlugin } from '../build/build.js';
 
+
 const main = async () => {
   const { action } = await inquirer.prompt([
     {
