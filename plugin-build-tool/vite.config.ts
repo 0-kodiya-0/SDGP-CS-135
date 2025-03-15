@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     outDir: 'dist', // The directory where the built files will be placed 
     rollupOptions: {
-      input: 'src/main.ts', // Main entry point of the plugin build
+      input: 'plugin-template/src/index.ts', // Main entry point of the plugin build
       external: ['react', 'react-dom'], // Excludes react and react-dom from the build (to prevent bundling)
       output: {
         entryFileNames: '[name].js', // Naming format for the output files

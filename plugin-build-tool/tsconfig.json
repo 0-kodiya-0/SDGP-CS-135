@@ -11,6 +11,6 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM"]
   },
-  "include": ["src/**/*.ts", "bin/**/*.ts", "build/**/*.ts", "plugin-template/src/**/*.ts", "plugin-template/**/*.ts"],
+  "include": ["bin/**/*.ts", "build/**/*.ts", "plugin-template/src/**/*.ts", "plugin-template/**/*.ts"],
   "exclude": ["node_modules"]
 }
