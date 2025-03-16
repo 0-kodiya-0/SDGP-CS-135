@@ -48,6 +48,8 @@ test-dynamic-file-loading/
 vite-plugin-process-plugin-conf/
 plugin-template-gen/
 hello/
+test-dynamic-file-loading/
+create-plugin-template/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
