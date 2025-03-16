@@ -4,6 +4,7 @@ import passport from 'passport';
 import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { router as accountRoutes } from "./feature/account";
+import { router as memeberRoutes } from "./feature/memebers/";
 import db from './config/db';
 
 dotenv.config();
@@ -30,6 +31,7 @@ initializeDb();
 // Routes
 app.use('/api/v1/oauth', oauthRoutes);
 app.use('/api/v1/account', accountRoutes);
+app.use('/api/v1/members', memeberRoutes);
 
 // Error handling
 app.use((req: express.Request, res: express.Response) => {

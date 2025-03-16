@@ -1,4 +1,5 @@
 import { Environment } from '../../../default/environment/types/types.data.ts';
+import MemberSummary from '../../../other/memebers/components/MemberSummary.tsx';
 
 interface DetailPaneProps {
   environment: Environment;
@@ -26,7 +27,7 @@ export function DetailPane({ environment, className }: DetailPaneProps) {
                 custom-scrollbar
             `}
       >
-        <h1></h1>
+        <MemberSummary/>
       </div>
     </div>
   );
