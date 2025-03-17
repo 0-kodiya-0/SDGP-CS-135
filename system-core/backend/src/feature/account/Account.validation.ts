@@ -1,8 +1,9 @@
 import { UserDetails, TokenDetails, DevicePreferences, Device, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
 import { findUser } from "./Account.utils";
 
-export const userExists = (email: string, provider: OAuthProviders): boolean => {
-    return !(findUser(email, provider) === undefined);
+export const userExists = async (email: string, provider: OAuthProviders): Promise<boolean> => {
+    const user = await findUser(email, provider);
+    return user !== null;
 };
 
 export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDetails {
@@ -24,32 +25,32 @@ export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenD
     );
 }
 
-export function validateDevicePreferences(obj?: Partial<DevicePreferences>): obj is DevicePreferences {
-    return (
-        obj !== null &&
-        typeof obj === "object" &&
-        typeof obj.theme === "string" &&
-        typeof obj.language === "string" &&
-        typeof obj.notifications === "boolean"
-    );
-}
+// export function validateDevicePreferences(obj?: Partial<DevicePreferences>): obj is DevicePreferences {
+//     return (
+//         obj !== null &&
+//         typeof obj === "object" &&
+//         typeof obj.theme === "string" &&
+//         typeof obj.language === "string" &&
+//         typeof obj.notifications === "boolean"
+//     );
+// }
 
-export function validateDevice(obj?: Partial<Device>): obj is Device {
-    if (
-        obj !== null &&
-        typeof obj === "object" &&
-        typeof obj.id === "string" &&
-        typeof obj.installationDate === "string" &&
-        typeof obj.name === "string" &&
-        typeof obj.os === "string" &&
-        typeof obj.version === "string" &&
-        typeof obj.uniqueIdentifier === "string" &&
-        validateDevicePreferences(obj.preferences)
-    ) {
-        return true;
-    }
-    throw new Error("Invalid Device object");
-}
+// export function validateDevice(obj?: Partial<Device>): obj is Device {
+//     if (
+//         obj !== null &&
+//         typeof obj === "object" &&
+//         typeof obj.id === "string" &&
+//         typeof obj.installationDate === "string" &&
+//         typeof obj.name === "string" &&
+//         typeof obj.os === "string" &&
+//         typeof obj.version === "string" &&
+//         typeof obj.uniqueIdentifier === "string" &&
+//         validateDevicePreferences(obj.preferences)
+//     ) {
+//         return true;
+//     }
+//     throw new Error("Invalid Device object");
+// }
 
 export function validateBaseAccount(obj?: Partial<BaseAccount>): obj is BaseAccount {
     if (
@@ -58,7 +59,7 @@ export function validateBaseAccount(obj?: Partial<BaseAccount>): obj is BaseAcco
         typeof obj.id === "string" &&
         typeof obj.created === "string" &&
         typeof obj.updated === "string" &&
-        validateDevice(obj.device) &&
+        // validateDevice(obj.device) &&
         obj.accountType &&
         Object.values(AccountType).includes(obj.accountType) &&
         obj.status &&

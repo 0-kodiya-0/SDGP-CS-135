@@ -1,14 +1,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import {
-    LocalAccount,
     AccountType,
     AccountStatus,
-    OAuthAccount,
 } from "../types/types.data.ts"
 import { AccountState } from "../types/types.store.ts"
 import { mockLocalAccount, mockOAuthAccounts } from "../../../../mock/mock/data.ts"
-import { stateLogger } from "../../../../api/logger"
+import { stateLogger } from "../../../../../lib/logger"
 
 // Create dedicated logger for account store
 const accountStoreLogger = stateLogger.extend('account');

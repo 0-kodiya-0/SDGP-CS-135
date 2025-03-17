@@ -1,41 +1,71 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import passport from 'passport';
+import cookieParser from 'cookie-parser';
 import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { router as accountRoutes } from "./feature/account";
-import { router as memeberRoutes } from "./feature/memebers/";
+import { authenticateSession, cleanupExpiredRefreshTokens } from './utils/session';
+import { clearExpiredStates } from './feature/oauth/Auth.utils';
 import db from './config/db';
 
 dotenv.config();
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(passport.initialize());
 
 // Setup Passport
 setupPassport();
 
-// Initialize database
-const initializeDb = async () => {
-    await db.read();
-    if (!db.data) {
-        db.data = { oauthAccounts: [], oauthStates: [], signInStates: [], signUpStates: [] };
-        await db.write();
-    }
-};
-initializeDb();
+// Initialize database connections and models
+db.initializeDB().then(() => {
+    console.log('Database connections established and models initialized');
+}).catch(err => {
+    console.error('Database initialization error:', err);
+    process.exit(1);
+});
+
+// Logging middleware
+app.use((req, res, next) => {
+    console.log(`[BACKEND] ${req.method} ${req.url}`);
+    next();
+});
 
 // Routes
-app.use('/api/v1/oauth', oauthRoutes);
-app.use('/api/v1/account', accountRoutes);
-app.use('/api/v1/members', memeberRoutes);
+app.use('/oauth', oauthRoutes);
+app.use('/account', authenticateSession, accountRoutes);
+
+// Set up a periodic task to clean up expired tokens and states
+// In a production app, you'd use a proper task scheduler
+const runCleanupTasks = async () => {
+    try {
+        await cleanupExpiredRefreshTokens();
+        await clearExpiredStates();
+        console.log('Cleanup tasks completed');
+    } catch (error) {
+        console.error('Error during cleanup tasks:', error);
+    }
+};
+
+// Run cleanup every hour
+setInterval(runCleanupTasks, 60 * 60 * 1000);
 
 // Error handling
-app.use((req: express.Request, res: express.Response) => {
-    res.status(500).json({ error: 'Something went wrong!' });
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Something went wrong!' } });
+    next();
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Resource not found' } });
 });
 
 const PORT = process.env.PORT || 3000;

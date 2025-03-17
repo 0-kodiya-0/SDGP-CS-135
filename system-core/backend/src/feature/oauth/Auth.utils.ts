@@ -3,77 +3,92 @@ import { OAuthProviders } from "../account/Account.types";
 import { AuthType, OAuthState, ProviderResponse, SignInState, SignUpState } from "./Auth.types";
 import crypto from "crypto";
 
-export const generateOAuthState = async (provider: OAuthProviders, authType: AuthType) => {
+export const generateOAuthState = async (provider: OAuthProviders, authType: AuthType): Promise<string> => {
+    const models = await db.getModels();
+    
     const state = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const stateData: OAuthState = {
         state,
         provider,
         authType,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
     };
 
-    db.data.oauthStates.push(stateData);
+    await models.auth.OAuthState.create({
+        ...stateData,
+        expiresAt
+    });
 
-    await db.write();
     return state;
 };
 
-export const generateSignupState = async (providerResponse: ProviderResponse) => {
+export const generateSignupState = async (providerResponse: ProviderResponse): Promise<string> => {
+    const models = await db.getModels();
+    
     const state = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const stateData: SignUpState = {
         state,
         accountDetails: {},
         oAuthResponse: providerResponse,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
     };
 
-    db.data.signUpStates.push(stateData);
+    await models.auth.SignUpState.create({
+        ...stateData,
+        expiresAt
+    });
 
-    await db.write();
     return state;
 };
 
-export const generateSignInState = async (providerResponse: ProviderResponse) => {
+export const generateSignInState = async (providerResponse: ProviderResponse): Promise<string> => {
+    const models = await db.getModels();
+    
     const state = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const stateData: SignInState = {
         state,
         oAuthResponse: providerResponse,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
     };
 
-    db.data.signInStates.push(stateData);
+    await models.auth.SignInState.create({
+        ...stateData,
+        expiresAt
+    });
 
-    await db.write();
     return state;
 };
 
-export const clearOAuthState = async (state: string) => {
-    db.data.oauthStates = db.data.oauthStates.filter((s: OAuthState) => s.state !== state);
-    await db.write();
+export const clearOAuthState = async (state: string): Promise<void> => {
+    const models = await db.getModels();
+    await models.auth.OAuthState.deleteOne({ state });
 };
 
-export const clearSignUpState = async (state: string) => {
-    db.data.signUpStates = db.data.signUpStates.filter((s: SignUpState) => s.state !== state);
-    await db.write();
+export const clearSignUpState = async (state: string): Promise<void> => {
+    const models = await db.getModels();
+    await models.auth.SignUpState.deleteOne({ state });
 };
 
-export const clearSignInState = async (state: string) => {
-    db.data.signInStates = db.data.signInStates.filter((s: SignInState) => s.state !== state);
-    await db.write();
+export const clearSignInState = async (state: string): Promise<void> => {
+    const models = await db.getModels();
+    await models.auth.SignInState.deleteOne({ state });
 };
 
-export const clearExpiredStates = async () => {
-    const now = new Date().toISOString();
+export const clearExpiredStates = async (): Promise<void> => {
+    const models = await db.getModels();
+    const now = new Date();
     
-    db.data.oauthStates = db.data.oauthStates.filter((s: OAuthState) => s.expiresAt > now);
-    db.data.signUpStates = db.data.signUpStates.filter((s: SignUpState) => s.expiresAt > now);
-    db.data.signInStates = db.data.signInStates.filter((s: SignInState) => s.expiresAt > now);
+    const results = await Promise.all([
+        models.auth.OAuthState.deleteMany({ expiresAt: { $lt: now } }),
+        models.auth.SignUpState.deleteMany({ expiresAt: { $lt: now } }),
+        models.auth.SignInState.deleteMany({ expiresAt: { $lt: now } })
+    ]);
     
-    await db.write();
+    console.log(`Cleared expired states: ${results[0].deletedCount + results[1].deletedCount + results[2].deletedCount} records removed`);
 };

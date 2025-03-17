@@ -7,9 +7,13 @@ declare global {
             NODE_ENV: 'development' | 'production' | 'test';
             PORT?: string;
 
+            // Database configuration
+            MONGODB_URI?: string;
+            
             // JWT and session configuration
             JWT_SECRET: string;
             JWT_EXPIRES_IN: StringValue;
+            REFRESH_TOKEN_EXPIRES_IN: string;
             COOKIE_MAX_AGE: string;
 
             // OAuth providers client credentials

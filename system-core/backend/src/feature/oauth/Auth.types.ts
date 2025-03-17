@@ -36,7 +36,7 @@ export interface AuthUrls {
 export interface ProviderResponse {
     provider: OAuthProviders;
     name: string;
-    email: string | undefined;
-    imageUrl: string | undefined;
+    email?: string;
+    imageUrl?: string;
     tokenDetails: TokenDetails
 }

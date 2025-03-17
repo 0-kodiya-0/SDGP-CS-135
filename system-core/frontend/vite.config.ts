@@ -34,15 +34,15 @@ export default defineConfig((): UserConfig => {
       // Ensure .tsx and .jsx files are properly resolved
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
     },
-    server: {
-      proxy: {
-        '/api/v1': {
-          target: 'http://localhost:3000',
-          changeOrigin: true,
-          secure: false
-        }
-      }
-    },
+    // server: {
+    //   proxy: {
+    //     '/api/v1': {
+    //       target: 'http://localhost:3000',
+    //       changeOrigin: true,
+    //       secure: false
+    //     }
+    //   }
+    // },
     esbuild: {
       // Ensure JSX is properly transformed
       jsxFactory: 'React.createElement',

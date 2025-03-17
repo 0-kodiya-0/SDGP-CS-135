@@ -1,15 +1,14 @@
 import { useRef, useEffect, useState } from "react";
 import { useEnvironmentStore } from "../store";
 import { EnvironmentPrivacy, EnvironmentStatus } from "../types/types.data";
-import { ActiveAccount } from "../../user_account";
 
 export interface CreateEnvironmentInputProps {
-    activeAccount: ActiveAccount;
+    accountId: string;
     onCancel: () => void;
 }
 
 export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
-    activeAccount,
+    accountId,
     onCancel
 }) => {
     const [inputEnvName, setInputEnvName] = useState<string>('');
@@ -35,21 +34,21 @@ export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
         setIsLoading(true);
 
         try {
-            console.log(`[CreateEnvironment] Creating new environment "${trimmedName}" for account ${activeAccount.id}`);
-            
+            console.log(`[CreateEnvironment] Creating new environment "${trimmedName}" for account ${accountId}`);
+
             // Create a new environment in the store
             const newEnvironment = addEnvironment({
-                accountId: activeAccount.id,
+                accountId,
                 name: trimmedName,
                 status: EnvironmentStatus.Active,
                 privacy: EnvironmentPrivacy.Global
             });
-            
+
             // Set as selected environment for this account
-            setEnvironment(newEnvironment, activeAccount.id);
-            
+            setEnvironment(newEnvironment, accountId);
+
             console.log(`[CreateEnvironment] Environment created: ${newEnvironment.id} (${newEnvironment.name})`);
-            
+
             // Delay closing the modal slightly to ensure state updates are processed
             setTimeout(() => {
                 onCancel(); // Close the input form after successful creation

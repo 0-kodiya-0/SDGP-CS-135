@@ -4,7 +4,6 @@ import { TabView } from "../../features/required/tab_view";
 import { Loader2 } from "lucide-react";
 import { Environment } from "../../features/default/environment/types/types.data";
 import { useEffect } from "react";
-import MemberDetailView from "../../features/other/memebers/components/MemberDetailsView";
 
 interface HeaderProps {
     environment: Environment | null;
@@ -45,8 +44,7 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
 
                 {/* Detail Pane - Expand/Collapse with Limits */}
                 <Panel defaultSize={80} minSize={10} className="h-full">
-                    {/* <TabView environment={environment} className="w-full h-full overflow-auto" /> */}
-                    <MemberDetailView/>
+                    <TabView environment={environment} className="w-full h-full overflow-auto" />
                 </Panel>
             </PanelGroup>
         </div>

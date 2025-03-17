@@ -8,19 +8,19 @@ import { SignUpRequest, SignUpDetailsAddRequest, SignInRequest, AuthRequest, OAu
 import { sendError, sendSuccess, redirectWithError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
-import { createSignInSession, createSignUpSession, clearSession } from '../../utils/session';
+import { createSignInSession, createSignUpSession, clearSession, removeAccountFromSession } from '../../utils/session';
 import passport from 'passport';
 import crypto from 'crypto';
 import db from '../../config/db';
 import { findUser } from '../account/Account.utils';
+import { toOAuthAccount } from '../account/Account.utils';
 
 const router = express.Router();
 
-// OAuth provider authentication routes
-router.get('/auth/google', (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { state } = req.query;
 
-    const stateDetails = validateStateMiddleware(state as string,
+    const stateDetails = await validateStateMiddleware(state as string,
         (state) => validateOAuthState(state, OAuthProviders.Google),
         res
     );
@@ -30,14 +30,16 @@ router.get('/auth/google', (req: AuthRequest, res: Response, next: NextFunction)
     passport.authenticate('google', {
         scope: ['profile', 'email'],
         session: false,
-        state: state as string
+        state: state as string,
+        accessType: 'offline',
+        prompt: 'consent'
     })(req, res, next);
 });
 
-// router.get('/auth/microsoft', (req: AuthRequest, res: Response, next: NextFunction) => {
+// router.get('/auth/microsoft', async (req: AuthRequest, res: Response, next: NextFunction) => {
 //     const { state } = req.query;
 
-//     const stateDetails = validateStateMiddleware(state as string,
+//     const stateDetails = await validateStateMiddleware(state as string,
 //         (state) => validateOAuthState(state, OAuthProviders.Microsoft),
 //         res
 //     );
@@ -51,10 +53,10 @@ router.get('/auth/google', (req: AuthRequest, res: Response, next: NextFunction)
 //     })(req, res, next);
 // });
 
-// router.get('/auth/facebook', (req: AuthRequest, res: Response, next: NextFunction) => {
+// router.get('/auth/facebook', async (req: AuthRequest, res: Response, next: NextFunction) => {
 //     const { state } = req.query;
 
-//     const stateDetails = validateStateMiddleware(state as string,
+//     const stateDetails = await validateStateMiddleware(state as string,
 //         (state) => validateOAuthState(state, OAuthProviders.Facebook),
 //         res
 //     );
@@ -77,10 +79,12 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
 
     const reqState = req.query.state;
     if (reqState && typeof reqState === 'string') {
-        const stateDetails = validateStateMiddleware(reqState, validateSignUpState, res) as SignUpState;
+        const stateDetails = await validateStateMiddleware(reqState, validateSignUpState, res) as SignUpState;
         if (!stateDetails) return;
 
         try {
+            const models = await db.getModels();
+
             const newAccount: OAuthAccount = {
                 id: crypto.randomBytes(16).toString('hex'),
                 created: new Date().toISOString(),
@@ -98,8 +102,7 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
                     twoFactorEnabled: false,
                     sessionTimeout: 3600,
                     autoLock: false
-                },
-                device: stateDetails.accountDetails.device as Device
+                }
             };
 
             const success = validateOAuthAccount(newAccount);
@@ -108,14 +111,20 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
                 return;
             }
 
-            clearSignUpState(stateDetails.state);
+            await clearSignUpState(stateDetails.state);
 
-            db.data.oauthAccounts.push(newAccount);
-            await db.write();
+            // Create the account in the accounts database
+            await models.accounts.OAuthAccount.create(newAccount);
 
-            // Create session instead of sending raw data
-            const sessionResponse = createSignUpSession(res, newAccount);
-            sendSuccess(res, 200, sessionResponse);
+            // Create session with the new account, checking for existing session
+            const sessionResponse = await createSignUpSession(res, newAccount, req);
+
+            if (sessionResponse.error) {
+                sendError(res, 400, sessionResponse.code, sessionResponse.message);
+                return;
+            }
+
+            res.redirect('/');
             return;
         } catch (error) {
             console.log(error);
@@ -136,40 +145,47 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
         };
 
         res.redirect(authUrls[provider as OAuthProviders]);
-    } catch {
+    } catch (error) {
+        console.error(error);
         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
     }
 });
 
-router.post('/signup/add/:details', async (req: SignUpDetailsAddRequest, res: Response) => {
-    const { details } = req.params;
-    const { state } = req.query;
+// router.post('/signup/add/:details', async (req: SignUpDetailsAddRequest, res: Response) => {
+//     const { details } = req.params;
+//     const { state } = req.query;
 
-    const stateDetails = validateStateMiddleware(state as string, validateSignUpState, res) as SignUpState;
-    if (!stateDetails) return;
+//     const stateDetails = await validateStateMiddleware(state as string, validateSignUpState, res) as SignUpState;
+//     if (!stateDetails) return;
 
-    try {
-        switch (details) {
-            case 'device': {
-                const success = validateDevice(req.body);
-                if (!success) {
-                    sendError(res, 400, ApiErrorCode.INVALID_DETAILS, 'Invalid device details');
-                    return;
-                }
+//     try {
+//         switch (details) {
+//             case 'device': {
+//                 const success = validateDevice(req.body);
+//                 if (!success) {
+//                     sendError(res, 400, ApiErrorCode.INVALID_DETAILS, 'Invalid device details');
+//                     return;
+//                 }
 
-                stateDetails.accountDetails.device = req.body;
-                await db.write();
+//                 const models = await db.getModels();
 
-                sendSuccess(res, 201, { message: 'Device details added successfully' });
-                break;
-            }
-            default:
-                sendError(res, 404, ApiErrorCode.INVALID_DETAILS, 'Unsupported details type');
-        }
-    } catch {
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
-    }
-});
+//                 // Update the state document with the device details
+//                 await models.auth.SignUpState.updateOne(
+//                     { state: stateDetails.state },
+//                     { $set: { 'accountDetails.device': req.body } }
+//                 );
+
+//                 sendSuccess(res, 201, { message: 'Device details added successfully' });
+//                 break;
+//             }
+//             default:
+//                 sendError(res, 404, ApiErrorCode.INVALID_DETAILS, 'Unsupported details type');
+//         }
+//     } catch (error) {
+//         console.error(error);
+//         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
+//     }
+// });
 
 router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
     const { state, error } = req.query;
@@ -180,27 +196,42 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
     }
 
     if (state && typeof state === 'string') {
-        const stateDetails = validateStateMiddleware(state, validateSignInState, res) as SignInState;
+        const stateDetails = await validateStateMiddleware(state, validateSignInState, res) as SignInState;
         if (!stateDetails) return;
-        
-        const user = findUser(stateDetails.oAuthResponse.email, stateDetails.oAuthResponse.provider);
+
+        const user = await findUser(stateDetails.oAuthResponse.email, stateDetails.oAuthResponse.provider);
 
         if (!user) {
             sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "User details not found");
             return;
         }
 
-        // Update the user's token details
-        user.tokenDetails = stateDetails.oAuthResponse.tokenDetails;
-        user.updated = new Date().toISOString();
-        await db.write();
-
         try {
+            const models = await db.getModels();
+
+            // Find and update the user in the accounts database
+            const dbUser = await models.accounts.OAuthAccount.findOne({ id: user.id });
+            if (!dbUser) {
+                sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
+                return;
+            }
+
+            // Update the user's token details
+            dbUser.tokenDetails = stateDetails.oAuthResponse.tokenDetails;
+            dbUser.updated = new Date().toISOString();
+            await dbUser.save();
+
             await clearSignInState(stateDetails.state);
 
-            // Create session instead of sending raw data
-            const sessionResponse = createSignInSession(res, stateDetails, user);
-            sendSuccess(res, 200, sessionResponse);
+            // Create or update session with the signed-in account
+            const sessionResponse = await createSignInSession(res, toOAuthAccount(dbUser)!, req);
+
+            if (sessionResponse.error) {
+                sendError(res, 400, sessionResponse.code, sessionResponse.message);
+                return;
+            }
+
+            res.redirect('/');
             return;
         } catch (error) {
             console.log(error)
@@ -221,7 +252,8 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
         };
 
         res.redirect(authUrls[provider as OAuthProviders]);
-    } catch {
+    } catch (error) {
+        console.error(error);
         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
     }
 });
@@ -232,7 +264,7 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
 
     if (!validateProviderMiddleware(provider, res)) return;
 
-    const stateDetails = validateStateMiddleware(
+    const stateDetails = await validateStateMiddleware(
         stateFromProvider,
         (state) => validateOAuthState(state, provider as OAuthProviders),
         res
@@ -259,7 +291,7 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
             }
 
             try {
-                const exists = userExists(userEmail, provider as OAuthProviders);
+                const exists = await userExists(userEmail, provider as OAuthProviders);
 
                 if (stateDetails.authType === AuthType.SIGN_UP) {
                     if (exists) {
@@ -267,7 +299,7 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
                         return;
                     }
                     const state = await generateSignupState(userData);
-                    sendSuccess(res, 200, { state });
+                    res.redirect(`../signup?state=${state}`);
                 } else {
                     if (!exists) {
                         redirectWithError(res, '/signin', ApiErrorCode.USER_NOT_FOUND);
@@ -276,19 +308,34 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
                     const state = await generateSignInState(userData);
                     res.redirect(`../signin?state=${state}`);
                 }
-            } catch {
+            } catch (error) {
+                console.error(error);
                 sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to process authentication');
             }
         })(req, res, next);
-    } catch {
+    } catch (error) {
+        console.error(error);
         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
     }
 });
 
-// Add logout endpoint 
-router.post('/logout', (req: Request, res: Response) => {
+// Logout a specific account
+router.post('/:accountId/logout', (req: Request, res: Response) => {
+    const { accountId } = req.params;
+
+    const success = removeAccountFromSession(res, req, accountId);
+
+    if (success) {
+        sendSuccess(res, 200, { message: 'Account logged out successfully' });
+    } else {
+        sendError(res, 400, ApiErrorCode.AUTH_FAILED, 'Failed to logout account');
+    }
+});
+
+// Logout all accounts (clear entire session)
+router.get('/logout/all', (req: Request, res: Response) => {
     clearSession(res);
-    sendSuccess(res, 200, { message: 'Logged out successfully' });
+    res.redirect('/');
 });
 
 export { router };

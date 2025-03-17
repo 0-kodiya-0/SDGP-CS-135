@@ -58,7 +58,6 @@ export interface BaseAccount {
     id: string;
     created: string;
     updated: string;
-    device: Device
     accountType: AccountType;
     status: AccountStatus;
     userDetails: UserDetails;

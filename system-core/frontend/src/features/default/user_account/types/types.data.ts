@@ -21,7 +21,7 @@ export interface BaseSecuritySettings {
 
 export interface OAuthSecuritySettings extends BaseSecuritySettings {
     twoFactorEnabled: boolean;
- }
+}
 
 export interface LocalSecuritySettings extends BaseSecuritySettings {
     password: string;
@@ -64,26 +64,11 @@ export interface TokenDetails {
     refreshToken: string;
 }
 
-export interface BaseAccount {
-    id: number;
-    created: string;
-    updated: string;
-    device: Device
-    accountType: AccountType;
-    status: AccountStatus;
-    userDetails: UserDetails;
+export interface ApiResponse<T = any> {
+    success: boolean;
+    data?: T;
+    error?: {
+        code: string;
+        message: string;
+    };
 }
-
-export interface LocalAccount extends BaseAccount {
-    accountType: AccountType.Local;
-    security: LocalSecuritySettings;
-}
-
-export interface OAuthAccount extends BaseAccount {
-    accountType: AccountType.OAuth;
-    provider: OAuthProviders;
-    security: OAuthSecuritySettings;
-    tokenDetails: TokenDetails;
-}
-
-export type ActiveAccount = LocalAccount | OAuthAccount

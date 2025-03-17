@@ -1,43 +1,38 @@
 import db from "../../config/db";
 import { OAuthProviders } from "../account/Account.types";
 import { OAuthState, SignInState, SignUpState } from "./Auth.types";
+import { toOAuthState, toSignInState, toSignUpState } from "./Auth.helpers";
 
-export const validateOAuthState = (state: string, provider: OAuthProviders): OAuthState | null => {
-    const stateData = db.data.oauthStates.find(s =>
-        s.state === state &&
-        s.provider === provider &&
-        new Date(s.expiresAt) > new Date()
-    );
+export const validateOAuthState = async (state: string, provider: OAuthProviders): Promise<OAuthState | null> => {
+    const models = await db.getModels();
+    
+    const stateData = await models.auth.OAuthState.findOne({
+        state: state,
+        provider: provider,
+        expiresAt: { $gt: new Date() }
+    }).lean();
 
-    if (stateData) {
-        return stateData;
-    }
-
-    return null;
+    return toOAuthState(stateData);
 };
 
-export const validateSignInState = (state: string): SignInState | null => {
-    const stateData = db.data.signInStates.find(s =>
-        s.state === state &&
-        new Date(s.expiresAt) > new Date()
-    );
+export const validateSignInState = async (state: string): Promise<SignInState | null> => {
+    const models = await db.getModels();
+    
+    const stateData = await models.auth.SignInState.findOne({
+        state: state,
+        expiresAt: { $gt: new Date() }
+    }).lean();
 
-    if (stateData) {
-        return stateData;
-    }
-
-    return null;
+    return toSignInState(stateData);
 };
 
-export const validateSignUpState = (state: string): SignUpState | null => {
-    const stateData = db.data.signUpStates.find(s =>
-        s.state === state &&
-        new Date(s.expiresAt) > new Date()
-    );
+export const validateSignUpState = async (state: string): Promise<SignUpState | null> => {
+    const models = await db.getModels();
+    
+    const stateData = await models.auth.SignUpState.findOne({
+        state: state,
+        expiresAt: { $gt: new Date() }
+    }).lean();
 
-    if (stateData) {
-        return stateData;
-    }
-
-    return null;
+    return toSignUpState(stateData);
 };

@@ -1,35 +1,26 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PlusCircle, ChevronUp, ChevronDown, LogOut, UserCircle } from 'lucide-react';
-import { UserAvatar } from './UserAvatar.tsx';
-import { LocalAccount, OAuthAccount } from '../types/types.data.ts';
-import { useAccountStore } from '../store';
+import { UserAvatar } from './UserAvatar';
+import { useNavigate } from 'react-router-dom';
+import { useAccount, useAuth } from '../../../../services/auth';
 
 interface AccountPopupProps {
   isOpen: boolean;
   onClose: () => void;
   anchorEl: HTMLElement | null;
-  activeAccount: LocalAccount | OAuthAccount
 }
 
-export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anchorEl, activeAccount }) => {
+export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anchorEl }) => {
   const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const {
-    localAccount,
-    oauthAccounts,
-    setActiveAccount,
-  } = useAccountStore();
-
-  // Get all accounts
-  const accounts = [
-    ...(localAccount ? [localAccount] : []),
-    ...oauthAccounts
-  ];
+  const { session, logout, logoutAll } = useAuth();
+  const { currentAccount, accountDetails } = useAccount();
+  const navigate = useNavigate();
 
   // Check if there are any accounts
-  const hasAccounts = accounts.length > 0;
+  const hasAccounts = (session?.accounts.length || 0) > 0;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,6 +48,45 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
     right: `${window.innerWidth - anchorRect.right}px`,
   };
 
+  const handleSwitchAccount = (accountId: string) => {
+    navigate(`/app/${accountId}`);
+    onClose();
+  };
+
+  const handleLogout = async () => {
+    if (currentAccount) {
+      setLoading(true);
+      await logout(currentAccount.accountId);
+      setLoading(false);
+      onClose();
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    setLoading(true);
+    await logoutAll();
+    setLoading(false);
+    onClose();
+  };
+
+  const handleAddAccount = () => {
+    window.location.href = '/api/v1/oauth/signin/google';
+    onClose();
+  };
+
+  // Construct display data for the current account
+  const activeAccountDisplay = currentAccount && accountDetails ? {
+    id: currentAccount.accountId,
+    name: accountDetails.name,
+    email: accountDetails.email,
+    imageUrl: accountDetails.imageUrl,
+    provider: accountDetails.provider,
+    status: accountDetails.status,
+    security: {
+      sessionTimeout: 30 // Default value
+    }
+  } : null;
+
   return (
     <div
       ref={popupRef}
@@ -65,34 +95,39 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
     >
       {/* Active account header */}
       <div className="p-4 border-b">
-        {hasAccounts && activeAccount ? (
+        {hasAccounts && activeAccountDisplay ? (
           <>
             <div className="flex items-start">
-              <UserAvatar account={activeAccount} size="md" />
+              <UserAvatar
+                account={{
+                  id: activeAccountDisplay.id,
+                  name: activeAccountDisplay.name,
+                  email: activeAccountDisplay.email,
+                  imageUrl: activeAccountDisplay.imageUrl,
+                  provider: activeAccountDisplay.provider
+                }}
+                size="md"
+              />
               <div className="flex-1 ml-3">
-                <h2 className="text-lg font-medium">Hi, {activeAccount?.userDetails?.name?.split(' ')[0] || 'User'}!</h2>
-                <p className="text-sm text-gray-600 truncate">{activeAccount?.userDetails?.email}</p>
+                <h2 className="text-lg font-medium">Hi, {activeAccountDisplay.name?.split(' ')[0] || 'User'}!</h2>
+                <p className="text-sm text-gray-600 truncate">{activeAccountDisplay.email}</p>
               </div>
             </div>
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
               <span>
-                {activeAccount?.security?.sessionTimeout ?
-                  `Session: ${activeAccount.security.sessionTimeout}m` :
+                {activeAccountDisplay.security?.sessionTimeout ?
+                  `Session: ${activeAccountDisplay.security.sessionTimeout}m` :
                   'No session timeout'}
               </span>
               <span className="flex items-center">
-                <span className={`w-2 h-2 rounded-full mr-1 ${activeAccount?.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                {activeAccount?.status === 'active' ? 'Active' : 'Inactive'}
+                <span className={`w-2 h-2 rounded-full mr-1 ${activeAccountDisplay.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                {activeAccountDisplay.status === 'active' ? 'Active' : 'Inactive'}
               </span>
             </div>
             <button
               className="mt-3 w-full py-2 px-4 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
               disabled={loading}
-              onClick={() => {
-                setLoading(true);
-                // Simulate API call
-                setTimeout(() => setLoading(false), 800);
-              }}
+              onClick={() => navigate(`/app/${currentAccount.accountId}/settings`)}
             >
               {loading ? (
                 <span className="flex items-center">
@@ -118,6 +153,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
             </p>
             <button
               className="w-full py-2 px-4 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+              onClick={handleAddAccount}
             >
               Add your first account
             </button>
@@ -127,7 +163,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
       {/* Account list section */}
       <div className="p-3">
-        {hasAccounts && accounts.length > 1 && (
+        {hasAccounts && session && session.accounts.length > 1 && (
           <>
             <button
               onClick={() => setShowAllAccounts(!showAllAccounts)}
@@ -141,19 +177,27 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
             {showAllAccounts && (
               <div className="mt-2 space-y-1">
-                {accounts.length > 1 ? (
-                  accounts
-                    .filter(acc => acc.id !== activeAccount?.id)
+                {session.accounts.length > 1 ? (
+                  session.accounts
+                    .filter(acc => acc.accountId !== currentAccount?.accountId)
                     .map((account) => (
                       <button
-                        key={account.id}
+                        key={account.accountId}
                         className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-left"
-                        onClick={() => setActiveAccount(account)}
+                        onClick={() => handleSwitchAccount(account.accountId)}
                       >
-                        <UserAvatar account={account} size="sm" />
+                        <UserAvatar
+                          account={{
+                            id: account.accountId,
+                            name: account.name || '',
+                            email: account.email || '',
+                            provider: account.provider
+                          }}
+                          size="sm"
+                        />
                         <div className="flex-1 min-w-0 ml-3">
-                          <p className="text-sm font-medium">{account.userDetails.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{account.userDetails.email}</p>
+                          <p className="text-sm font-medium">{account.name || 'User'}</p>
+                          <p className="text-xs text-gray-500 truncate">{account.email}</p>
                         </div>
                       </button>
                     ))
@@ -169,6 +213,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
         <button
           className="flex items-center w-full mt-2 p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"
+          onClick={handleAddAccount}
         >
           <PlusCircle size={16} className="mr-3" />
           {hasAccounts ? 'Add another account' : 'Add an account'}
@@ -176,12 +221,35 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
         {hasAccounts && (
           <div className="mt-3 pt-3 border-t">
-            <button
-              className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"
-            >
-              <LogOut size={16} className="mr-3" />
-              Sign out {accounts.length > 1 ? 'of all accounts' : ''}
-            </button>
+            {session && session.accounts.length > 1 ? (
+              <>
+                <button
+                  className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"
+                  onClick={handleLogout}
+                  disabled={loading}
+                >
+                  <LogOut size={16} className="mr-3" />
+                  Sign out of current account
+                </button>
+                <button
+                  className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"
+                  onClick={handleLogoutAll}
+                  disabled={loading}
+                >
+                  <LogOut size={16} className="mr-3" />
+                  Sign out of all accounts
+                </button>
+              </>
+            ) : (
+              <button
+                className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"
+                onClick={handleLogout}
+                disabled={loading}
+              >
+                <LogOut size={16} className="mr-3" />
+                Sign out
+              </button>
+            )}
           </div>
         )}
       </div>

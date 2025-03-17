@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Environment } from '../types/types.data';
 import { EnvironmentStore } from '../types/types.store';
-import { stateLogger } from '../../../../api/logger';
+import { stateLogger } from '../../../../../lib/logger';
 
 // Create dedicated logger for environment store
 const envStoreLogger = stateLogger.extend('environment');
@@ -17,8 +17,8 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
       // Map of accountId to selected environment ID
       selectedEnvironmentIds: {},
 
-      setEnvironment: (environment: Environment, accountId: number): void => {
-        envStoreLogger('Setting environment %d (%s) for account %d',
+      setEnvironment: (environment: Environment, accountId: string): void => {
+        envStoreLogger('Setting environment %d (%s) for account %s',
           environment.id, environment.name, accountId);
 
         set(state => ({
@@ -28,16 +28,16 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
           }
         }));
 
-        envStoreLogger('Environment %d set as active for account %d', environment.id, accountId);
+        envStoreLogger('Environment %d set as active for account %s', environment.id, accountId);
       },
 
-      getEnvironment: (accountId: number): Environment | null => {
-        envStoreLogger('Getting environment for account %d', accountId);
+      getEnvironment: (accountId: string): Environment | null => {
+        envStoreLogger('Getting environment for account %s', accountId);
         const state = get();
         const selectedEnvId = state.selectedEnvironmentIds[accountId];
 
         if (selectedEnvId === undefined) {
-          envStoreLogger('No selected environment found for account %d', accountId);
+          envStoreLogger('No selected environment found for account %s', accountId);
           return null;
         }
 
@@ -46,17 +46,17 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
         ) || null;
 
         if (environment) {
-          envStoreLogger('Found environment %d (%s) for account %d',
+          envStoreLogger('Found environment %d (%s) for account %s',
             environment.id, environment.name, accountId);
         } else {
-          envStoreLogger('Selected environment %d not found for account %d', selectedEnvId, accountId);
+          envStoreLogger('Selected environment %d not found for account %s', selectedEnvId, accountId);
         }
 
         return environment;
       },
 
       addEnvironment: (environmentData): Environment => {
-        envStoreLogger('Adding new environment for account %d: %s',
+        envStoreLogger('Adding new environment for account %s: %s',
           environmentData.accountId, environmentData.name);
 
         const newEnvironment: Environment = {
@@ -73,7 +73,7 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
           );
 
           if (isFirstForAccount) {
-            envStoreLogger('This is the first environment for account %d', environmentData.accountId);
+            envStoreLogger('This is the first environment for account %s', environmentData.accountId);
           }
 
           // Always set new environment as selected for that account
@@ -118,22 +118,22 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
       },
 
       // Get all environments for a specific account
-      getEnvironmentsByAccount: (accountId: number): Environment[] => {
-        envStoreLogger('Getting all environments for account %d', accountId);
+      getEnvironmentsByAccount: (accountId: string): Environment[] => {
+        envStoreLogger('Getting all environments for account %s', accountId);
         const environments = get().environments.filter(env => env.accountId === accountId);
-        envStoreLogger('Found %d environments for account %d', environments.length, accountId);
+        envStoreLogger('Found %d environments for account %s', environments.length, accountId);
         return environments;
       },
 
       // Clear selected environment for an account
-      clearSelectedEnvironment: (accountId: number): void => {
-        envStoreLogger('Clearing selected environment for account %d', accountId);
+      clearSelectedEnvironment: (accountId: string): void => {
+        envStoreLogger('Clearing selected environment for account %s', accountId);
 
         set(state => {
           const updatedSelections = { ...state.selectedEnvironmentIds };
           delete updatedSelections[accountId];
 
-          envStoreLogger('Selected environment cleared for account %d', accountId);
+          envStoreLogger('Selected environment cleared for account %s', accountId);
           return { selectedEnvironmentIds: updatedSelections };
         });
       }
