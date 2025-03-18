@@ -2,7 +2,7 @@ export interface AccountSession {
     accountId: string;
     accountType: string;
     provider?: string;
-    email?: string;
+    // email field removed for security
 }
 
 export interface SessionPayload {

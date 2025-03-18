@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authApi } from '../api';
 
 export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -19,7 +18,7 @@ export const LoginPage: React.FC = () => {
 
     const handleGoogleLogin = async () => {
         try {
-            await authApi.loginWithGoogle();
+            window.location.href = "/api/v1/oauth/signin/google";
             // The page will be redirected to Google OAuth
         } catch (error) {
             console.error('Login failed:', error);

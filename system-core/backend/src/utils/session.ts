@@ -1,10 +1,9 @@
-// utils/session.ts
 import { Response, Request, NextFunction } from 'express';
-import { OAuthAccount } from '../feature/account/Account.types';
-import { SignInState } from '../feature/oauth/Auth.types';
+import { OAuthAccount, OAuthProviders, TokenDetails } from '../feature/account/Account.types';
 import { ApiErrorCode } from '../types/response.types';
 import { sendError } from './response';
-import { AccountSession, SessionPayload, RefreshTokenData } from '../types/session.types';
+import { AccountSession, SessionPayload } from '../types/session.types';
+import refresh from 'passport-oauth2-refresh';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import db from '../config/db';
@@ -47,58 +46,6 @@ export const createSessionToken = (res: Response, sessionPayload: SessionPayload
     });
 
     return token;
-};
-
-/**
- * Creates or updates a refresh token for an account
- */
-export const createRefreshToken = async (accountId: string): Promise<string> => {
-    const models = await db.getModels();
-    
-    const token = crypto.randomBytes(64).toString('hex');
-    const now = new Date();
-    const expiryDate = new Date(now);
-    expiryDate.setDate(expiryDate.getDate() + 30); // 30 days from now
-
-    const refreshTokenData: RefreshTokenData = {
-        id: crypto.randomBytes(16).toString('hex'),
-        accountId,
-        token,
-        createdAt: now.toISOString(),
-        expiresAt: expiryDate.toISOString(),
-        isRevoked: false
-    };
-
-    // Revoke any existing refresh tokens for this account
-    await models.auth.RefreshToken.updateMany(
-        { accountId }, 
-        { isRevoked: true }
-    );
-
-    // Create the new refresh token
-    await models.auth.RefreshToken.create({
-        ...refreshTokenData,
-        createdAt: now,
-        expiresAt: expiryDate,
-    });
-
-    return token;
-};
-
-/**
- * Verifies a refresh token and returns the associated account
- */
-export const verifyRefreshToken = async (accountId: string, token: string): Promise<boolean> => {
-    const models = await db.getModels();
-    
-    const refreshToken = await models.auth.RefreshToken.findOne({
-        accountId,
-        token,
-        isRevoked: false,
-        expiresAt: { $gt: new Date() }
-    });
-
-    return !!refreshToken;
 };
 
 /**
@@ -148,12 +95,11 @@ export const validateAccountAccess = (req: Request, res: Response, next: NextFun
  */
 export const createOrUpdateSession = async (res: Response, account: OAuthAccount, req: Request) => {
     const currentSession = extractSession(req);
-    
+
     const accountSession: AccountSession = {
         accountId: account.id,
         accountType: account.accountType,
-        provider: account.provider,
-        email: account.userDetails.email
+        provider: account.provider
     };
 
     let sessionPayload: SessionPayload;
@@ -193,9 +139,6 @@ export const createOrUpdateSession = async (res: Response, account: OAuthAccount
         };
     }
 
-    // Create a refresh token for this account
-    const refreshToken = await createRefreshToken(account.id);
-
     // Create the session token
     createSessionToken(res, sessionPayload);
 
@@ -205,7 +148,6 @@ export const createOrUpdateSession = async (res: Response, account: OAuthAccount
         sessionId: sessionPayload.sessionId,
         accountId: account.id,
         name: account.userDetails.name,
-        refreshToken
     };
 };
 
@@ -259,32 +201,144 @@ export const clearSession = (res: Response) => {
     res.clearCookie('session_token', { path: '/' });
 };
 
+
 /**
- * Revoke a refresh token
+ * Checks if an OAuth access token is expired or close to expiring
+ * 
+ * Note: Google tokens typically don't include expiration in the token itself
+ * We'll use a combination of token age and a buffer time to determine if refresh is needed
+ * 
+ * @param tokenDetails The token details to check
+ * @returns True if the token needs to be refreshed
  */
-export const revokeRefreshToken = async (accountId: string): Promise<void> => {
-    const models = await db.getModels();
-    
-    // Mark all refresh tokens for this account as revoked
-    await models.auth.RefreshToken.updateMany(
-        { accountId }, 
-        { isRevoked: true }
-    );
+export const isTokenExpired = (tokenDetails: TokenDetails): boolean => {
+    if (!tokenDetails.tokenCreatedAt) {
+        // If we don't know when the token was created, assume it needs refresh
+        return true;
+    }
+
+    const tokenCreatedAt = new Date(tokenDetails.tokenCreatedAt).getTime();
+    const now = Date.now();
+
+    // Google's access tokens typically expire after 1 hour (3600 seconds)
+    // We'll use a conservative approach and refresh after 50 minutes (3000 seconds)
+    const tokenLifespan = 3000 * 1000; // 50 minutes in milliseconds
+
+    return now - tokenCreatedAt > tokenLifespan;
 };
 
 /**
- * Clean up expired refresh tokens (can be run periodically)
+ * Refreshes an OAuth access token using the refresh token
+ * 
+ * @param provider The OAuth provider
+ * @param refreshToken The refresh token to use
+ * @returns A promise that resolves to the new token details
  */
-export const cleanupExpiredRefreshTokens = async (): Promise<void> => {
-    const models = await db.getModels();
-    const now = new Date();
-    
-    const result = await models.auth.RefreshToken.deleteMany({
-        $or: [
-            { isRevoked: true },
-            { expiresAt: { $lt: now } }
-        ]
+export const refreshAccessToken = async (
+    provider: OAuthProviders,
+    refreshToken: string
+): Promise<TokenDetails> => {
+    if (!refreshToken) {
+        throw new Error('No refresh token available');
+    }
+
+    return new Promise((resolve, reject) => {
+        refresh.requestNewAccessToken(
+            provider,
+            refreshToken,
+            (err, accessToken, refreshToken) => {
+                if (err) {
+                    return reject(err);
+                }
+
+                const tokenDetails: TokenDetails = {
+                    accessToken: accessToken || '',
+                    refreshToken: refreshToken || '',
+                    tokenCreatedAt: new Date().toISOString()
+                };
+
+                resolve(tokenDetails);
+            }
+        );
     });
-    
-    console.log(`Cleaned up expired refresh tokens: ${result.deletedCount} removed`);
+};
+
+/**
+ * Updates a user's token details in the database
+ * 
+ * @param accountId The account ID
+ * @param tokenDetails The new token details
+ */
+export const updateUserTokens = async (
+    accountId: string,
+    tokenDetails: TokenDetails
+): Promise<void> => {
+    try {
+        const models = await db.getModels();
+
+        // Find and update token details
+        await models.accounts.OAuthAccount.updateOne(
+            { id: accountId },
+            {
+                $set: {
+                    tokenDetails,
+                    updated: new Date().toISOString()
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Failed to update user tokens:', error);
+        throw error;
+    }
+};
+
+/**
+ * Validates and refreshes token if needed
+ * 
+ * @param accountId The account ID
+ * @param provider The OAuth provider
+ * @returns A promise that resolves to the validated token details
+ */
+export const validateAndRefreshToken = async (
+    accountId: string,
+    provider: OAuthProviders
+): Promise<TokenDetails> => {
+    try {
+        const models = await db.getModels();
+
+        // Find the user account
+        const account = await models.accounts.OAuthAccount.findOne({ id: accountId });
+
+        if (!account) {
+            throw new Error('Account not found');
+        }
+
+        const { tokenDetails } = account;
+
+        // Check if token needs refresh
+        if (isTokenExpired(tokenDetails)) {
+            console.log(`Token expired for account ${accountId}, refreshing...`);
+
+            try {
+                // Refresh the token
+                const newTokenDetails = await refreshAccessToken(provider, tokenDetails.refreshToken);
+
+                // Update the database with new tokens
+                await updateUserTokens(accountId, newTokenDetails);
+
+                return newTokenDetails;
+            } catch (refreshError) {
+                console.error('Error refreshing token:', refreshError);
+                // Token refresh failed, return the original token
+                // The API request might still work, or it might fail with auth errors
+                return tokenDetails;
+            }
+        }
+
+        // Token is still valid
+        return tokenDetails;
+    } catch (error) {
+        console.error('Token validation error:', error);
+        throw error;
+    }
 };

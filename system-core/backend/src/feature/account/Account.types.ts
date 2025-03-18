@@ -52,6 +52,7 @@ export interface UserDetails {
 export interface TokenDetails {
     accessToken: string;
     refreshToken: string;
+    tokenCreatedAt?: string; // Timestamp when the token was created/refreshed
 }
 
 export interface BaseAccount {

@@ -1,38 +1,15 @@
-import db from "../../config/db";
 import { OAuthProviders } from "../account/Account.types";
 import { OAuthState, SignInState, SignUpState } from "./Auth.types";
-import { toOAuthState, toSignInState, toSignUpState } from "./Auth.helpers";
+import { getOAuthState, getSignInState, getSignUpState } from "./Auth.cache";
 
 export const validateOAuthState = async (state: string, provider: OAuthProviders): Promise<OAuthState | null> => {
-    const models = await db.getModels();
-    
-    const stateData = await models.auth.OAuthState.findOne({
-        state: state,
-        provider: provider,
-        expiresAt: { $gt: new Date() }
-    }).lean();
-
-    return toOAuthState(stateData);
+    return getOAuthState(state, provider);
 };
 
 export const validateSignInState = async (state: string): Promise<SignInState | null> => {
-    const models = await db.getModels();
-    
-    const stateData = await models.auth.SignInState.findOne({
-        state: state,
-        expiresAt: { $gt: new Date() }
-    }).lean();
-
-    return toSignInState(stateData);
+    return getSignInState(state);
 };
 
 export const validateSignUpState = async (state: string): Promise<SignUpState | null> => {
-    const models = await db.getModels();
-    
-    const stateData = await models.auth.SignUpState.findOne({
-        state: state,
-        expiresAt: { $gt: new Date() }
-    }).lean();
-
-    return toSignUpState(stateData);
+    return getSignUpState(state);
 };

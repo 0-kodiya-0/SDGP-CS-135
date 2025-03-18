@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// EnvironmentContext.tsx - Fixed Implementation
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAccount } from '../../../../services/auth';
 import { useEnvironmentStore } from '../store';
 import { Environment, EnvironmentPrivacy, EnvironmentStatus } from '../types/types.data';
@@ -10,7 +11,7 @@ interface EnvironmentContextType {
     error: string | null;
     setCurrentEnvironment: (environment: Environment) => void;
     createEnvironment: (name: string, privacy?: EnvironmentPrivacy) => Promise<Environment | null>;
-    updateEnvironment: (id: number, updates: Partial<Environment>) => void;
+    updateEnvironment: (id: string, updates: Partial<Environment>) => void;
 }
 
 const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
@@ -20,6 +21,9 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Store-managed state
+    const accountId = currentAccount?.accountId || '';
+
     // Get environment store methods
     const getEnvironment = useEnvironmentStore(state => state.getEnvironment);
     const getEnvironmentsByAccount = useEnvironmentStore(state => state.getEnvironmentsByAccount);
@@ -27,54 +31,86 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const addEnvironment = useEnvironmentStore(state => state.addEnvironment);
     const updateEnvironmentStore = useEnvironmentStore(state => state.updateEnvironment);
 
-    // Get accountId from currentAccount
-    const accountId = currentAccount?.accountId || '';
+    // Use store values directly for realtime updates
+    const storeEnvironments = useEnvironmentStore(state => state.environments);
+    const storeSelectedIds = useEnvironmentStore(state => state.selectedEnvironmentIds);
 
-    // Get current environment and all environments for this account
-    const currentEnvironment = accountId ? getEnvironment(accountId) : null;
-    const environments = accountId ? getEnvironmentsByAccount(accountId) : [];
+    // Keep local state synchronized with store
+    const [currentEnvironment, setCurrentEnvironmentState] = useState<Environment | null>(null);
+    const [environments, setEnvironmentsState] = useState<Environment[]>([]);
 
-    // Initialize environment when account changes
+    // Sync local state with store whenever relevant store state changes
     useEffect(() => {
         if (!accountId) {
-            setIsLoading(false);
+            setEnvironmentsState([]);
+            setCurrentEnvironmentState(null);
             return;
         }
 
-        setIsLoading(true);
+        const accountEnvironments = storeEnvironments.filter(env => env.accountId === accountId);
+        setEnvironmentsState(accountEnvironments);
 
-        try {
-            const accountEnvironments = getEnvironmentsByAccount(accountId);
+        const selectedEnvId = storeSelectedIds[accountId];
+        const selectedEnv = selectedEnvId
+            ? accountEnvironments.find(env => env.id === selectedEnvId) || null
+            : null;
 
-            // If no environments exist for this account, create a default one
-            if (accountEnvironments.length === 0) {
-                console.log(`[EnvironmentContext] Creating default environment for account ${accountId}`);
+        setCurrentEnvironmentState(selectedEnv);
+    }, [accountId, storeEnvironments, storeSelectedIds]);
 
-                const defaultEnvironment = addEnvironment({
-                    accountId,
-                    name: 'Default Environment',
-                    status: EnvironmentStatus.Active,
-                    privacy: EnvironmentPrivacy.Private
-                });
-
-                setEnvironment(defaultEnvironment, accountId);
+    // Initialize environment when account changes
+    useEffect(() => {
+        const initializeEnvironment = async () => {
+            if (!accountId) {
+                setIsLoading(false);
+                return;
             }
 
-            setError(null);
-        } catch (err) {
-            console.error('[EnvironmentContext] Error initializing environments:', err);
-            setError('Failed to initialize environments');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [accountId, addEnvironment, getEnvironmentsByAccount, setEnvironment]);
+            setIsLoading(true);
 
-    const setCurrentEnvironment = (environment: Environment) => {
+            try {
+                const accountEnvironments = getEnvironmentsByAccount(accountId);
+
+                // If no environments exist for this account, create a default one
+                if (accountEnvironments.length === 0) {
+                    console.log(`[EnvironmentContext] Creating default environment for account ${accountId}`);
+
+                    const defaultEnvironment = addEnvironment({
+                        accountId,
+                        name: 'Default Environment',
+                        status: EnvironmentStatus.Active,
+                        privacy: EnvironmentPrivacy.Private
+                    });
+
+                    // Explicitly set the default environment as selected for this account
+                    setEnvironment(defaultEnvironment, accountId);
+                } else {
+                    // If there are existing environments but none selected, select the first one
+                    const currentSelected = getEnvironment(accountId);
+                    if (!currentSelected) {
+                        setEnvironment(accountEnvironments[0], accountId);
+                    }
+                }
+
+                setError(null);
+            } catch (err) {
+                console.error('[EnvironmentContext] Error initializing environments:', err);
+                setError('Failed to initialize environments');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initializeEnvironment();
+    }, [accountId, addEnvironment, getEnvironment, getEnvironmentsByAccount, setEnvironment]);
+
+    const setCurrentEnvironment = useCallback((environment: Environment) => {
         if (!accountId) return;
         setEnvironment(environment, accountId);
-    };
+        // No need to set local state as it will be updated via the useEffect
+    }, [accountId, setEnvironment]);
 
-    const createEnvironment = async (
+    const createEnvironment = useCallback(async (
         name: string,
         privacy: EnvironmentPrivacy = EnvironmentPrivacy.Global
     ): Promise<Environment | null> => {
@@ -90,6 +126,7 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 privacy
             });
 
+            // Set environment only after creation is confirmed
             setCurrentEnvironment(newEnvironment);
             return newEnvironment;
         } catch (err) {
@@ -99,11 +136,16 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [accountId, addEnvironment, setCurrentEnvironment]);
 
-    const updateEnvironment = (id: number, updates: Partial<Environment>) => {
-        updateEnvironmentStore(id, updates);
-    };
+    const updateEnvironment = useCallback((id: string, updates: Partial<Environment>) => {
+        try {
+            updateEnvironmentStore(id, updates);
+        } catch (err) {
+            console.error('[EnvironmentContext] Error updating environment:', err);
+            setError('Failed to update environment');
+        }
+    }, [updateEnvironmentStore]);
 
     const value = {
         currentEnvironment,

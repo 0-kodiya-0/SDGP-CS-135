@@ -24,6 +24,8 @@
     "@types/passport-facebook": "^3.0.3",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-microsoft": "^1.0.3",
+    "@types/passport-oauth2-refresh": "^1.1.4",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.20.1",
     "globals": "^15.15.0",
     "nodemon": "^3.1.9",
@@ -35,12 +37,17 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "googleapis": "^146.0.0",
     "jsonwebtoken": "^9.0.2",
     "lowdb": "^7.0.1",
+    "lru-cache": "^11.0.2",
     "mongoose": "^8.12.1",
+    "multer": "^1.4.5-lts.1",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
-    "passport-microsoft": "^2.1.0"
+    "passport-microsoft": "^2.1.0",
+    "passport-oauth2": "^1.8.0",
+    "passport-oauth2-refresh": "^2.2.0"
   }
 }

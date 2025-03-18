@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { useEnvironmentStore } from "../store";
-import { EnvironmentPrivacy, EnvironmentStatus } from "../types/types.data";
+import { useEnvironment } from "../contexts/EnvironmentContext";
 
 export interface CreateEnvironmentInputProps {
     accountId: string;
@@ -16,8 +15,7 @@ export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
     const [isLoading, setIsLoading] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
-    const addEnvironment = useEnvironmentStore(state => state.addEnvironment);
-    const setEnvironment = useEnvironmentStore(state => state.setEnvironment);
+    const { createEnvironment } = useEnvironment();
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -36,23 +34,19 @@ export const CreateEnvironmentInput: React.FC<CreateEnvironmentInputProps> = ({
         try {
             console.log(`[CreateEnvironment] Creating new environment "${trimmedName}" for account ${accountId}`);
 
-            // Create a new environment in the store
-            const newEnvironment = addEnvironment({
-                accountId,
-                name: trimmedName,
-                status: EnvironmentStatus.Active,
-                privacy: EnvironmentPrivacy.Global
-            });
+            // Use the context method to create a new environment
+            const newEnvironment = await createEnvironment(trimmedName);
 
-            // Set as selected environment for this account
-            setEnvironment(newEnvironment, accountId);
-
-            console.log(`[CreateEnvironment] Environment created: ${newEnvironment.id} (${newEnvironment.name})`);
-
-            // Delay closing the modal slightly to ensure state updates are processed
-            setTimeout(() => {
-                onCancel(); // Close the input form after successful creation
-            }, 100);
+            if (newEnvironment) {
+                console.log(`[CreateEnvironment] Environment created: ${newEnvironment.id} (${newEnvironment.name})`);
+                
+                // Delay closing the modal slightly to ensure state updates are processed
+                setTimeout(() => {
+                    onCancel(); // Close the input form after successful creation
+                }, 100);
+            } else {
+                throw new Error('Failed to create environment');
+            }
         } catch (error) {
             console.error('[CreateEnvironment] Error creating environment:', error);
             setError(error instanceof Error ? error.message : 'Failed to create environment');

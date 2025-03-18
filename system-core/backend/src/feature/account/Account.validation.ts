@@ -1,4 +1,4 @@
-import { UserDetails, TokenDetails, DevicePreferences, Device, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
+import { UserDetails, TokenDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
 import { findUser } from "./Account.utils";
 
 export const userExists = async (email: string, provider: OAuthProviders): Promise<boolean> => {

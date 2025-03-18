@@ -4,9 +4,9 @@ import passport from 'passport';
 import cookieParser from 'cookie-parser';
 import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
-import { router as accountRoutes } from "./feature/account";
-import { authenticateSession, cleanupExpiredRefreshTokens } from './utils/session';
-import { clearExpiredStates } from './feature/oauth/Auth.utils';
+import { router as accountRoutes } from './feature/account';
+import { router as googleRoutes } from './feature/google'; // Import Google API routes
+import { authenticateSession } from './utils/session';
 import db from './config/db';
 
 dotenv.config();
@@ -40,21 +40,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/oauth', oauthRoutes);
 app.use('/account', authenticateSession, accountRoutes);
-
-// Set up a periodic task to clean up expired tokens and states
-// In a production app, you'd use a proper task scheduler
-const runCleanupTasks = async () => {
-    try {
-        await cleanupExpiredRefreshTokens();
-        await clearExpiredStates();
-        console.log('Cleanup tasks completed');
-    } catch (error) {
-        console.error('Error during cleanup tasks:', error);
-    }
-};
-
-// Run cleanup every hour
-setInterval(runCleanupTasks, 60 * 60 * 1000);
+app.use('/google', authenticateSession, googleRoutes); // Add Google API routes
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

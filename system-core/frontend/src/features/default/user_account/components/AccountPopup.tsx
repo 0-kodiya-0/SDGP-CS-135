@@ -49,7 +49,10 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   };
 
   const handleSwitchAccount = (accountId: string) => {
-    navigate(`/app/${accountId}`);
+    // Open in a new tab
+    window.open(`/app/${accountId}`, '_blank');
+
+    // Close the current dropdown/modal if needed
     onClose();
   };
 

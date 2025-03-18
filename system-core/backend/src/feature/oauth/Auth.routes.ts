@@ -1,10 +1,10 @@
 import express, { Response, Request, NextFunction } from 'express';
-import { OAuthAccount, AccountType, AccountStatus, Device, OAuthProviders } from '../account/Account.types';
-import { validateOAuthAccount, validateDevice, userExists } from '../account/Account.validation';
+import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
+import { validateOAuthAccount, userExists } from '../account/Account.validation';
 import { validateSignUpState, validateSignInState, validateOAuthState } from './Auth.validation';
 import { AuthType, AuthUrls, OAuthState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState } from './Auth.utils';
-import { SignUpRequest, SignUpDetailsAddRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
+import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
 import { sendError, sendSuccess, redirectWithError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
