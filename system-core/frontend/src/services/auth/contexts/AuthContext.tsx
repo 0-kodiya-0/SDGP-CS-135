@@ -6,10 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 export interface Account {
     accountId: string;
     accountType: string;
-    provider?: string;
-    email?: string;
-    name?: string;
-    imageUrl?: string;
+    provider: string;
 }
 
 interface Session {

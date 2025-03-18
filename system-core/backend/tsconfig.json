@@ -16,7 +16,8 @@
         "forceConsistentCasingInFileNames": true
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "src/app.ts"
     ],
     "exclude": [
         "node_modules",

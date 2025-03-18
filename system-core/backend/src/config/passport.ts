@@ -6,29 +6,29 @@ import refresh from 'passport-oauth2-refresh';
 import { OAuthProviders } from '../feature/account/Account.types';
 import { ProviderResponse } from '../feature/oauth/Auth.types';
 
-export const googleStrategy = new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID!,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    callbackURL: 'http://localhost:8080/api/v1/oauth/callback/google'
-}, async (accessToken, refreshToken, profile, done) => {
-    try {
-        const response: ProviderResponse = {
-            provider: OAuthProviders.Google,
-            name: profile.displayName,
-            email: profile.emails?.[0].value,
-            imageUrl: profile.photos?.[0].value,
-            tokenDetails: {
-                accessToken,
-                refreshToken: refreshToken || '',
-            }
-        };
-        return done(null, response);
-    } catch (error) {
-        return done(error as Error);
-    }
-})
-
 const setupPassport = () => {
+    const googleStrategy = new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: 'http://localhost:8080/api/v1/oauth/callback/google'
+    }, async (accessToken, refreshToken, profile, done) => {
+        try {
+            const response: ProviderResponse = {
+                provider: OAuthProviders.Google,
+                name: profile.displayName,
+                email: profile.emails?.[0].value,
+                imageUrl: profile.photos?.[0].value,
+                tokenDetails: {
+                    accessToken,
+                    refreshToken: refreshToken || '',
+                }
+            };
+            return done(null, response);
+        } catch (error) {
+            return done(error as Error);
+        }
+    })
+
     // Google Strategy
     passport.use(googleStrategy);
 
