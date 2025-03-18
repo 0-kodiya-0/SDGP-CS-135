@@ -11,7 +11,7 @@ export enum EnvironmentPrivacy {
 }
 
 export interface Environment {
-    id: number;
+    id: string; // Changed from number to string
     accountId: string;
     name: string;
     created: string;

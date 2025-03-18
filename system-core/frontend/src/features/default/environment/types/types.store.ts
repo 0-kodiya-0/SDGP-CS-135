@@ -10,13 +10,13 @@ export interface EnvironmentCreateData {
 export interface EnvironmentStore {
     // Data
     environments: Environment[];
-    selectedEnvironmentIds: Record<string, number>;
+    selectedEnvironmentIds: Record<string, string>; // Changed from Record<string, number>
 
     // Actions
     setEnvironment: (environment: Environment, accountId: string) => void;
     getEnvironment: (accountId: string) => Environment | null;
     addEnvironment: (data: EnvironmentCreateData) => Environment;
-    updateEnvironment: (id: number, data: Partial<Environment>) => void;
+    updateEnvironment: (id: string, data: Partial<Environment>) => void; // Changed from number to string
     
     // Helpers
     getEnvironmentsByAccount: (accountId: string) => Environment[];
