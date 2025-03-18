@@ -4,6 +4,7 @@ import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './mock/persistConfig';
 import { useAccount } from "./services/auth";
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
+import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 
 const App: React.FC = () => {
     const { accountDetails } = useAccount();
@@ -20,13 +21,16 @@ const App: React.FC = () => {
     return (
         <div className="flex flex-col h-screen bg-white">
             <QueryClientProvider client={queryClient}>
-                <Navbar />
-                <Header
-                    key={`env-${currentEnvironment?.id || 'none'}`}
-                    environment={currentEnvironment}
-                    isLoading={isLoading}
-                />
-                <Footer />
+                <PopupProvider>
+                    <Navbar />
+                    <Header
+                        key={`env-${currentEnvironment?.id || 'none'}`}
+                        environment={currentEnvironment}
+                        isLoading={isLoading}
+                    />
+                    <Footer />
+                    <PopupDisplay />
+                </PopupProvider>
             </QueryClientProvider>
         </div>
     );
