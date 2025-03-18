@@ -2,7 +2,7 @@ import express from 'express';
 import { PeopleController } from './people.controller';
 import { attachGoogleClient, googleApiAuth } from '../../middleware';
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // Attach Google client to all People routes
 router.use(attachGoogleClient);

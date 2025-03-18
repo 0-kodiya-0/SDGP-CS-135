@@ -32,6 +32,8 @@ declare global {
     namespace Express {
         interface Request {
             session?: SessionPayload;
+            googleAuth?: Auth.OAuth2Client;
+            googlePermissionRedirectUrl?: string;
         }
     }
 }

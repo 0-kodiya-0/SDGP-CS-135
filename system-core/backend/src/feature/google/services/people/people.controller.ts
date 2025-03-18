@@ -50,7 +50,7 @@ export class PeopleController {
                 syncToken: contacts.syncToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -81,7 +81,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { contact });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -102,7 +102,7 @@ export class PeopleController {
 
             sendSuccess(res, 201, { contact });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -132,7 +132,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { contact });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -157,7 +157,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { message: 'Contact deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -194,7 +194,7 @@ export class PeopleController {
                 nextPageToken: results.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -224,7 +224,7 @@ export class PeopleController {
                 syncToken: groups.syncToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -249,7 +249,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { group });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -277,7 +277,7 @@ export class PeopleController {
 
             sendSuccess(res, 201, { group });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -315,7 +315,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { group });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -342,7 +342,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { message: 'Contact group deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -379,7 +379,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { group: result });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -416,7 +416,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, { group: result });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 }

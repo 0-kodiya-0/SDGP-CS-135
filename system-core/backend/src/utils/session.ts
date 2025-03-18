@@ -324,7 +324,7 @@ export const validateAndRefreshToken = async (
                 const newTokenDetails = await refreshAccessToken(provider, tokenDetails.refreshToken);
 
                 // Update the database with new tokens
-                await updateUserTokens(accountId, newTokenDetails);
+                await updateUserTokens(accountId, { ...newTokenDetails, refreshToken: tokenDetails.refreshToken });
 
                 return newTokenDetails;
             } catch (refreshError) {

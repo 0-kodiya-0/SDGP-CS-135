@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { AuthType, OAuthState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
+import { AuthType, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { OAuthAccount, OAuthProviders } from '../account/Account.types';
 
 // Cache options with TTL (time to live) of 10 minutes (600,000 ms)
@@ -14,6 +14,7 @@ const options = {
 const oAuthStateCache = new LRUCache<string, OAuthState>(options);
 const signInStateCache = new LRUCache<string, SignInState>(options);
 const signUpStateCache = new LRUCache<string, SignUpState>(options);
+const permissionStateCache = new LRUCache<string, PermissionState>(options); // New cache for permission states
 
 // OAuthState methods
 export const saveOAuthState = (state: string, provider: OAuthProviders, authType: AuthType): void => {
@@ -131,4 +132,49 @@ export const updateSignUpStateDetails = (state: string, accountDetails: Partial<
 
     signUpStateCache.set(state, stateData);
     return true;
+};
+
+// New methods for permission state
+export const savePermissionState = (
+    state: string, 
+    provider: OAuthProviders, 
+    redirectUrl: string, 
+    accountId: string,
+    service: string,
+    scopeLevel: string
+): void => {
+    const expiresAt = new Date(Date.now() + options.ttl);
+
+    const stateData: PermissionState = {
+        state,
+        provider,
+        authType: AuthType.PERMISSION,
+        redirect: redirectUrl,
+        accountId,
+        service,
+        scopeLevel,
+        expiresAt: expiresAt.toISOString(),
+    };
+
+    permissionStateCache.set(state, stateData);
+};
+
+export const getPermissionState = (state: string): PermissionState | null => {
+    const stateData = permissionStateCache.get(state);
+
+    if (!stateData) {
+        return null;
+    }
+
+    // Check if state is expired
+    if (new Date(stateData.expiresAt) < new Date()) {
+        permissionStateCache.delete(state);
+        return null;
+    }
+
+    return stateData;
+};
+
+export const removePermissionState = (state: string): void => {
+    permissionStateCache.delete(state);
 };

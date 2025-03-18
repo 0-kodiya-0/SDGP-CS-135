@@ -5,18 +5,25 @@ import { validateSignUpState, validateSignInState, validateOAuthState } from './
 import { AuthType, AuthUrls, OAuthState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState } from './Auth.utils';
 import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
-import { sendError, sendSuccess, redirectWithError } from '../../utils/response';
+import { sendError, redirectWithError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
-import { createSignInSession, createSignUpSession, clearSession, removeAccountFromSession } from '../../utils/session';
+import { createSignInSession, createSignUpSession } from '../../utils/session';
 import passport from 'passport';
 import crypto from 'crypto';
 import db from '../../config/db';
 import { findUser } from '../account/Account.utils';
 import { toOAuthAccount } from '../account/Account.utils';
+import { getGoogleScope, GoogleScopes, GoogleServiceName } from '../google/config';
+import { getPermissionState, removePermissionState, savePermissionState } from './Auth.cache';
+import { getAbsoluteUrl } from '../../utils/url';
+import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 
 const router = express.Router();
 
+/**
+ * Common Google authentication route for all auth types
+ */
 router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { state } = req.query;
 
@@ -27,13 +34,17 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
 
     if (!stateDetails) return;
 
-    passport.authenticate('google', {
+    // Default Google authentication options
+    const authOptions = {
         scope: ['profile', 'email'],
         session: false,
         state: state as string,
         accessType: 'offline',
         prompt: 'consent'
-    })(req, res, next);
+    };
+
+    // Pass control to passport middleware
+    passport.authenticate('google', authOptions)(req, res, next);
 });
 
 // router.get('/auth/microsoft', async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -258,32 +269,95 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
     }
 });
 
+/**
+ * Main OAuth callback handler - handles all auth types including permission requests
+ */
 router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Response, next: NextFunction) => {
     const provider = req.params.provider;
     const stateFromProvider = req.query.state;
 
     if (!validateProviderMiddleware(provider, res)) return;
 
-    const stateDetails = await validateStateMiddleware(
-        stateFromProvider,
-        (state) => validateOAuthState(state, provider as OAuthProviders),
-        res
-    ) as OAuthState;
-    if (!stateDetails) return;
-
     try {
+        // First try to validate as a regular OAuth state
+        const stateDetails = await validateOAuthState(stateFromProvider as string, provider as OAuthProviders);
+
+        if (!stateDetails) {
+            sendError(res, 400, ApiErrorCode.INVALID_STATE, 'Invalid or expired state parameter');
+            return;
+        }
+
+        // Check if this is a permission request
+        const isPermissionRequest = stateDetails.authType === AuthType.PERMISSION;
+
+        // If this is a permission request, also validate the permission state
+        let permissionState = null;
+        if (isPermissionRequest) {
+            permissionState = getPermissionState(stateFromProvider as string);
+
+            if (!permissionState) {
+                sendError(res, 400, ApiErrorCode.INVALID_STATE, 'Invalid or expired permission state');
+                return;
+            }
+        }
+
+        // Clear the OAuth state
         await clearOAuthState(stateDetails.state);
 
+        // Handle OAuth authentication with the provider
         passport.authenticate(provider as OAuthProviders, { session: false }, async (err: Error | null, userData: ProviderResponse) => {
             if (err) {
+                console.error('Authentication error:', err);
                 sendError(res, 500, ApiErrorCode.AUTH_FAILED, 'Authentication failed');
                 return;
             }
+
             if (!userData) {
                 sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Authentication failed - no user data');
                 return;
             }
 
+            if (isPermissionRequest && permissionState) {
+                try {
+                    const { accountId, redirect, service, scopeLevel } = permissionState;
+                    
+                    console.log(`Processing permission callback for account ${accountId}, service ${service}, scope ${scopeLevel}`);
+                    
+                    // Get the existing account
+                    const models = await db.getModels();
+                    const dbUser = await models.accounts.OAuthAccount.findOne({ id: accountId });
+                    
+                    if (!dbUser) {
+                        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
+                        return;
+                    }
+                    
+                    // CRITICAL: Update token while preserving refresh token if needed
+                    // This ensures we don't lose the token information between permission requests
+                    dbUser.tokenDetails = {
+                        accessToken: userData.tokenDetails.accessToken,
+                        refreshToken: userData.tokenDetails.refreshToken || dbUser.tokenDetails.refreshToken,
+                        tokenCreatedAt: new Date().toISOString()
+                    };
+                    
+                    dbUser.updated = new Date().toISOString();
+                    await dbUser.save();
+                    
+                    console.log(`Permission granted for ${service} ${scopeLevel}. Tokens updated. Redirecting to ${redirect}`);
+                    
+                    // Remove the permission state from cache
+                    removePermissionState(stateDetails.state);
+                    
+                    // Redirect back to the original URL
+                    return res.redirect(redirect);
+                } catch (error) {
+                    console.error('Error processing permission callback:', error);
+                    sendError(res, 500, ApiErrorCode.SERVER_ERROR, 'Failed to process permission grant');
+                    return;
+                }
+            }
+
+            // REGULAR AUTH FLOW (SIGN UP / SIGN IN)
             const userEmail = userData.email;
             if (!userEmail) {
                 sendError(res, 400, ApiErrorCode.MISSING_EMAIL, 'Missing email parameter');
@@ -314,28 +388,65 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
             }
         })(req, res, next);
     } catch (error) {
-        console.error(error);
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
+        console.error('OAuth callback error:', error);
+        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to process callback');
     }
 });
 
-// Logout a specific account
-router.post('/:accountId/logout', (req: Request, res: Response) => {
-    const { accountId } = req.params;
+router.get(
+    '/permission/:service/:scopeLevel',
+    async (req: Request, res: Response, next: NextFunction) => {
+        const service = req.params.service as string;
+        const scopeLevel = req.params.scopeLevel as string;
+        const { redirect, accountId } = req.query;
 
-    const success = removeAccountFromSession(res, req, accountId);
+        try {
+            // Get the user's account details
+            const models = await db.getModels();
+            const account = await models.accounts.OAuthAccount.findOne({ id: accountId });
 
-    if (success) {
-        sendSuccess(res, 200, { message: 'Account logged out successfully' });
-    } else {
-        sendError(res, 400, ApiErrorCode.AUTH_FAILED, 'Failed to logout account');
+            if (!account || !account.userDetails.email) {
+                return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found or missing email');
+            }
+
+            const userEmail = account.userDetails.email;
+
+            // Get the scope
+            const scope = getGoogleScope(service as GoogleServiceName, scopeLevel);
+            
+            // Generate state and save permission state
+            const state = await generateOAuthState(OAuthProviders.Google, AuthType.PERMISSION);
+            savePermissionState(
+                state,
+                OAuthProviders.Google,
+                redirect as string,
+                accountId as string,
+                service,
+                scopeLevel
+            );
+
+            console.log(scope)
+
+            // CRITICAL: These options force Google to use the specified account
+            const authOptions: AuthenticateOptionsGoogle = {
+                scope: [scope, "email", 'profile'],
+                accessType: 'offline',
+                prompt: 'consent',        // Only show consent screen, not account selection
+                loginHint: userEmail,     // Pre-select the account
+                state,
+                session: false
+            };
+
+            console.log(`Initiating permission request for service: ${service}, scope: ${scopeLevel}, account: ${userEmail}`);
+            
+            // Redirect to Google authorization page
+            passport.authenticate('google', authOptions)(req, res, next);
+        } catch (error) {
+            console.error('Error initiating permission request:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to initiate permission request';
+            sendError(res, 400, ApiErrorCode.INVALID_REQUEST, errorMessage);
+        }
     }
-});
-
-// Logout all accounts (clear entire session)
-router.get('/logout/all', (req: Request, res: Response) => {
-    clearSession(res);
-    res.redirect('/');
-});
+);
 
 export { router };

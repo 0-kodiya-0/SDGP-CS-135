@@ -24,6 +24,7 @@ import { Auth } from 'googleapis';
 
 export interface GoogleApiRequest extends Request {
     googleAuth?: Auth.OAuth2Client;
+    googlePermissionRedirectUrl?: string;
     params: {
         accountId: string;
         [key: string]: string;
