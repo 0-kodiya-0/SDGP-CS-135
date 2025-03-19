@@ -8,17 +8,17 @@ import { ProviderResponse } from '../feature/oauth/Auth.types';
  * Sets up passport strategies for OAuth providers
  */
 const setupPassport = () => {
-    // Create the Google Strategy with support for dynamic callback URLs
-    const googleStrategy = new GoogleStrategy({
+    // Main Google Strategy for authentication (sign in/sign up)
+    const googleAuthStrategy = new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: 'http://localhost:8080/api/v1/oauth/callback/google',
         passReqToCallback: true
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
-            console.log('Google OAuth callback received');
+            console.log('Google Auth callback received');
 
-            // Create the provider response with all necessary information
+            // Create the provider response with all user information
             const response: ProviderResponse = {
                 provider: OAuthProviders.Google,
                 name: profile.displayName,
@@ -35,16 +35,53 @@ const setupPassport = () => {
 
             return done(null, response);
         } catch (error) {
-            console.error('Error in Google passport strategy:', error);
+            console.error('Error in Google auth strategy:', error);
             return done(error as Error);
         }
     });
 
-    // Register the Google Strategy
-    passport.use(googleStrategy);
+    // Separate Google Strategy for permission requests - focused only on tokens
+    const googlePermissionStrategy = new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: 'http://localhost:8080/api/v1/oauth/callback/permission/google',
+        passReqToCallback: true,
+        skipUserProfile: true
+    }, async (req, accessToken, refreshToken, params, done) => {
+        try {
+            console.log('Google Permission callback received');
+
+            // For permission requests, we only care about the tokens
+            // We don't need to extract profile information because we already have it
+            const response: ProviderResponse = {
+                provider: OAuthProviders.Google,
+                // These fields will be ignored/unused for permission requests
+                name: '',
+                email: '',
+                imageUrl: '',
+                // The important part: the new token with expanded scopes
+                tokenDetails: {
+                    accessToken,
+                    refreshToken: refreshToken || '',
+                    tokenCreatedAt: new Date().toISOString()
+                }
+            };
+
+            console.log(`Permission request successful, received new access token`);
+
+            return done(null, response);
+        } catch (error) {
+            console.error('Error in Google permission strategy:', error);
+            return done(error as Error);
+        }
+    });
+
+    // Register the strategies with different names
+    passport.use('google', googleAuthStrategy);
+    passport.use('google-permission', googlePermissionStrategy);
 
     // Register the strategy for refresh token usage
-    refresh.use(googleStrategy);
+    refresh.use('google', googleAuthStrategy);
 };
 
 export default setupPassport;

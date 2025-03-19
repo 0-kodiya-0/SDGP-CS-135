@@ -1,7 +1,7 @@
 import express from 'express';
 import { DriveController } from './drive.controller';
 import multer from 'multer';
-import { attachGoogleClient, googleApiAuth } from '../../middleware';
+import { googleApiAuth } from '../../middleware';
 
 // Set up multer for file uploads
 const upload = multer({
@@ -12,9 +12,6 @@ const upload = multer({
 });
 
 const router = express.Router();
-
-// Attach Google client to all Drive routes
-router.use(attachGoogleClient);
 
 // Files endpoints
 router.get(

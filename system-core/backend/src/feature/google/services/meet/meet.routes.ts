@@ -1,11 +1,8 @@
 import express from 'express';
 import { MeetController } from './meet.controller';
-import { attachGoogleClient, googleApiAuth } from '../../middleware';
+import { googleApiAuth } from '../../middleware';
 
 const router = express.Router();
-
-// Attach Google client to all Meet routes
-router.use(attachGoogleClient);
 
 // Meetings endpoints
 router.get(

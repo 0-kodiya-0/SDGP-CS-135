@@ -8,6 +8,8 @@ import {
     removeOAuthState,
     removeSignInState,
     removeSignUpState,
+    savePermissionState,
+    removePermissionState,
 } from "./Auth.cache";
 
 export const generateOAuthState = async (provider: OAuthProviders, authType: AuthType): Promise<string> => {
@@ -37,6 +39,21 @@ export const generateSignInState = async (providerResponse: ProviderResponse): P
     return state;
 };
 
+export const generatePermissionState = async (provider: OAuthProviders, redirect: string, accountId: string, service: string, scopeLevel: string): Promise<string> => {
+    const state = crypto.randomBytes(32).toString('hex');
+
+    // Save state in cache
+    savePermissionState(state,
+        provider,
+        accountId,
+        service,
+        scopeLevel,
+        redirect
+    );
+
+    return state;
+};
+
 export const clearOAuthState = async (state: string): Promise<void> => {
     removeOAuthState(state);
 };
@@ -47,4 +64,8 @@ export const clearSignUpState = async (state: string): Promise<void> => {
 
 export const clearSignInState = async (state: string): Promise<void> => {
     removeSignInState(state);
+};
+
+export const clearPermissionState = async (state: string): Promise<void> => {
+    removePermissionState(state);
 };

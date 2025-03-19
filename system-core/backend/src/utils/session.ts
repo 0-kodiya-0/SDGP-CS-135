@@ -212,19 +212,20 @@ export const clearSession = (res: Response) => {
  * @returns True if the token needs to be refreshed
  */
 export const isTokenExpired = (tokenDetails: TokenDetails): boolean => {
-    if (!tokenDetails.tokenCreatedAt) {
-        // If we don't know when the token was created, assume it needs refresh
-        return true;
-    }
+    // if (!tokenDetails.tokenCreatedAt) {
+    //     // If we don't know when the token was created, assume it needs refresh
+    //     return true;
+    // }
 
-    const tokenCreatedAt = new Date(tokenDetails.tokenCreatedAt).getTime();
-    const now = Date.now();
+    // const tokenCreatedAt = new Date(tokenDetails.tokenCreatedAt).getTime();
+    // const now = Date.now();
 
-    // Google's access tokens typically expire after 1 hour (3600 seconds)
-    // We'll use a conservative approach and refresh after 50 minutes (3000 seconds)
-    const tokenLifespan = 3000 * 1000; // 50 minutes in milliseconds
+    // // Google's access tokens typically expire after 1 hour (3600 seconds)
+    // // We'll use a conservative approach and refresh after 50 minutes (3000 seconds)
+    // const tokenLifespan = 3000 * 1000; // 50 minutes in milliseconds
 
-    return now - tokenCreatedAt > tokenLifespan;
+    // return now - tokenCreatedAt > tokenLifespan;
+    return false;
 };
 
 /**

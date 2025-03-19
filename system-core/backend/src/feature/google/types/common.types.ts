@@ -1,3 +1,7 @@
+// Extended Request interface to include Google auth data
+import { Request } from 'express';
+import { Auth } from 'googleapis';
+
 // Pagination parameters for list requests
 export interface PaginationParams {
     pageToken?: string;
@@ -17,10 +21,6 @@ export interface GoogleApiError {
     status: string;
     details?: any;
 }
-
-// Extended Request interface to include Google auth data
-import { Request } from 'express';
-import { Auth } from 'googleapis';
 
 export interface GoogleApiRequest extends Request {
     googleAuth?: Auth.OAuth2Client;

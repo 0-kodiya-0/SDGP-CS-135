@@ -18,9 +18,11 @@ app.set('trust proxy', true);
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
+
+// Initialize Passport (using JWT instead of session)
 app.use(passport.initialize());
 
-// Setup Passport
+// Setup Passport with JWT strategy
 setupPassport();
 
 // Initialize database connections and models

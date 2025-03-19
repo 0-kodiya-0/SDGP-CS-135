@@ -11,7 +11,7 @@ import {
 } from './calendar.types';
 import { ApiErrorCode } from '../../../../types/response.types';
 import { sendError, sendSuccess } from '../../../../utils/response';
-import { handleGoogleApiError } from '../../middleware';
+import { handleGoogleApiError, } from '../../middleware';
 import { GoogleApiRequest } from '../../types';
 import { CalendarService } from './calendar.service';
 
@@ -49,7 +49,7 @@ export class CalendarController {
                 nextPageToken: events.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -80,7 +80,7 @@ export class CalendarController {
 
             sendSuccess(res, 200, { event });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -126,7 +126,7 @@ export class CalendarController {
 
             sendSuccess(res, 201, { event });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -177,7 +177,7 @@ export class CalendarController {
 
             sendSuccess(res, 200, { event });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -212,7 +212,7 @@ export class CalendarController {
 
             sendSuccess(res, 200, { message: 'Event deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -240,7 +240,7 @@ export class CalendarController {
                 nextPageToken: calendars.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -273,7 +273,7 @@ export class CalendarController {
 
             sendSuccess(res, 201, { calendar });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -309,7 +309,7 @@ export class CalendarController {
 
             sendSuccess(res, 200, { calendar });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -334,7 +334,7 @@ export class CalendarController {
 
             sendSuccess(res, 200, { message: 'Calendar deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 }

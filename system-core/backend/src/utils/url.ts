@@ -10,9 +10,11 @@ export function getAbsoluteUrl(req: Request, path: string): string {
     // Get protocol from request (respects X-Forwarded-Proto header)
     const protocol = req.protocol;
 
-    // Get host from request (respects X-Forwarded-Host header)
-    const host = req.get('host');
+    // Get host, properly respecting X-Forwarded-Host header if present
+    const host = req.get('X-Forwarded-Host') || req.get('host');
+
+    console.log(host,  req.get('X-Forwarded-Host'))
 
     // Combine to get full URL
-    return `${protocol}://${host}${path}`;
+    return `${protocol}://${host}/api/v1${path}`;
 }

@@ -136,12 +136,12 @@ export const updateSignUpStateDetails = (state: string, accountDetails: Partial<
 
 // New methods for permission state
 export const savePermissionState = (
-    state: string, 
-    provider: OAuthProviders, 
-    redirectUrl: string, 
+    state: string,
+    provider: OAuthProviders,
     accountId: string,
     service: string,
-    scopeLevel: string
+    scopeLevel: string,
+    redirect: string
 ): void => {
     const expiresAt = new Date(Date.now() + options.ttl);
 
@@ -149,20 +149,20 @@ export const savePermissionState = (
         state,
         provider,
         authType: AuthType.PERMISSION,
-        redirect: redirectUrl,
         accountId,
         service,
         scopeLevel,
+        redirect,
         expiresAt: expiresAt.toISOString(),
     };
 
     permissionStateCache.set(state, stateData);
 };
 
-export const getPermissionState = (state: string): PermissionState | null => {
+export const getPermissionState = (state: string, provider: OAuthProviders): PermissionState | null => {
     const stateData = permissionStateCache.get(state);
 
-    if (!stateData) {
+    if (!stateData || stateData.provider !== provider) {
         return null;
     }
 

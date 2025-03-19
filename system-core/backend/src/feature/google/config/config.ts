@@ -1,6 +1,5 @@
 import { google, Auth } from 'googleapis';
-import { OAuthProviders } from '../../account/Account.types';
-import { validateAndRefreshToken } from '../../../utils/session';
+import { GoogleAuthClient } from './client';
 
 // Define scope level types for each service
 export type GmailScopeLevel = 'readonly' | 'send' | 'compose' | 'full';
@@ -98,14 +97,11 @@ Object.entries(GoogleScopes).forEach(([service, levels]) => {
  * Create an OAuth2 client with the given credentials
  */
 export const createOAuth2Client = (accessToken: string, refreshToken: string): Auth.OAuth2Client => {
-    const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
-    );
-
+    const oauth2Client = GoogleAuthClient.getInstance().getBaseClient();
+    
     oauth2Client.setCredentials({
         access_token: accessToken,
-        refresh_token: refreshToken,
+        refresh_token: refreshToken
     });
 
     return oauth2Client;
@@ -125,6 +121,8 @@ export const hasRequiredScope = async (token: string, requiredScope: string): Pr
             access_token: token
         });
 
+        console.log(response.data.scope)
+
         if (!response.data.scope) {
             return false;
         }
@@ -138,65 +136,63 @@ export const hasRequiredScope = async (token: string, requiredScope: string): Pr
     }
 };
 
-/**
- * Create an authenticated Google API client for the requested service
- * This function ensures the token is valid before creating the client
- * 
- * @param accountId User's account ID
- * @returns Promise resolving to an OAuth2 client
- */
-export const createGoogleClient = async (accountId: string): Promise<Auth.OAuth2Client> => {
-    try {
-        // Validate and refresh token if needed
-        const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
+// /**
+//  * Create an authenticated Google API client for the requested service
+//  * This function ensures the token is valid before creating the client
+//  * 
+//  * @param accountId User's account ID
+//  * @returns Promise resolving to an OAuth2 client
+//  */
+// export const createGoogleClient = async (accountId: string): Promise<Auth.OAuth2Client> => {
+//     try {
+//         // Validate and refresh token if needed
+//         const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
 
-        // Create OAuth2 client with the validated tokens
-        const oauth2Client = createOAuth2Client(
-            tokenDetails.accessToken,
-            tokenDetails.refreshToken
-        );
+//         // Create OAuth2 client with the validated tokens
+//         const oauth2Client = createOAuth2Client(
+//             tokenDetails.accessToken,
+//             tokenDetails.refreshToken
+//         );
 
-        return oauth2Client;
-    } catch (error) {
-        console.error('Error creating Google API client:', error);
-        throw new Error('Failed to create Google API client');
-    }
-};
+//         return oauth2Client;
+//     } catch (error) {
+//         console.error('Error creating Google API client:', error);
+//         throw new Error('Failed to create Google API client');
+//     }
+// };
 
-/**
- * Check if the user's token has the required scope and create a Google client
- * 
- * @param accountId User's account ID
- * @param service Google service name
- * @param scopeLevel Level of access required
- * @returns Promise resolving to an OAuth2 client and a boolean indicating if scope is valid
- */
-export const createGoogleClientWithScopeCheck = async (
-    accountId: string,
-    service: GoogleServiceName,
-    scopeLevel: string,
-    redirectUrl?: string
-): Promise<{ client: Auth.OAuth2Client, hasScope: boolean }> => {
-    try {
-        // Validate and refresh token
-        const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
+// /**
+//  * Check if the user's token has the required scope and create a Google client
+//  * 
+//  * @param accountId User's account ID
+//  * @param service Google service name
+//  * @param scopeLevel Level of access required
+//  * @returns Promise resolving to an OAuth2 client and a boolean indicating if scope is valid
+//  */
+// export const createGoogleClientWithScopeCheck = async (
+//     accountId: string,
+//     service: GoogleServiceName,
+//     scopeLevel: string
+// ): Promise<{ client: Auth.OAuth2Client, hasScope: boolean }> => {
+//     try {
+//         // Validate and refresh token
+//         const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
 
-        // Create the OAuth client
-        const oauth2Client = createOAuth2Client(
-            tokenDetails.accessToken,
-            tokenDetails.refreshToken,
-            redirectUrl
-        );
+//         // Create the OAuth client
+//         const oauth2Client = createOAuth2Client(
+//             tokenDetails.accessToken,
+//             tokenDetails.refreshToken
+//         );
 
-        // Get the required scope using the safe method
-        const requiredScope = getGoogleScope(service, scopeLevel);
+//         // Get the required scope using the safe method
+//         const requiredScope = getGoogleScope(service, scopeLevel);
 
-        // Check if the token has the required scope
-        const hasScope = await hasRequiredScope(tokenDetails.accessToken, requiredScope);
+//         // Check if the token has the required scope
+//         const hasScope = await hasRequiredScope(tokenDetails.accessToken, requiredScope);
 
-        return { client: oauth2Client, hasScope };
-    } catch (error) {
-        console.error('Error creating Google API client with scope check:', error);
-        throw new Error('Failed to create Google API client');
-    }
-};
+//         return { client: oauth2Client, hasScope };
+//     } catch (error) {
+//         console.error('Error creating Google API client with scope check:', error);
+//         throw new Error('Failed to create Google API client');
+//     }
+// };

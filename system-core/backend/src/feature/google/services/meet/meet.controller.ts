@@ -55,7 +55,7 @@ export class MeetController {
 
             sendSuccess(res, 201, { meeting });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -85,7 +85,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { meeting });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -131,7 +131,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { meeting });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -164,7 +164,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { message: 'Meeting deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -197,7 +197,7 @@ export class MeetController {
                 nextPageToken: meetings.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -222,7 +222,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { isAvailable });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -253,7 +253,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { meeting });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -284,7 +284,7 @@ export class MeetController {
 
             sendSuccess(res, 200, { meeting });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 }

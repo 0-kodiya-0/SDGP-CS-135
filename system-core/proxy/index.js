@@ -19,14 +19,30 @@ app.use((req, res, next) => {
 const apiProxy = createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
+    on: {
+        proxyReq: (proxyReq, req, res) => {
+            // Preserve the original host in X-Forwarded-Host
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+        }
+    }
 });
 
-// Frontend routes proxy - everything else
+// Similarly for the frontend proxy
 const frontendProxy = createProxyMiddleware({
     target: FRONTEND_URL,
     changeOrigin: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
+    on: {
+        proxyReq: (proxyReq, req, res) => {
+            // Preserve the original host in X-Forwarded-Host
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+        }
+    }
 });
 
 // Apply proxies - order matters! More specific routes first
