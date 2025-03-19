@@ -8,6 +8,7 @@ import ExpandView from "../../features/members/ExpandView";
 import { PeopleProvider } from '../../contexts/PeopleContext';
 import { Contact } from '../../utils/people-utils';
 
+
 interface HeaderProps {
     environment: Environment | null;
     isLoading?: boolean;
@@ -38,7 +39,7 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
     }
 
     return (
-        <PeopleProvider accountId={accountId}>
+        
             <div className="w-full h-full overflow-hidden">
                 <PanelGroup direction="horizontal" className="w-full h-full">
                     {/* Navigation Panel - Fixed Width */}
@@ -53,10 +54,10 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
 
                     {/* Detail Pane - Expand/Collapse with Limits */}
                     <Panel defaultSize={80} minSize={10} className="h-full">
-                        <ExpandView accountId={accountId} />
+                        
                     </Panel>
                 </PanelGroup>
             </div>
-        </PeopleProvider>
+        
     );
 }

@@ -1,11 +1,8 @@
 import express from 'express';
-import { attachGoogleClient, googleApiAuth } from '../../middleware';
+import { googleApiAuth } from '../../middleware';
 import { GmailController } from './gmail.controller';
 
 const router = express.Router();
-
-// Attach Google client to all Gmail routes
-router.use(attachGoogleClient);
 
 // Messages endpoints
 router.get(

@@ -1,10 +1,8 @@
-import { NextFunction, Request, Response } from 'express';
+import { Response } from 'express';
 import { OAuthProviders } from '../account/Account.types';
 import { ApiErrorCode } from '../../types/response.types';
 import { sendError } from '../../utils/response';
 import { StateDetails } from './Auth.dto';
-import { SessionPayload } from '../../types/session.types';
-import { validateAndRefreshToken } from '../../utils/session';
 
 type ValidateStateMiddleware = (
     state: string | undefined,
@@ -56,39 +54,39 @@ export const validateProviderMiddleware: ValidateProviderMiddleware = (provider,
  * Middleware to ensure that the OAuth token is valid and refreshed if necessary
  * This middleware should be applied to routes that require a valid token
  */
-export const ensureValidToken = async (req: Request, res: Response, next: NextFunction) => {
-    // Get the account ID from the route parameters
-    const accountId = req.params.accountId;
+// export const ensureValidToken = async (req: Request, res: Response, next: NextFunction) => {
+//     // Get the account ID from the route parameters
+//     const accountId = req.params.accountId;
 
-    if (!accountId) {
-        return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Account ID is required');
-    }
+//     if (!accountId) {
+//         return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Account ID is required');
+//     }
 
-    try {
-        // Get the session from the request (added by the authenticateSession middleware)
-        const session = req.session as SessionPayload;
+//     try {
+//         // Get the session from the request (added by the authenticateSession middleware)
+//         const session = req.session as SessionPayload;
 
-        // Find the account in the session
-        const accountSession = session.accounts.find(acc => acc.accountId === accountId);
+//         // Find the account in the session
+//         const accountSession = session.accounts.find(acc => acc.accountId === accountId);
 
-        if (!accountSession) {
-            return sendError(res, 403, ApiErrorCode.AUTH_FAILED, 'No access to this account');
-        }
+//         if (!accountSession) {
+//             return sendError(res, 403, ApiErrorCode.AUTH_FAILED, 'No access to this account');
+//         }
 
-        // Get the provider for this account
-        const provider = accountSession.provider as OAuthProviders;
+//         // Get the provider for this account
+//         const provider = accountSession.provider as OAuthProviders;
 
-        if (!provider) {
-            return sendError(res, 400, ApiErrorCode.INVALID_PROVIDER, 'Provider information missing');
-        }
+//         if (!provider) {
+//             return sendError(res, 400, ApiErrorCode.INVALID_PROVIDER, 'Provider information missing');
+//         }
 
-        // Validate and refresh the token if needed
-        await validateAndRefreshToken(accountId, provider);
+//         // Validate and refresh the token if needed
+//         await validateAndRefreshToken(accountId, provider);
 
-        // Continue with the request
-        next();
-    } catch (error) {
-        console.error('Token validation middleware error:', error);
-        return sendError(res, 500, ApiErrorCode.AUTH_FAILED, 'Token validation failed');
-    }
-};
+//         // Continue with the request
+//         next();
+//     } catch (error) {
+//         console.error('Token validation middleware error:', error);
+//         return sendError(res, 500, ApiErrorCode.AUTH_FAILED, 'Token validation failed');
+//     }
+// };

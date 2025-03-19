@@ -55,7 +55,7 @@ export class DriveController {
                 nextPageToken: files.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -89,7 +89,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { file });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -129,7 +129,7 @@ export class DriveController {
             // Pipe the file stream to the response
             fileStream.pipe(res);
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -164,7 +164,7 @@ export class DriveController {
 
             sendSuccess(res, 201, { folder });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -201,7 +201,7 @@ export class DriveController {
 
             sendSuccess(res, 201, { file });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -253,7 +253,7 @@ export class DriveController {
 
             sendSuccess(res, 201, { file });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -293,7 +293,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { file });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -325,7 +325,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { message: 'File deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -363,7 +363,7 @@ export class DriveController {
                 nextPageToken: files.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -417,7 +417,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { permission });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -450,7 +450,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { permissions: permissions.items });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -488,7 +488,7 @@ export class DriveController {
 
             sendSuccess(res, 200, { message: 'Permission deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 }

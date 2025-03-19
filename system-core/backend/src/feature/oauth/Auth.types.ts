@@ -2,7 +2,8 @@ import { OAuthAccount, OAuthProviders, TokenDetails } from "../account/Account.t
 
 export enum AuthType {
     SIGN_UP = 'signup',
-    SIGN_IN = 'signin'
+    SIGN_IN = 'signin',
+    PERMISSION = 'permission' // Add permission type
 }
 
 export interface OAuthState {
@@ -10,6 +11,14 @@ export interface OAuthState {
     provider: OAuthProviders;
     authType: AuthType;
     expiresAt: string;
+}
+
+// Add a new type for permission requests
+export interface PermissionState extends OAuthState {
+    redirect: string;
+    accountId: string;
+    service: string;
+    scopeLevel: string;
 }
 
 export interface SignUpState {
@@ -38,5 +47,6 @@ export interface ProviderResponse {
     name: string;
     email?: string;
     imageUrl?: string;
-    tokenDetails: TokenDetails
+    tokenDetails: TokenDetails;
+    permissionState?: PermissionState | null;
 }

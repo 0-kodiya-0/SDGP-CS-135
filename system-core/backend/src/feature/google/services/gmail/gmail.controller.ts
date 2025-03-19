@@ -43,7 +43,7 @@ export class GmailController {
                 nextPageToken: messages.nextPageToken
             });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -74,7 +74,7 @@ export class GmailController {
 
             sendSuccess(res, 200, { message });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -110,7 +110,7 @@ export class GmailController {
 
             sendSuccess(res, 200, { message: result });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -128,7 +128,7 @@ export class GmailController {
 
             sendSuccess(res, 200, { labels: labels.items });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -160,7 +160,7 @@ export class GmailController {
 
             sendSuccess(res, 201, { label });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -195,7 +195,7 @@ export class GmailController {
 
             sendSuccess(res, 200, { label });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 
@@ -220,7 +220,7 @@ export class GmailController {
 
             sendSuccess(res, 200, { message: 'Label deleted successfully' });
         } catch (error) {
-            handleGoogleApiError(res, error);
+            handleGoogleApiError(req, res, error);
         }
     }
 }

@@ -1,11 +1,8 @@
 import express from 'express';
 import { CalendarController } from './calendar.controller';
-import { attachGoogleClient, googleApiAuth } from '../../middleware';
+import { googleApiAuth } from '../../middleware';
 
 const router = express.Router();
-
-// Attach Google client to all Calendar routes
-router.use(attachGoogleClient);
 
 // Calendar list endpoints
 router.get(
