@@ -1,24 +1,26 @@
-import { Panel } from 'react-resizable-panels';
-import { DetailPane } from './DetailPane.tsx';
-import { SummaryBar } from './SummaryBar.tsx';
-import { Environment } from '../../../default/environment/types/types.data.ts';
+// src/features/required/left_navigation/Navigation.tsx
+import { DetailPane } from './DetailPane';
+import { SummaryBar } from './SummaryBar';
+import { Environment } from '../../../default/environment/types/types.data';
 
 interface NavigationProps {
-  environment: Environment
+  environment: Environment;
   summaryBarClassName?: string;
   detailPaneClassName?: string;
 }
 
-export function Navigation({ environment, summaryBarClassName, detailPaneClassName }: NavigationProps) {
-
+export function Navigation({ 
+  environment, 
+  summaryBarClassName, 
+  detailPaneClassName
+}: NavigationProps) {
   return (
-    <>
-      <div className={`${summaryBarClassName}`}>
-        <SummaryBar className='w-full h-full' />
-      </div>
-      <Panel defaultSize={20} minSize={5} collapsible={true} collapsedSize={1} className="h-full">
-        <DetailPane environment={environment} className={`${detailPaneClassName}`} />
-      </Panel>
-    </>
+    <div className="flex h-full">
+      <SummaryBar className={summaryBarClassName} />
+      <DetailPane 
+        environment={environment} 
+        className={detailPaneClassName} 
+      />
+    </div>
   );
 }
