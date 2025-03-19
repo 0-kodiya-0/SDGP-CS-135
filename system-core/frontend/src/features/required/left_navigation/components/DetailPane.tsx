@@ -1,7 +1,6 @@
 // src/features/required/left_navigation/components/DetailPane.tsx
-import ContactSummaryView from '../../../members/SummaryView';
 import { Environment } from '../../../default/environment/types/types.data';
-import { usePeople } from '../../../../contexts/PeopleContext';
+import ContactsList from '../../../members/components/ContactsList';
 
 export interface DetailPaneProps {
   environment: Environment;
@@ -9,15 +8,12 @@ export interface DetailPaneProps {
 }
 
 export function DetailPane({ environment, className }: DetailPaneProps) {
-  const { selectContact } = usePeople();
+
 
   return (
     <div className={`bg-white border-r border-gray-200 h-full flex flex-col ${className}`}>
       {/* The h-full ensures the component takes full height */}
-      <ContactSummaryView 
-        environment={environment}
-        onContactSelect={selectContact}
-      />
+      <ContactsList accountId={'5f4888af546871226db0fe6a71b93b97'}/>
     </div>
   );
 }
