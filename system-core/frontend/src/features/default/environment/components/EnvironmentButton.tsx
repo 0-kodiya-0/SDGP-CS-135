@@ -3,9 +3,9 @@ import { ChevronDown, Plus, Pencil } from 'lucide-react';
 import { EnvironmentSlider } from './EnvironmentSlider';
 import { CreateEnvironmentInput } from './CreateEnvironmentInput';
 import { UpdateEnvironmentInput } from './UpdateEnvironmentInput';
-import { useAccount } from '../../../../services/auth';
 import { useEnvironment } from '../contexts/EnvironmentContext';
 import { Environment } from '../types/types.data';
+import { useAccount } from '../../user_account';
 
 interface EnvironmentButtonProps {
   className?: string;

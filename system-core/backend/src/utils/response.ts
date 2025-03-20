@@ -22,6 +22,6 @@ export const sendError = (res: Response, status: number, code: ApiErrorCode, mes
     res.status(status).send(createErrorResponse(code, message));
 };
 
-export const redirectWithError = (res: Response, path: string, code: ApiErrorCode): void => {
-    res.redirect(`..${path}?error=${code}`);
+export const redirectWithError = (res: Response, path: string, code: ApiErrorCode, message?: string): void => {
+    res.redirect(`..${path}?errorCode=${code}&errorMessage=${message}`);
 };

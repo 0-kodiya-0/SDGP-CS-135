@@ -5,10 +5,10 @@ import { validateSignUpState, validateSignInState, validateOAuthState, validateP
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState, generatePermissionState } from './Auth.utils';
 import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
-import { sendError, redirectWithError, sendSuccess } from '../../utils/response';
+import { sendError, redirectWithError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
-import { clearSession, createSignInSession, createSignUpSession, removeAccountFromSession, updateUserTokens } from '../../utils/session';
+import { createSignInSession, createSignUpSession, updateUserTokens } from '../../utils/session';
 import passport from 'passport';
 import crypto from 'crypto';
 import db from '../../config/db';
@@ -17,7 +17,7 @@ import { toOAuthAccount } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 
-const router = express.Router();
+export const router = express.Router();
 
 /**
  * Common Google authentication route for all auth types
@@ -36,8 +36,7 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
     const authOptions = {
         scope: ['profile', 'email'],
         state: state as string,
-        accessType: 'offline',
-        prompt: 'consent'
+        accessType: 'offline'
     };
 
     // Pass control to passport middleware
@@ -456,24 +455,3 @@ router.get(
         }
     }
 );
-
-// Logout a specific account
-router.post('/:accountId/logout', (req: Request, res: Response) => {
-    const { accountId } = req.params;
-
-    const success = removeAccountFromSession(res, req, accountId);
-
-    if (success) {
-        sendSuccess(res, 200, { message: 'Account logged out successfully' });
-    } else {
-        sendError(res, 400, ApiErrorCode.AUTH_FAILED, 'Failed to logout account');
-    }
-});
-
-// Logout all accounts (clear entire session)
-router.get('/logout/all', (req: Request, res: Response) => {
-    clearSession(res);
-    res.redirect('/');
-});
-
-export { router };

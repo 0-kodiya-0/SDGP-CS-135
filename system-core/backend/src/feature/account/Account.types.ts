@@ -75,3 +75,5 @@ export interface OAuthAccount extends BaseAccount {
     security: OAuthSecuritySettings;
     tokenDetails: TokenDetails;
 }
+
+export type OAuthAccountDTO = Omit<OAuthAccount, "tokenDetails">

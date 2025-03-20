@@ -1,31 +1,16 @@
-import React, { createContext, useContext, useState } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
-
-export interface Account {
-    accountId: string;
-    accountType: string;
-    provider: string;
-}
-
-interface Session {
-    sessionId: string;
-    accounts: Account[];
-    createdAt?: number;
-    expiresAt?: number;
-    iat?: number;
-}
+import { Session } from '../types/types.data';
 
 interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     session: Session | null;
     error: string | null;
-    refreshTokens: (accountId: string) => Promise<boolean>;
+    // refreshTokens: (accountId: string) => Promise<boolean>;
     logout: (accountId?: string) => Promise<void>;
     logoutAll: () => Promise<void>;
-    // Manual function to read session token
     readSessionToken: () => void;
 }
 
@@ -72,6 +57,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(initialSession);
     const [error, setError] = useState<string | null>(null);
 
+    // Set up periodic session check
+    useEffect(() => {
+        const checkSession = () => {
+            const updatedSession = readSessionTokenFromCookie();
+            if (JSON.stringify(updatedSession) !== JSON.stringify(session)) {
+                setSession(updatedSession);
+            }
+        };
+
+        // Check session every minute
+        const intervalId = setInterval(checkSession, 60000);
+
+        return () => clearInterval(intervalId);
+    }, [session]);
+
     // Manual function to read the session token
     const readSessionToken = () => {
         setIsLoading(true);
@@ -81,69 +81,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("Session token manually read:", sessionData);
     };
 
-    // Refresh tokens for a specific account
-    const refreshTokens = async (accountId: string): Promise<boolean> => {
-        try {
-            const response = await axios.post(`/api/v1/account/${accountId}/refresh`);
+    // // Refresh tokens for a specific account
+    // const refreshTokens = async (accountId: string): Promise<boolean> => {
+    //     try {
+    //         setIsLoading(true);
+    //         const response = await axios.post(`/api/v1/account/${accountId}/refresh`);
 
-            if (response.data.success) {
-                // Re-read the session token after refresh
-                readSessionToken();
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Token refresh failed:', error);
-            return false;
-        }
-    };
+    //         if (response.data.success) {
+    //             // Re-read the session token after refresh
+    //             readSessionToken();
+    //             return true;
+    //         }
+    //         return false;
+    //     } catch (error) {
+    //         console.error('Token refresh failed:', error);
+    //         return false;
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
 
     // Logout from a specific account
     const logout = async (accountId?: string) => {
         try {
+            setIsLoading(true);
             if (accountId) {
-                await axios.post(`/api/v1/oauth/${accountId}/logout`);
-
-                // Update local session state by removing the account
-                if (session) {
-                    const updatedAccounts = session.accounts.filter(
-                        account => account.accountId !== accountId
-                    );
-
-                    if (updatedAccounts.length === 0) {
-                        setSession(null);
-                    } else {
-                        setSession({
-                            ...session,
-                            accounts: updatedAccounts
-                        });
-                    }
-                }
+                window.location.href = `/api/v1/account/${accountId}/logout`;
             }
         } catch (error) {
             console.error('Logout failed:', error);
             setError('Failed to logout');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     // Logout from all accounts
     const logoutAll = async () => {
         try {
-            await axios.post('/api/v1/oauth/logout/all');
-            setSession(null);
+            setIsLoading(true);
+            window.location.href = "/api/v1/account/logout/all";
         } catch (error) {
             console.error('Logout all failed:', error);
             setError('Failed to logout from all accounts');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const value = {
-        // Important change: Check for the existence of session instead of session?.authenticated
         isAuthenticated: session !== null,
         isLoading,
         session,
         error,
-        refreshTokens,
         logout,
         logoutAll,
         readSessionToken

@@ -1,8 +1,7 @@
-// EnvironmentContext.tsx - Fixed Implementation
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAccount } from '../../../../services/auth';
 import { useEnvironmentStore } from '../store';
 import { Environment, EnvironmentPrivacy, EnvironmentStatus } from '../types/types.data';
+import { useAccount } from '../../user_account';
 
 interface EnvironmentContextType {
     currentEnvironment: Environment | null;

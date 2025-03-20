@@ -1,13 +1,13 @@
+import React from 'react';
 import { Settings } from 'lucide-react';
 import { MenuButton } from './MenuButton';
 import { EnvironmentButton } from '../../features/default/environment';
-import { usePopup, UserAvatar, AccountPopup } from '../../features/default/user_account';
+import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
 import { NavbarSearch } from '../../features/shared/search';
-import { useAccount } from '../../services/auth';
 
 export function Navbar() {
   const accountPopup = usePopup();
-  const { currentAccount, accountDetails } = useAccount();
+  const { currentAccount, accountDetails, isLoading } = useAccount();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     accountPopup.toggle(e.currentTarget);
@@ -19,12 +19,12 @@ export function Navbar() {
   };
 
   // Create account display object for avatar
-  const accountDisplay = currentAccount && accountDetails ? {
-    id: currentAccount.accountId,
+  const accountDisplay = accountDetails ? {
+    id: accountDetails.id,
     name: accountDetails.name,
     email: accountDetails.email,
     imageUrl: accountDetails.imageUrl,
-    provider: currentAccount.provider
+    provider: currentAccount?.provider || accountDetails.provider
   } : null;
 
   return (
@@ -41,7 +41,10 @@ export function Navbar() {
         {/* Main content section */}
         <div className="flex-1 flex items-center justify-end px-4 space-x-2">
           <NavbarSearch />
-          <button className="p-1.5 hover:bg-gray-100 rounded">
+          <button
+            className="p-1.5 hover:bg-gray-100 rounded"
+            aria-label="Settings"
+          >
             <Settings className="w-5 h-5" />
           </button>
           <button
@@ -49,12 +52,14 @@ export function Navbar() {
             onClick={handleUserCircleClick}
             aria-label="User account menu"
           >
-            {accountDisplay ? (
-              <UserAvatar account={accountDisplay} size="sm" showProviderIcon={true} />
+            {isLoading ? (
+              <div className="w-5 h-5 animate-pulse bg-gray-200 rounded-full"></div>
             ) : (
-              <div className="w-5 h-5 flex items-center justify-center">
-                <UserAvatar account={null} size="sm" />
-              </div>
+              <UserAvatar
+                account={accountDisplay}
+                size="sm"
+                showProviderIcon={true}
+              />
             )}
           </button>
         </div>

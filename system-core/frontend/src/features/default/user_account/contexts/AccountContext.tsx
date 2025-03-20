@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Account, useAuth } from './AuthContext';
-
-interface AccountDetails {
-    id: string;
-    name: string;
-    email: string;
-    imageUrl?: string;
-    provider?: string;
-    status: string;
-    created: string;
-    updated: string;
-}
+import { fetchAccountDetails } from '../utils/account.utils';
+import { AccountDetails } from '../types/types.data';
 
 interface AccountContextType {
     currentAccount: Account | null;
@@ -38,74 +28,66 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         account => account.accountId === accountId
     ) || null;
 
-    // Debug the account matching
-    useEffect(() => {
-        if (session?.accounts) {
-            console.log("AccountContext: Looking for account with ID:", accountId);
-            console.log("AccountContext: Available accounts:", session.accounts);
-            console.log("AccountContext: Current account found:", currentAccount);
-        }
-    }, [accountId, session, currentAccount]);
-
     // Fetch account details when the account ID changes
     useEffect(() => {
         if (accountId && isAuthenticated && !authLoading) {
             console.log("AccountContext: Fetching account details for:", accountId);
-            fetchAccountDetails();
+            fetchAccountDetailsFromAPI();
         } else {
-            if (!accountId) console.log("AccountContext: No accountId parameter found");
-            if (!isAuthenticated) console.log("AccountContext: Not authenticated");
-            if (authLoading) console.log("AccountContext: Auth is still loading");
-
-            setAccountDetails(null);
             setIsLoading(false);
+            setAccountDetails(null);
         }
-    }, [accountId]);
+    }, [accountId, isAuthenticated, authLoading]);
 
     // Redirect if the account doesn't exist in the session
     useEffect(() => {
         if (!authLoading && isAuthenticated && !currentAccount && accountId) {
-            console.log("AccountContext: Redirect condition met:");
-            console.log("- authLoading:", authLoading);
-            console.log("- isAuthenticated:", isAuthenticated);
-            console.log("- currentAccount:", currentAccount);
-            console.log("- accountId:", accountId);
-
-            // This account is not in the user's session, redirect to error or first available account
+            console.log("AccountContext: Account not found in session, redirecting...");
             setError('You do not have access to this account');
 
             if (session?.accounts?.length) {
-                console.log("AccountContext: Redirecting to first account:", session.accounts[0].accountId);
                 navigate(`/app/${session.accounts[0].accountId}`);
             } else {
-                console.log("AccountContext: No accounts found, redirecting to login");
                 navigate('/login');
             }
         }
     }, [currentAccount, accountId, isAuthenticated, authLoading, session, navigate]);
 
-    const fetchAccountDetails = async () => {
+    const fetchAccountDetailsFromAPI = async () => {
         if (!accountId) return;
 
         try {
             setIsLoading(true);
-            console.log("AccountContext: Making API request for account details:", accountId);
+            setError(null);
 
-            const response = await axios.get(`/api/v1/account/${accountId}`);
-            console.log("AccountContext: API response:", response.data);
+            const response = await fetchAccountDetails(accountId);
 
-            if (response.data.success) {
-                setAccountDetails(response.data.data);
-                setError(null);
+            if (response.success) {
+                const details = response.data;
+
+                // Format the account details with proper typing
+                setAccountDetails({
+                    id: details.id,
+                    name: details.userDetails?.name || 'User',
+                    email: details.userDetails?.email || '',
+                    imageUrl: details.userDetails?.imageUrl || '',
+                    provider: details.provider,
+                    status: details.status,
+                    created: details.created,
+                    updated: details.updated,
+                    security: details.security || {
+                        twoFactorEnabled: false,
+                        sessionTimeout: 30,
+                        autoLock: false
+                    }
+                });
             } else {
-                console.error("AccountContext: API returned success: false");
+                console.error("API returned success: false", response);
                 setError('Failed to load account details');
-                setAccountDetails(null);
             }
         } catch (error) {
-            console.error('AccountContext: Error fetching account details:', error);
+            console.error('Error fetching account details:', error);
             setError('Failed to load account details');
-            setAccountDetails(null);
         } finally {
             setIsLoading(false);
         }
@@ -116,7 +98,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         accountDetails,
         isLoading,
         error,
-        fetchAccountDetails
+        fetchAccountDetails: fetchAccountDetailsFromAPI
     };
 
     return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;

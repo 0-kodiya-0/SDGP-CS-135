@@ -64,11 +64,35 @@ export interface TokenDetails {
     refreshToken: string;
 }
 
-export interface ApiResponse<T = any> {
-    success: boolean;
-    data?: T;
-    error?: {
-        code: string;
-        message: string;
+export interface AccountDetails {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl?: string;
+    provider?: string;
+    status: string;
+    created: string;
+    updated: string;
+    security?: {
+        twoFactorEnabled?: boolean;
+        sessionTimeout?: number;
+        autoLock?: boolean;
     };
+}
+
+export interface Account {
+    accountId: string;
+    accountType: string;
+    provider: string;
+    name?: string;
+    email?: string;
+    imageUrl?: string;
+}
+
+export interface Session {
+    sessionId: string;
+    accounts: Account[];
+    createdAt?: number;
+    expiresAt?: number;
+    iat?: number;
 }
