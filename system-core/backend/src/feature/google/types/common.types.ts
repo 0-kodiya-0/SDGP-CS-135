@@ -22,9 +22,15 @@ export interface GoogleApiError {
     details?: any;
 }
 
+// Permission information to help client handle permission errors
+export interface GooglePermissionInfo {
+    permissionUrl: string;
+}
+
+// Extended Request interface with Google auth and permission info
 export interface GoogleApiRequest extends Request {
     googleAuth?: Auth.OAuth2Client;
-    googlePermissionRedirectUrl?: string;
+    googlePermissionInfo?: GooglePermissionInfo;
     params: {
         accountId: string;
         [key: string]: string;

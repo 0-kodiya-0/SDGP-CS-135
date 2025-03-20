@@ -2,7 +2,7 @@ import express from 'express';
 import { CalendarController } from './calendar.controller';
 import { googleApiAuth } from '../../middleware';
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // Calendar list endpoints
 router.get(

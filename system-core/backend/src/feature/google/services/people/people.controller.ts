@@ -16,6 +16,7 @@ import { sendError, sendSuccess } from '../../../../utils/response';
 import { handleGoogleApiError } from '../../middleware';
 import { GoogleApiRequest } from '../../types';
 import { PeopleService } from './people.service';
+import { people_v1 } from 'googleapis';
 
 /**
  * Controller for People API endpoints
@@ -33,11 +34,11 @@ export class PeopleController {
             // Extract query parameters
             const params: GetContactsParams = {
                 maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
-                pageToken: req.query.pageToken as string,
-                personFields: req.query.personFields as string,
-                sortOrder: req.query.sortOrder as any,
+                pageToken: req.query.pageToken as string | undefined,
+                personFields: req.query.personFields as string | undefined,
+                sortOrder: req.query.sortOrder as people_v1.Params$Resource$People$Connections$List['sortOrder'] | undefined,
                 requestSyncToken: req.query.requestSyncToken === 'true',
-                syncToken: req.query.syncToken as string
+                syncToken: req.query.syncToken as string | undefined
             };
 
             // Create service and get contacts
@@ -46,8 +47,8 @@ export class PeopleController {
 
             sendSuccess(res, 200, {
                 contacts: contacts.items,
-                nextPageToken: contacts.nextPageToken,
-                syncToken: contacts.syncToken
+                nextPageToken: contacts.nextPageToken || undefined,
+                syncToken: contacts.syncToken || undefined
             });
         } catch (error) {
             handleGoogleApiError(req, res, error);
@@ -72,7 +73,7 @@ export class PeopleController {
             // Extract parameters
             const params: GetContactParams = {
                 resourceName,
-                personFields: req.query.personFields as string
+                personFields: req.query.personFields as string | undefined
             };
 
             // Create service and get contact
@@ -179,10 +180,12 @@ export class PeopleController {
             // Extract parameters
             const params: SearchContactsParams = {
                 query,
-                readMask: req.query.readMask as string,
+                readMask: req.query.readMask as string || '',
                 pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string) : 100,
-                pageToken: req.query.pageToken as string,
-                sources: req.query.sources ? (req.query.sources as string).split(',') as any[] : undefined
+                pageToken: req.query.pageToken as string | undefined,
+                sources: req.query.sources
+                    ? (req.query.sources as string).split(',') as people_v1.Params$Resource$People$Searchcontacts['sources']
+                    : undefined
             };
 
             // Create service and search contacts
@@ -191,7 +194,7 @@ export class PeopleController {
 
             sendSuccess(res, 200, {
                 contacts: results.items,
-                nextPageToken: results.nextPageToken
+                nextPageToken: results.nextPageToken || undefined
             });
         } catch (error) {
             handleGoogleApiError(req, res, error);
@@ -210,8 +213,8 @@ export class PeopleController {
             // Extract query parameters
             const params: GetContactGroupsParams = {
                 maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
-                pageToken: req.query.pageToken as string,
-                syncToken: req.query.syncToken as string
+                pageToken: req.query.pageToken as string | undefined,
+                syncToken: req.query.syncToken as string | undefined
             };
 
             // Create service and get contact groups
@@ -220,8 +223,8 @@ export class PeopleController {
 
             sendSuccess(res, 200, {
                 groups: groups.items,
-                nextPageToken: groups.nextPageToken,
-                syncToken: groups.syncToken
+                nextPageToken: groups.nextPageToken || undefined,
+                syncToken: groups.syncToken || undefined
             });
         } catch (error) {
             handleGoogleApiError(req, res, error);

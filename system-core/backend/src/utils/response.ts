@@ -1,12 +1,13 @@
 import { Response } from "express";
 import { ApiResponse, ApiErrorCode } from "../types/response.types";
+import { redirectWithError } from "./redirect";
 
 export const createSuccessResponse = <T>(data: T): ApiResponse<T> => ({
     success: true,
     data
 });
 
-export const createErrorResponse = (code: ApiErrorCode, message: string): ApiResponse => ({
+export const createErrorResponse = <T>(code: ApiErrorCode, message: T): ApiResponse => ({
     success: false,
     error: {
         code,
@@ -18,10 +19,11 @@ export const sendSuccess = <T>(res: Response, status: number, data: T): void => 
     res.status(status).send(createSuccessResponse(data));
 };
 
-export const sendError = (res: Response, status: number, code: ApiErrorCode, message: string): void => {
+export const sendError = <T>(res: Response, status: number, code: ApiErrorCode, message: T): void => {
     res.status(status).send(createErrorResponse(code, message));
 };
 
-export const redirectWithError = (res: Response, path: string, code: ApiErrorCode, message?: string): void => {
-    res.redirect(`..${path}?errorCode=${code}&errorMessage=${message}`);
+// The old implementation is now deprecated and redirects to the new utilities
+export const redirectWithError_deprecated = (res: Response, path: string, code: ApiErrorCode, message?: string): void => {
+    redirectWithError(res, path, code, message);
 };

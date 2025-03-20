@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, Express } from 'express';
 import {
     GetFilesParams,
     GetFileParams,
@@ -9,7 +9,8 @@ import {
     SearchFilesParams,
     ShareFileParams,
     GetPermissionsParams,
-    DeletePermissionParams
+    DeletePermissionParams,
+    DriveCorpora
 } from './drive.types';
 import { ApiErrorCode } from '../../../../types/response.types';
 import { sendError, sendSuccess } from '../../../../utils/response';
@@ -17,13 +18,22 @@ import { handleGoogleApiError } from '../../middleware';
 import { GoogleApiRequest } from '../../types';
 import { DriveService } from './drive.service';
 
+type MulterFile = Express.Multer.File;
+
+/**
+ * Extended Express.Request with Multer file support
+ */
+interface DriveRequest extends GoogleApiRequest {
+    file?: MulterFile;
+    files?: {
+        [fieldname: string]: MulterFile[];
+    } | MulterFile[];
+}
+
 /**
  * Controller for Drive API endpoints
  */
 export class DriveController {
-    /**
-     * List files and folders
-     */
     static async listFiles(req: GoogleApiRequest, res: Response): Promise<void> {
         if (!req.googleAuth) {
             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
@@ -40,7 +50,7 @@ export class DriveController {
                 spaces: req.query.spaces as string,
                 includeItemsFromAllDrives: req.query.includeItemsFromAllDrives === 'true',
                 supportsAllDrives: req.query.supportsAllDrives === 'true',
-                corpora: req.query.corpora as any,
+                corpora: req.query.corpora as DriveCorpora,
                 driveId: req.query.driveId as string,
                 includeTeamDriveItems: req.query.includeTeamDriveItems === 'true',
                 teamDriveId: req.query.teamDriveId as string
@@ -208,7 +218,7 @@ export class DriveController {
     /**
      * Upload a file
      */
-    static async uploadFile(req: GoogleApiRequest, res: Response): Promise<void> {
+    static async uploadFile(req: DriveRequest, res: Response): Promise<void> {
         if (!req.googleAuth) {
             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
         }
@@ -219,8 +229,25 @@ export class DriveController {
                 return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'No file uploaded');
             }
 
-            // Get file from request
-            const uploadedFile = req.file || (Array.isArray(req.files) ? req.files[0] : req.files.file);
+            let uploadedFile: MulterFile | undefined;
+
+            // Get file from request - handling different multer configurations
+            if (req.file) {
+                // Single file upload
+                uploadedFile = req.file;
+            } else if (req.files) {
+                // Multiple files or fields
+                if (Array.isArray(req.files)) {
+                    // Array of files (multiple upload)
+                    uploadedFile = req.files[0];
+                } else {
+                    // Object of fields (fields upload)
+                    const fileArray = req.files.file;
+                    if (fileArray && fileArray.length > 0) {
+                        uploadedFile = fileArray[0];
+                    }
+                }
+            }
 
             if (!uploadedFile) {
                 return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'No file could be processed');
@@ -243,13 +270,12 @@ export class DriveController {
                 supportsTeamDrives: req.query.supportsTeamDrives === 'true'
             };
 
-            // Create readable stream from file buffer
+            // Get file buffer
             const fileBuffer = uploadedFile.buffer;
-            const content = fileBuffer;
 
             // Create service and upload file
             const driveService = new DriveService(req.googleAuth);
-            const file = await driveService.uploadFile(content, params);
+            const file = await driveService.uploadFile(fileBuffer, params);
 
             sendSuccess(res, 201, { file });
         } catch (error) {
@@ -348,7 +374,7 @@ export class DriveController {
                 spaces: req.query.spaces as string,
                 includeItemsFromAllDrives: req.query.includeItemsFromAllDrives === 'true',
                 supportsAllDrives: req.query.supportsAllDrives === 'true',
-                corpora: req.query.corpora as any,
+                corpora: req.query.corpora as DriveCorpora,
                 driveId: req.query.driveId as string,
                 includeTeamDriveItems: req.query.includeTeamDriveItems === 'true',
                 teamDriveId: req.query.teamDriveId as string

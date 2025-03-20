@@ -1,5 +1,13 @@
 import { drive_v3 } from 'googleapis';
 import { GoogleListResponse, PaginationParams } from '../../types';
+import { Readable } from 'stream';
+
+// Define corpora type explicitly
+export type DriveCorpora = 'user' | 'drive' | 'domain' | 'allDrives';
+
+// Role and Type for permissions
+export type PermissionRole = 'owner' | 'organizer' | 'fileOrganizer' | 'writer' | 'commenter' | 'reader';
+export type PermissionType = 'user' | 'group' | 'domain' | 'anyone';
 
 // Request types
 export interface GetFilesParams extends PaginationParams {
@@ -9,7 +17,7 @@ export interface GetFilesParams extends PaginationParams {
     spaces?: string;
     includeItemsFromAllDrives?: boolean;
     supportsAllDrives?: boolean;
-    corpora?: 'user' | 'drive' | 'domain' | 'allDrives';
+    corpora?: DriveCorpora;
     driveId?: string;
     includeTeamDriveItems?: boolean;
     teamDriveId?: string;
@@ -39,7 +47,7 @@ export interface CreateFileParams {
     mimeType?: string;
     description?: string;
     fields?: string;
-    content?: string | Blob | Buffer;
+    content?: string | Buffer | Readable;
     supportsAllDrives?: boolean;
     supportsTeamDrives?: boolean;
 }
@@ -66,8 +74,8 @@ export interface SearchFilesParams extends GetFilesParams { }
 
 export interface ShareFileParams {
     fileId: string;
-    role: 'owner' | 'organizer' | 'fileOrganizer' | 'writer' | 'commenter' | 'reader';
-    type: 'user' | 'group' | 'domain' | 'anyone';
+    role: PermissionRole;
+    type: PermissionType;
     emailAddress?: string;
     domain?: string;
     transferOwnership?: boolean;
@@ -90,6 +98,30 @@ export interface DeletePermissionParams {
     permissionId: string;
     supportsAllDrives?: boolean;
     supportsTeamDrives?: boolean;
+}
+
+// Request body interfaces for better type safety
+export interface CreateFileRequestBody {
+    name: string;
+    mimeType?: string;
+    parents?: string[];
+    description?: string;
+    [key: string]: unknown;
+}
+
+export interface UpdateFileRequestBody {
+    name?: string;
+    description?: string;
+    mimeType?: string;
+    [key: string]: unknown;
+}
+
+export interface CreatePermissionRequestBody {
+    role: PermissionRole;
+    type: PermissionType;
+    emailAddress?: string;
+    domain?: string;
+    [key: string]: unknown;
 }
 
 // Response types

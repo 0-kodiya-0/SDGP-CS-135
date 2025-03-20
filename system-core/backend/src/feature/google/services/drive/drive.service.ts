@@ -17,7 +17,10 @@ import {
     Permission,
     PermissionList,
     FOLDER_MIME_TYPE,
-    DEFAULT_FILE_FIELDS
+    DEFAULT_FILE_FIELDS,
+    CreateFileRequestBody,
+    UpdateFileRequestBody,
+    CreatePermissionRequestBody
 } from './drive.types';
 
 /**
@@ -31,15 +34,15 @@ export class DriveService {
         this.drive = google.drive({ version: 'v3', auth });
     }
 
-    /**
+     /**
      * List files and folders
      */
-    async listFiles(params: GetFilesParams = {}): Promise<DriveFileList> {
+     async listFiles(params: GetFilesParams = {}): Promise<DriveFileList> {
         try {
             const response = await this.drive.files.list({
                 pageSize: params.maxResults || 100,
                 pageToken: params.pageToken,
-                q: params.q,
+                q: params.q || "trashed = false", // Add default query to exclude trashed items
                 fields: `nextPageToken, files(${params.fields || DEFAULT_FILE_FIELDS})`,
                 orderBy: params.orderBy,
                 spaces: params.spaces,
@@ -53,7 +56,7 @@ export class DriveService {
 
             return {
                 items: response.data.files || [],
-                nextPageToken: response.data.nextPageToken
+                nextPageToken: response.data.nextPageToken || undefined
             };
         } catch (error) {
             console.error('Error listing Drive files:', error);
@@ -107,13 +110,15 @@ export class DriveService {
      */
     async createFolder(params: CreateFolderParams): Promise<DriveFile> {
         try {
+            const requestBody: CreateFileRequestBody = {
+                name: params.name,
+                mimeType: FOLDER_MIME_TYPE,
+                parents: params.parents,
+                description: params.description
+            };
+
             const response = await this.drive.files.create({
-                requestBody: {
-                    name: params.name,
-                    mimeType: FOLDER_MIME_TYPE,
-                    parents: params.parents,
-                    description: params.description
-                },
+                requestBody,
                 fields: params.fields || DEFAULT_FILE_FIELDS,
                 supportsAllDrives: params.supportsAllDrives,
                 supportsTeamDrives: params.supportsTeamDrives
@@ -131,20 +136,16 @@ export class DriveService {
      */
     async createFile(params: CreateFileParams): Promise<DriveFile> {
         try {
-            const requestBody: any = {
+            const requestBody: CreateFileRequestBody = {
                 name: params.name,
                 mimeType: params.mimeType,
                 parents: params.parents,
                 description: params.description
             };
 
-            let media = undefined;
-
-            if (params.content) {
-                media = {
-                    body: params.content
-                };
-            }
+            const media = params.content
+                ? { body: params.content }
+                : undefined;
 
             const response = await this.drive.files.create({
                 requestBody,
@@ -163,23 +164,45 @@ export class DriveService {
 
     /**
      * Upload file content to Drive
+     * Fixed to properly handle different types of content (Buffer, string, Readable)
      */
     async uploadFile(content: string | Buffer | Readable, params: CreateFileParams): Promise<DriveFile> {
         try {
-            const requestBody: any = {
+            const requestBody: CreateFileRequestBody = {
                 name: params.name,
                 mimeType: params.mimeType,
                 parents: params.parents,
                 description: params.description
             };
 
-            const media = {
-                body: content
-            };
+            let mediaBody: any;
+
+            // Handle different content types appropriately
+            if (Buffer.isBuffer(content)) {
+                // If content is a Buffer (which is likely from multer)
+                mediaBody = {
+                    mimeType: params.mimeType,
+                    body: Readable.from(content)
+                };
+            } else if (content instanceof Readable) {
+                // If content is already a Readable stream
+                mediaBody = {
+                    mimeType: params.mimeType,
+                    body: content
+                };
+            } else if (typeof content === 'string') {
+                // If content is a string
+                mediaBody = {
+                    mimeType: params.mimeType,
+                    body: Readable.from(content)
+                };
+            } else {
+                throw new Error('Unsupported content type for upload');
+            }
 
             const response = await this.drive.files.create({
                 requestBody,
-                media,
+                media: mediaBody,
                 fields: params.fields || DEFAULT_FILE_FIELDS,
                 supportsAllDrives: params.supportsAllDrives,
                 supportsTeamDrives: params.supportsTeamDrives
@@ -197,7 +220,7 @@ export class DriveService {
      */
     async updateFile(params: UpdateFileParams): Promise<DriveFile> {
         try {
-            const requestBody: any = {};
+            const requestBody: UpdateFileRequestBody = {};
 
             if (params.name !== undefined) requestBody.name = params.name;
             if (params.description !== undefined) requestBody.description = params.description;
@@ -248,7 +271,7 @@ export class DriveService {
      */
     async shareFile(params: ShareFileParams): Promise<Permission> {
         try {
-            const requestBody: any = {
+            const requestBody: CreatePermissionRequestBody = {
                 role: params.role,
                 type: params.type
             };

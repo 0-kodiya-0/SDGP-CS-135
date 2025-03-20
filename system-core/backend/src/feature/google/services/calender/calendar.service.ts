@@ -13,7 +13,9 @@ import {
     CalendarList,
     GetCalendarsParams,
     CreateCalendarParams,
-    UpdateCalendarParams
+    UpdateCalendarParams,
+    EventRequestBody,
+    CalendarRequestBody
 } from './calendar.types';
 
 /**
@@ -46,7 +48,7 @@ export class CalendarService {
 
             return {
                 items: response.data.items || [],
-                nextPageToken: response.data.nextPageToken
+                nextPageToken: response.data.nextPageToken || undefined
             };
         } catch (error) {
             console.error('Error listing calendar events:', error);
@@ -77,30 +79,39 @@ export class CalendarService {
     async createEvent(params: CreateEventParams): Promise<CalendarEvent> {
         try {
             // Create conference data if requested
-            const conferenceDataRequest = params.conferenceData?.createRequest ? 1 : 0;
+            const conferenceDataVersion = params.conferenceData?.createRequest ? 1 : 0;
 
             // Generate a requestId if conferenceData is specified but no requestId is provided
-            if (params.conferenceData?.createRequest && !params.conferenceData.createRequest.requestId) {
-                params.conferenceData.createRequest.requestId = uuidv4();
+            let conferenceData = params.conferenceData;
+            if (conferenceData?.createRequest && !conferenceData.createRequest.requestId) {
+                conferenceData = {
+                    ...conferenceData,
+                    createRequest: {
+                        ...conferenceData.createRequest,
+                        requestId: uuidv4()
+                    }
+                };
             }
+
+            const requestBody: EventRequestBody = {
+                summary: params.summary,
+                description: params.description,
+                location: params.location,
+                start: params.start,
+                end: params.end,
+                attendees: params.attendees,
+                recurrence: params.recurrence,
+                reminders: params.reminders,
+                colorId: params.colorId,
+                transparency: params.transparency,
+                visibility: params.visibility,
+                conferenceData
+            };
 
             const response = await this.calendar.events.insert({
                 calendarId: params.calendarId || this.PRIMARY_CALENDAR,
-                conferenceDataVersion: conferenceDataRequest,
-                requestBody: {
-                    summary: params.summary,
-                    description: params.description,
-                    location: params.location,
-                    start: params.start,
-                    end: params.end,
-                    attendees: params.attendees,
-                    recurrence: params.recurrence,
-                    reminders: params.reminders,
-                    colorId: params.colorId,
-                    transparency: params.transparency,
-                    visibility: params.visibility,
-                    conferenceData: params.conferenceData
-                }
+                conferenceDataVersion,
+                requestBody
             });
 
             return response.data;
@@ -116,15 +127,22 @@ export class CalendarService {
     async updateEvent(params: UpdateEventParams): Promise<CalendarEvent> {
         try {
             // Create conference data if requested
-            const conferenceDataRequest = params.conferenceData?.createRequest ? 1 : 0;
+            const conferenceDataVersion = params.conferenceData?.createRequest ? 1 : 0;
 
             // Generate a requestId if conferenceData is specified but no requestId is provided
-            if (params.conferenceData?.createRequest && !params.conferenceData.createRequest.requestId) {
-                params.conferenceData.createRequest.requestId = uuidv4();
+            let conferenceData = params.conferenceData;
+            if (conferenceData?.createRequest && !conferenceData.createRequest.requestId) {
+                conferenceData = {
+                    ...conferenceData,
+                    createRequest: {
+                        ...conferenceData.createRequest,
+                        requestId: uuidv4()
+                    }
+                };
             }
 
             // Build the request body with only provided fields
-            const requestBody: any = {};
+            const requestBody: EventRequestBody = {};
             if (params.summary !== undefined) requestBody.summary = params.summary;
             if (params.description !== undefined) requestBody.description = params.description;
             if (params.location !== undefined) requestBody.location = params.location;
@@ -136,13 +154,13 @@ export class CalendarService {
             if (params.colorId !== undefined) requestBody.colorId = params.colorId;
             if (params.transparency !== undefined) requestBody.transparency = params.transparency;
             if (params.visibility !== undefined) requestBody.visibility = params.visibility;
-            if (params.conferenceData !== undefined) requestBody.conferenceData = params.conferenceData;
+            if (conferenceData !== undefined) requestBody.conferenceData = conferenceData;
 
             const response = await this.calendar.events.patch({
                 calendarId: params.calendarId || this.PRIMARY_CALENDAR,
                 eventId: params.eventId,
                 sendUpdates: params.sendUpdates,
-                conferenceDataVersion: conferenceDataRequest,
+                conferenceDataVersion,
                 requestBody
             });
 
@@ -181,7 +199,7 @@ export class CalendarService {
 
             return {
                 items: response.data.items || [],
-                nextPageToken: response.data.nextPageToken
+                nextPageToken: response.data.nextPageToken || undefined
             };
         } catch (error) {
             console.error('Error listing calendars:', error);
@@ -194,13 +212,15 @@ export class CalendarService {
      */
     async createCalendar(params: CreateCalendarParams): Promise<CalendarResource> {
         try {
+            const requestBody: CalendarRequestBody = {
+                summary: params.summary,
+                description: params.description,
+                location: params.location,
+                timeZone: params.timeZone
+            };
+
             const createResponse = await this.calendar.calendars.insert({
-                requestBody: {
-                    summary: params.summary,
-                    description: params.description,
-                    location: params.location,
-                    timeZone: params.timeZone
-                }
+                requestBody
             });
 
             // After creating the calendar, we need to get its entry in the calendar list
@@ -222,7 +242,7 @@ export class CalendarService {
     async updateCalendar(params: UpdateCalendarParams): Promise<CalendarResource> {
         try {
             // Build the request body with only provided fields
-            const requestBody: any = {};
+            const requestBody: CalendarRequestBody = {};
             if (params.summary !== undefined) requestBody.summary = params.summary;
             if (params.description !== undefined) requestBody.description = params.description;
             if (params.location !== undefined) requestBody.location = params.location;

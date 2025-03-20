@@ -2,7 +2,7 @@ import express from 'express';
 import { googleApiAuth } from '../../middleware';
 import { GmailController } from './gmail.controller';
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // Messages endpoints
 router.get(

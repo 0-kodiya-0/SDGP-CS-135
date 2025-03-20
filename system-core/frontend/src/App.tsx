@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Footer, Header, Navbar } from "./layout";
-import { queryClient } from './mock/persistConfig';
+import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
 import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 import { useAccount } from "./features/default/user_account";

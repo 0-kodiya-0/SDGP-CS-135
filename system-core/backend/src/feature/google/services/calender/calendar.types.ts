@@ -29,6 +29,43 @@ export interface EventDateTime {
     timeZone?: string; // IANA time zone format
 }
 
+export interface EventReminder {
+    method: 'email' | 'popup';
+    minutes: number;
+}
+
+export interface EventReminders {
+    useDefault?: boolean;
+    overrides?: EventReminder[];
+}
+
+export interface ConferenceData {
+    createRequest?: {
+        requestId?: string;
+        conferenceSolutionKey?: {
+            type: 'hangoutsMeet';
+        };
+    };
+    // Add other conference data fields as needed
+    conferenceSolution?: {
+        key?: {
+            type?: string;
+        };
+        name?: string;
+        iconUri?: string;
+    };
+    entryPoints?: {
+        entryPointType?: string;
+        uri?: string;
+        label?: string;
+        pin?: string;
+        accessCode?: string;
+        meetingCode?: string;
+        passcode?: string;
+        password?: string;
+    }[];
+}
+
 export interface CreateEventParams {
     calendarId?: string;
     summary: string;
@@ -38,24 +75,11 @@ export interface CreateEventParams {
     end: EventDateTime;
     attendees?: EventAttendee[];
     recurrence?: string[];
-    reminders?: {
-        useDefault?: boolean;
-        overrides?: {
-            method: 'email' | 'popup';
-            minutes: number;
-        }[];
-    };
+    reminders?: EventReminders;
     colorId?: string;
     transparency?: 'opaque' | 'transparent';
     visibility?: 'default' | 'public' | 'private' | 'confidential';
-    conferenceData?: {
-        createRequest?: {
-            requestId?: string;
-            conferenceSolutionKey?: {
-                type: 'hangoutsMeet';
-            };
-        };
-    };
+    conferenceData?: ConferenceData;
 }
 
 export interface UpdateEventParams extends Partial<CreateEventParams> {
@@ -70,7 +94,7 @@ export interface DeleteEventParams {
     sendUpdates?: 'all' | 'externalOnly' | 'none';
 }
 
-export interface GetCalendarsParams extends PaginationParams { }
+export type GetCalendarsParams = PaginationParams
 
 export interface CreateCalendarParams {
     summary: string;
@@ -81,6 +105,29 @@ export interface CreateCalendarParams {
 
 export interface UpdateCalendarParams extends Partial<CreateCalendarParams> {
     calendarId: string;
+}
+
+// Calendar Request Body Types
+export interface CalendarRequestBody {
+    summary?: string;
+    description?: string;
+    location?: string;
+    timeZone?: string;
+}
+
+export interface EventRequestBody {
+    summary?: string;
+    description?: string;
+    location?: string;
+    start?: EventDateTime;
+    end?: EventDateTime;
+    attendees?: EventAttendee[];
+    recurrence?: string[];
+    reminders?: EventReminders;
+    colorId?: string;
+    transparency?: 'opaque' | 'transparent';
+    visibility?: 'default' | 'public' | 'private' | 'confidential';
+    conferenceData?: ConferenceData;
 }
 
 // Response types

@@ -204,7 +204,7 @@ export class MeetService {
             // Convert all events to meeting objects
             return {
                 items: meetEvents.map(event => calendarEventToMeeting(event)),
-                nextPageToken: response.data.nextPageToken
+                nextPageToken: response.data.nextPageToken || undefined
             };
         } catch (error) {
             console.error('Error listing Meet meetings:', error);

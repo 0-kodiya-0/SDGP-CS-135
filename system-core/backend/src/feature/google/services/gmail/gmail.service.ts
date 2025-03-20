@@ -8,7 +8,6 @@ import {
     SendMessageParams,
     GmailLabel,
     GmailLabelList,
-    GetLabelsParams,
     CreateLabelParams,
     UpdateLabelParams
 } from './gmail.types';
@@ -40,7 +39,7 @@ export class GmailService {
 
             return {
                 items: response.data.messages || [],
-                nextPageToken: response.data.nextPageToken
+                nextPageToken: response.data.nextPageToken || undefined
             };
         } catch (error) {
             console.error('Error listing Gmail messages:', error);
@@ -99,7 +98,7 @@ export class GmailService {
     /**
      * List all labels
      */
-    async listLabels(params: GetLabelsParams = {}): Promise<GmailLabelList> {
+    async listLabels(): Promise<GmailLabelList> {
         try {
             const response = await this.gmail.users.labels.list({
                 userId: 'me'
@@ -184,7 +183,7 @@ export class GmailService {
         const boundary = `boundary_${Date.now().toString()}`;
 
         // Create headers
-        let message = [
+        const message = [
             `To: ${toRecipients}`,
             `Subject: ${params.subject}`,
             'MIME-Version: 1.0'

@@ -32,8 +32,6 @@ export const authenticateGoogleApi = async (
     }
 
     try {
-        // Store the original request URL to redirect back after permission grant
-        const originalUrl = req.originalUrl;
 
         // Validate and refresh token if needed - only done once per request
         const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
@@ -48,8 +46,10 @@ export const authenticateGoogleApi = async (
         const googleReq = req as GoogleApiRequest;
         googleReq.googleAuth = oauth2Client;
 
-        // Prepare a permission redirect URL that can be used if needed later
-        googleReq.googlePermissionRedirectUrl = `${getAbsoluteUrl(req, '/oauth/permission')}?redirect=${encodeURIComponent(originalUrl)}&accountId=${accountId}`;
+        // Prepare permission info that can be included in error responses if needed
+        googleReq.googlePermissionInfo = {
+            permissionUrl: `${getAbsoluteUrl(req, '/oauth/permission')}`,
+        };
 
         next();
     } catch (error) {
@@ -71,8 +71,6 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
         if (!req.googleAuth) {
             return sendError(res, 500, ApiErrorCode.SERVER_ERROR, 'Google API client not initialized');
         }
-
-        const accountId = req.params.accountId;
 
         try {
             // Check if the user is returning from a permission request that failed
@@ -102,13 +100,21 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
             const hasScope = await hasRequiredScope(accessToken, requiredScope);
 
             if (!hasScope) {
-                // Construct a redirect URL to request additional permissions
-                const permissionPath = `/oauth/permission/${service}/${scopeLevel}`;
-                const redirectParam = encodeURIComponent(getAbsoluteUrl(req, req.originalUrl));
-                const permissionUrl = `${getAbsoluteUrl(req, permissionPath)}?redirect=${redirectParam}&accountId=${accountId}`;
-
-                console.log(`Redirecting to request additional permissions: ${permissionUrl}`);
-                return res.redirect(permissionUrl);
+                // Instead of redirecting, send an error response with permission info
+                // that the client can use to request additional permissions
+                return sendError(
+                    res,
+                    403,
+                    ApiErrorCode.INSUFFICIENT_SCOPE,
+                    {
+                        requiredPermission: {
+                            service,
+                            scopeLevel,
+                            requiredScope,
+                            permissionInfo: req.googlePermissionInfo
+                        }
+                    }
+                );
             }
 
             // Token has the required scope, continue
@@ -123,8 +129,20 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
                 errorMessage.includes('scope') ||
                 errorMessage.includes('access');
 
-            if (isLikelyPermissionError && req.googlePermissionRedirectUrl) {
-                return res.redirect(req.googlePermissionRedirectUrl);
+            if (isLikelyPermissionError && req.googlePermissionInfo) {
+                // Send an error response with permission info instead of redirecting
+                return sendError(
+                    res,
+                    403,
+                    ApiErrorCode.INSUFFICIENT_SCOPE,
+                    {
+                        requiredPermission: {
+                            service,
+                            scopeLevel,
+                            permissionInfo: req.googlePermissionInfo
+                        }
+                    }
+                );
             }
 
             sendError(
@@ -154,9 +172,9 @@ export const googleApiAuth = (service: GoogleServiceName, scopeLevel: string = '
 export const handleGoogleApiError = (req: Request, res: Response, error: any) => {
     console.error('Google API error:', error);
 
-    // Get the permission redirect URL if available
+    // Get the permission info if available
     const googleReq = req as GoogleApiRequest;
-    const redirectUrl = googleReq.googlePermissionRedirectUrl;
+    const permissionInfo = googleReq.googlePermissionInfo;
 
     // Handle different types of Google API errors
     if (error.response && error.response.data) {
@@ -176,10 +194,15 @@ export const handleGoogleApiError = (req: Request, res: Response, error: any) =>
                 message?.includes('authorization') ||
                 message?.includes('access');
 
-            // If this appears to be a permission error and we have a redirect URL
-            if (isPermissionError && redirectUrl) {
-                console.log(`Redirecting to request additional permissions: ${redirectUrl}`);
-                return res.redirect(redirectUrl);
+            // If this appears to be a permission error and we have permission info
+            if (isPermissionError && permissionInfo) {
+                // Send error with permission info instead of redirecting
+                return sendError(
+                    res,
+                    403,
+                    ApiErrorCode.INSUFFICIENT_SCOPE,
+                    { permissionInfo }
+                );
             }
         } else if (statusCode === 404) {
             errorCode = ApiErrorCode.RESOURCE_NOT_FOUND;
@@ -198,9 +221,14 @@ export const handleGoogleApiError = (req: Request, res: Response, error: any) =>
             errorMsg.includes('authorization') ||
             errorMsg.includes('access');
 
-        if (isLikelyPermissionError && redirectUrl) {
-            console.log(`Redirecting to request additional permissions: ${redirectUrl}`);
-            return res.redirect(redirectUrl);
+        if (isLikelyPermissionError && permissionInfo) {
+            // Send error with permission info instead of redirecting
+            return sendError(
+                res,
+                403,
+                ApiErrorCode.INSUFFICIENT_SCOPE,
+                { permissionInfo }
+            );
         }
 
         // Generic error handler

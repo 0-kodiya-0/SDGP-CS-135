@@ -3,7 +3,7 @@ import { OAuthAccount, OAuthProviders, TokenDetails } from "../account/Account.t
 export enum AuthType {
     SIGN_UP = 'signup',
     SIGN_IN = 'signin',
-    PERMISSION = 'permission' // Add permission type
+    PERMISSION = 'permission'
 }
 
 export interface OAuthState {
@@ -11,6 +11,7 @@ export interface OAuthState {
     provider: OAuthProviders;
     authType: AuthType;
     expiresAt: string;
+    redirectUrl?: string; // New field to store redirection URL
 }
 
 // Add a new type for permission requests
@@ -26,6 +27,7 @@ export interface SignUpState {
     oAuthResponse: ProviderResponse;
     accountDetails: Partial<OAuthAccount>;
     expiresAt: string;
+    redirectUrl?: string; // New field to store redirection URL
 }
 
 export type SignUpDetails = 'device' | undefined | null;
@@ -34,6 +36,7 @@ export interface SignInState {
     state: string;
     oAuthResponse: ProviderResponse;
     expiresAt: string;
+    redirectUrl?: string; // New field to store redirection URL
 }
 
 export interface AuthUrls {

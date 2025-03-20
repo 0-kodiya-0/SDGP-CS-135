@@ -11,7 +11,7 @@ const upload = multer({
     }
 });
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // Files endpoints
 router.get(

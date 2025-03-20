@@ -48,8 +48,8 @@ export class PeopleService {
 
             return {
                 items: response.data.connections || [],
-                nextPageToken: response.data.nextPageToken,
-                syncToken: response.data.nextSyncToken
+                nextPageToken: response.data.nextPageToken || undefined,
+                syncToken: response.data.nextSyncToken || undefined
             };
         } catch (error) {
             console.error('Error listing contacts:', error);
@@ -97,8 +97,8 @@ export class PeopleService {
         try {
             const { resourceName, etag, ...contactData } = params;
 
-            // Prepare the request body
-            const requestBody: any = {
+            // Prepare the request body with proper type
+            const requestBody: people_v1.Schema$Person = {
                 ...contactData,
                 etag: etag
             };
@@ -142,13 +142,11 @@ export class PeopleService {
                 query: params.query,
                 readMask: params.readMask || this.DEFAULT_PERSON_FIELDS,
                 pageSize: params.pageSize || 100,
-                pageToken: params.pageToken,
-                sources: params.sources
+                sources: params.sources as people_v1.Params$Resource$People$Searchcontacts['sources'],
             });
 
             return {
-                items: response.data.results?.map(result => result.person) || [],
-                nextPageToken: response.data.nextPageToken
+                items: response.data.results?.map(result => result.person as PersonType).filter(Boolean) || []
             };
         } catch (error) {
             console.error('Error searching contacts:', error);
@@ -169,8 +167,8 @@ export class PeopleService {
 
             return {
                 items: response.data.contactGroups || [],
-                nextPageToken: response.data.nextPageToken,
-                syncToken: response.data.nextSyncToken
+                nextPageToken: response.data.nextPageToken || undefined,
+                syncToken: response.data.nextSyncToken || undefined
             };
         } catch (error) {
             console.error('Error listing contact groups:', error);
@@ -260,7 +258,8 @@ export class PeopleService {
             const response = await this.people.contactGroups.members.modify({
                 resourceName: params.resourceName,
                 requestBody: {
-                    resourceNamesToAdd: params.resourceNames
+                    resourceNamesToAdd: params.resourceNames,
+                    resourceNamesToRemove: []
                 }
             });
 
@@ -279,6 +278,7 @@ export class PeopleService {
             const response = await this.people.contactGroups.members.modify({
                 resourceName: params.resourceName,
                 requestBody: {
+                    resourceNamesToAdd: [],
                     resourceNamesToRemove: params.resourceNames
                 }
             });

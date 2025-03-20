@@ -2,7 +2,7 @@ import express from 'express';
 import { MeetController } from './meet.controller';
 import { googleApiAuth } from '../../middleware';
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // Meetings endpoints
 router.get(

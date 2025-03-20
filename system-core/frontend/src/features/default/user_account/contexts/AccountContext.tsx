@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Account, useAuth } from './AuthContext';
+import { useAuth } from './AuthContext';
 import { fetchAccountDetails } from '../utils/account.utils';
-import { AccountDetails } from '../types/types.data';
+import { Account, AccountDetails } from '../types/types.data';
 
 interface AccountContextType {
     currentAccount: Account | null;
@@ -24,7 +24,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [error, setError] = useState<string | null>(null);
 
     // Find the current account from the session
-    const currentAccount = session?.accounts?.find(
+    const currentAccount: Account | null = session?.accounts?.find(
         account => account.accountId === accountId
     ) || null;
 

@@ -31,7 +31,7 @@ const setupPassport = () => {
                 }
             };
 
-            console.log(`Authentication successful for: ${response.email}`);
+            console.log(`Authentication successful for: `, response);
 
             return done(null, response);
         } catch (error) {

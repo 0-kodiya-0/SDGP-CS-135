@@ -1,11 +1,17 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../features/default/user_account';
 
 const SignupPage: React.FC = () => {
     const { isLoading } = useAuth();
+    const location = useLocation();
 
+    // Get current path to return to after auth
+    const returnPath = encodeURIComponent(location.pathname);
+    
     const handleSignupWithGoogle = () => {
-        window.location.href = '/api/v1/oauth/signup/google';
+        // Include redirect parameter that points to the auth callback with return path
+        window.location.href = `/api/v1/oauth/signup/google?redirectUrl=${encodeURIComponent(`/auth/callback?returnTo=${returnPath}`)}`;
     };
 
     if (isLoading) {

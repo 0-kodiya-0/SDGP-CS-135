@@ -14,16 +14,22 @@ const options = {
 const oAuthStateCache = new LRUCache<string, OAuthState>(options);
 const signInStateCache = new LRUCache<string, SignInState>(options);
 const signUpStateCache = new LRUCache<string, SignUpState>(options);
-const permissionStateCache = new LRUCache<string, PermissionState>(options); // New cache for permission states
+const permissionStateCache = new LRUCache<string, PermissionState>(options);
 
 // OAuthState methods
-export const saveOAuthState = (state: string, provider: OAuthProviders, authType: AuthType): void => {
+export const saveOAuthState = (
+    state: string,
+    provider: OAuthProviders,
+    authType: AuthType,
+    redirectUrl?: string
+): void => {
     const expiresAt = new Date(Date.now() + options.ttl);
 
     const stateData: OAuthState = {
         state,
         provider,
         authType,
+        redirectUrl,
         expiresAt: expiresAt.toISOString(),
     };
 
@@ -51,12 +57,17 @@ export const removeOAuthState = (state: string): void => {
 };
 
 // SignInState methods
-export const saveSignInState = (state: string, providerResponse: ProviderResponse): void => {
+export const saveSignInState = (
+    state: string,
+    providerResponse: ProviderResponse,
+    redirectUrl?: string
+): void => {
     const expiresAt = new Date(Date.now() + options.ttl);
 
     const stateData: SignInState = {
         state,
         oAuthResponse: providerResponse,
+        redirectUrl,
         expiresAt: expiresAt.toISOString(),
     };
 
@@ -84,12 +95,17 @@ export const removeSignInState = (state: string): void => {
 };
 
 // SignUpState methods
-export const saveSignUpState = (state: string, providerResponse: ProviderResponse): void => {
+export const saveSignUpState = (
+    state: string,
+    providerResponse: ProviderResponse,
+    redirectUrl?: string
+): void => {
     const expiresAt = new Date(Date.now() + options.ttl);
 
     const stateData: SignUpState = {
         state,
         oAuthResponse: providerResponse,
+        redirectUrl,
         accountDetails: {},
         expiresAt: expiresAt.toISOString(),
     };
@@ -134,7 +150,7 @@ export const updateSignUpStateDetails = (state: string, accountDetails: Partial<
     return true;
 };
 
-// New methods for permission state
+// Methods for permission state
 export const savePermissionState = (
     state: string,
     provider: OAuthProviders,

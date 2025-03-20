@@ -5,7 +5,7 @@ import { validateSignUpState, validateSignInState, validateOAuthState, validateP
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState, generatePermissionState } from './Auth.utils';
 import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
-import { sendError, redirectWithError } from '../../utils/response';
+import { sendError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
 import { createSignInSession, createSignUpSession, updateUserTokens } from '../../utils/session';
@@ -16,6 +16,7 @@ import { findUser } from '../account/Account.utils';
 import { toOAuthAccount } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
+import { getRedirectUrl, redirectWithError, redirectWithSuccess } from '../../utils/redirect';
 
 export const router = express.Router();
 
@@ -33,10 +34,11 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
     if (!stateDetails) return;
 
     // Default Google authentication options
-    const authOptions = {
+    const authOptions: AuthenticateOptionsGoogle = {
         scope: ['profile', 'email'],
         state: state as string,
-        accessType: 'offline'
+        accessType: 'offline',
+        prompt: 'consent'
     };
 
     // Pass control to passport middleware
@@ -78,9 +80,11 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
 // });
 
 router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
+    const frontendRedirectUrl = getRedirectUrl(req, '/');
+
     const error = req.query.error;
     if (error) {
-        sendError(res, 400, error as ApiErrorCode, 'Error during signup process');
+        redirectWithError(res, frontendRedirectUrl, error as ApiErrorCode, 'Error during signup process');
         return;
     }
 
@@ -114,7 +118,7 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
 
             const success = validateOAuthAccount(newAccount);
             if (!success) {
-                sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Missing required account data');
+                redirectWithError(res, frontendRedirectUrl, ApiErrorCode.MISSING_DATA, 'Missing required account data');
                 return;
             }
 
@@ -127,15 +131,20 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
             const sessionResponse = await createSignUpSession(res, newAccount, req);
 
             if (sessionResponse.error) {
-                sendError(res, 400, sessionResponse.code, sessionResponse.message);
+                redirectWithError(res, frontendRedirectUrl, sessionResponse.code, sessionResponse.message);
                 return;
             }
 
-            res.redirect('/');
+            // Use the stored redirect URL if available, otherwise use the default
+            const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
+            redirectWithSuccess(res, redirectTo, {
+                accountId: newAccount.id,
+                name: newAccount.userDetails.name
+            });
             return;
         } catch (error) {
             console.log(error);
-            sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
+            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
             return;
         }
     }
@@ -144,17 +153,17 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
     if (!validateProviderMiddleware(provider, res)) return;
 
     try {
-        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_UP);
+        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_UP, frontendRedirectUrl);
         const authUrls: AuthUrls = {
-            [OAuthProviders.Google]: `../auth/google?state=${state}`,
-            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}`,
-            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}`,
+            [OAuthProviders.Google]: `../auth/google?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
         };
 
         res.redirect(authUrls[provider as OAuthProviders]);
     } catch (error) {
         console.error(error);
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
+        redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
     }
 });
 
@@ -195,10 +204,12 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
 // });
 
 router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
+    const frontendRedirectUrl = getRedirectUrl(req, '/');
+
     const { state, error } = req.query;
 
     if (error) {
-        sendError(res, 400, error as ApiErrorCode, 'Error during signin process');
+        redirectWithError(res, frontendRedirectUrl, error as ApiErrorCode, 'Error during signin process');
         return;
     }
 
@@ -209,7 +220,7 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
         const user = await findUser(stateDetails.oAuthResponse.email, stateDetails.oAuthResponse.provider);
 
         if (!user) {
-            sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "User details not found");
+            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.USER_NOT_FOUND, "User details not found");
             return;
         }
 
@@ -219,7 +230,7 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
             // Find and update the user in the accounts database
             const dbUser = await models.accounts.OAuthAccount.findOne({ id: user.id });
             if (!dbUser) {
-                sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
+                redirectWithError(res, frontendRedirectUrl, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
                 return;
             }
 
@@ -234,15 +245,20 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
             const sessionResponse = await createSignInSession(res, toOAuthAccount(dbUser)!, req);
 
             if (sessionResponse.error) {
-                sendError(res, 400, sessionResponse.code, sessionResponse.message);
+                redirectWithError(res, frontendRedirectUrl, sessionResponse.code, sessionResponse.message);
                 return;
             }
 
-            res.redirect('/');
+            // Use the stored redirect URL if available, otherwise use the default
+            const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
+            redirectWithSuccess(res, redirectTo, {
+                accountId: user.id,
+                name: user.userDetails.name
+            });
             return;
         } catch (error) {
             console.log(error)
-            sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
+            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
             return;
         }
     }
@@ -251,17 +267,17 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
     if (!validateProviderMiddleware(provider, res)) return;
 
     try {
-        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_IN);
+        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_IN, frontendRedirectUrl);
         const authUrls: AuthUrls = {
-            [OAuthProviders.Google]: `../auth/google?state=${state}`,
-            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}`,
-            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}`,
+            [OAuthProviders.Google]: `../auth/google?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
         };
 
         res.redirect(authUrls[provider as OAuthProviders]);
     } catch (error) {
         console.error(error);
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
+        redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
     }
 });
 
@@ -278,22 +294,25 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
     ) as OAuthState;
     if (!stateDetails) return;
 
+    // Extract redirect URL from state
+    const redirectUrl = stateDetails.redirectUrl || '/';
+
     try {
         await clearOAuthState(stateDetails.state);
 
         passport.authenticate(provider as OAuthProviders, { session: false }, async (err: Error | null, userData: ProviderResponse) => {
             if (err) {
-                sendError(res, 500, ApiErrorCode.AUTH_FAILED, 'Authentication failed');
+                redirectWithError(res, redirectUrl, ApiErrorCode.AUTH_FAILED, 'Authentication failed');
                 return;
             }
             if (!userData) {
-                sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Authentication failed - no user data');
+                redirectWithError(res, redirectUrl, ApiErrorCode.AUTH_FAILED, 'Authentication failed - no user data');
                 return;
             }
 
             const userEmail = userData.email;
             if (!userEmail) {
-                sendError(res, 400, ApiErrorCode.MISSING_EMAIL, 'Missing email parameter');
+                redirectWithError(res, redirectUrl, ApiErrorCode.MISSING_EMAIL, 'Missing email parameter');
                 return;
             }
 
@@ -302,27 +321,27 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
 
                 if (stateDetails.authType === AuthType.SIGN_UP) {
                     if (exists) {
-                        redirectWithError(res, '/signup', ApiErrorCode.USER_EXISTS);
+                        redirectWithError(res, redirectUrl, ApiErrorCode.USER_EXISTS);
                         return;
                     }
-                    const state = await generateSignupState(userData);
-                    res.redirect(`../signup?state=${state}`);
+                    const state = await generateSignupState(userData, redirectUrl);
+                    res.redirect(`../signup?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`);
                 } else {
                     if (!exists) {
-                        redirectWithError(res, '/signin', ApiErrorCode.USER_NOT_FOUND);
+                        redirectWithError(res, redirectUrl, ApiErrorCode.USER_NOT_FOUND);
                         return;
                     }
-                    const state = await generateSignInState(userData);
-                    res.redirect(`../signin?state=${state}`);
+                    const state = await generateSignInState(userData, redirectUrl);
+                    res.redirect(`../signin?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`);
                 }
             } catch (error) {
                 console.error(error);
-                sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to process authentication');
+                redirectWithError(res, redirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to process authentication');
             }
         })(req, res, next);
     } catch (error) {
         console.error(error);
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
+        redirectWithError(res, redirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
     }
 });
 
@@ -356,12 +375,12 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
         passport.authenticate(`${provider}-permission`, { session: false }, async (err: Error | null, result: ProviderResponse) => {
             if (err) {
                 console.error('Permission token exchange error:', err);
-                sendError(res, 500, ApiErrorCode.AUTH_FAILED, 'Permission token exchange failed');
+                redirectWithError(res, redirect, ApiErrorCode.AUTH_FAILED, 'Permission token exchange failed');
                 return;
             }
 
             if (!result || !result.tokenDetails || !result.tokenDetails.accessToken) {
-                sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Permission request failed - no token received');
+                redirectWithError(res, redirect, ApiErrorCode.AUTH_FAILED, 'Permission request failed - no token received');
                 return;
             }
 
@@ -370,17 +389,17 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
 
                 // Verify that the token belongs to the correct user account
                 const tokenInfo = await verifyTokenOwnership(result.tokenDetails.accessToken, accountId);
-                
+
                 if (!tokenInfo.isValid) {
                     console.error('Token ownership verification failed:', tokenInfo.reason);
-                    return sendError(
-                        res, 
-                        403, 
-                        ApiErrorCode.AUTH_FAILED, 
+                    return redirectWithError(
+                        res,
+                        redirect,
+                        ApiErrorCode.AUTH_FAILED,
                         'Permission was granted with an incorrect account. Please try again and ensure you use the correct Google account.'
                     );
                 }
-                
+
                 const tokenDetails = { accessToken: result.tokenDetails.accessToken, refreshToken: '' };
 
                 if (result.tokenDetails.refreshToken) {
@@ -392,15 +411,20 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                 console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirect}`);
 
                 // Redirect back to the original URL
-                return res.redirect(redirect);
+                return redirectWithSuccess(res, redirect, {
+                    service,
+                    scopeLevel,
+                    success: true
+                });
             } catch (error) {
                 console.error('Error updating token:', error);
-                sendError(res, 500, ApiErrorCode.SERVER_ERROR, 'Failed to update token');
+                redirectWithError(res, redirect, ApiErrorCode.SERVER_ERROR, 'Failed to update token');
             }
         })(req, res, next);
     } catch (error) {
         console.error('Permission callback error:', error);
-        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Failed to process permission callback');
+        // Use a default URL if we can't determine the redirect
+        redirectWithError(res, '/', ApiErrorCode.DATABASE_ERROR, 'Failed to process permission callback');
     }
 });
 
@@ -409,7 +433,11 @@ router.get(
     async (req: Request, res: Response, next: NextFunction) => {
         const service = req.params.service as string;
         const scopeLevel = req.params.scopeLevel as string;
-        const { accountId, redirect } = req.query;
+        const { accountId, redirectUrl: redirect } = req.query;
+
+        if (!redirect || typeof redirect !== 'string') {
+            return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Redirect URL is required for permission requests');
+        }
 
         try {
             // Get the user's account details
@@ -438,7 +466,6 @@ router.get(
             const authOptions: AuthenticateOptionsGoogle = {
                 scope: scope,
                 accessType: 'offline',
-                    // Only show consent screen, not account selection
                 loginHint: userEmail,     // Pre-select the account
                 state,
                 includeGrantedScopes: true

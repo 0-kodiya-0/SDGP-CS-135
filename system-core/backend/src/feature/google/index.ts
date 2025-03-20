@@ -4,7 +4,8 @@ import calendarRoutes from './services/calender';
 import gmailRoutes from './services/gmail';
 import driveRoutes from './services/drive';
 import peopleRoutes from './services/people';
-import meetRoutes from './services/meet/meet.routes';
+import meetRoutes from './services/meet';
+import tokenRoutes from './services/token';
 
 // Create the main router for all Google API services
 const router = express.Router();
@@ -24,5 +25,7 @@ router.use('/:accountId/drive', driveRoutes);
 router.use('/:accountId/meet', meetRoutes);
 
 router.use('/:accountId/people', peopleRoutes);
+
+router.use('/:accountId', tokenRoutes);
 
 export { router };

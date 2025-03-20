@@ -30,7 +30,8 @@ export interface MessageAttachment {
     contentType?: string;
 }
 
-export interface GetLabelsParams extends PaginationParams { }
+// Empty parameter interface to maintain consistency with other methods
+export type GetLabelsParams = Record<string, never>;
 
 export interface CreateLabelParams {
     name: string;
@@ -48,7 +49,7 @@ export type GmailMessageList = GoogleListResponse<GmailMessage>;
 export type GmailLabel = gmail_v1.Schema$Label;
 export type GmailLabelList = GoogleListResponse<GmailLabel>;
 
-// For internal use
+// For internal use - using specific types instead of any
 export interface DecodedMessage {
     id: string;
     threadId: string;
@@ -66,7 +67,24 @@ export interface DecodedMessage {
             data?: string;
             size: number;
         };
-        parts?: any[];
+        parts?: MessagePart[];
     };
     sizeEstimate: number;
+}
+
+// Define MessagePart interface for nested parts
+export interface MessagePart {
+    partId?: string;
+    mimeType: string;
+    filename?: string;
+    headers: {
+        name: string;
+        value: string;
+    }[];
+    body: {
+        data?: string;
+        size: number;
+        attachmentId?: string;
+    };
+    parts?: MessagePart[];
 }

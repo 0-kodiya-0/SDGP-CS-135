@@ -16,6 +16,7 @@ declare global {
             JWT_EXPIRES_IN: StringValue;
             REFRESH_TOKEN_EXPIRES_IN: string;
             COOKIE_MAX_AGE: string;
+            PROXY_URL: string;
 
             // OAuth providers client credentials
             GOOGLE_CLIENT_ID: string;

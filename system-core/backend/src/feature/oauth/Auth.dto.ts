@@ -1,12 +1,13 @@
-import { Request } from 'express';
-import { OAuthProviders } from '../account/Account.types';
-import { OAuthState, SignInState, SignUpState } from './Auth.types';
+import { Request } from "express";
+import { OAuthProviders } from "../account/Account.types";
+import { OAuthState, SignInState, SignUpState } from "./Auth.types";
 
 export type StateDetails = OAuthState | SignInState | SignUpState | null;
 
 export interface RequestWithState extends Request {
     query: {
         state?: string;
+        redirectUrl?: string;
     };
     stateDetails?: StateDetails;
 }
@@ -22,6 +23,7 @@ export interface SignInRequest extends Request {
     query: {
         state?: string;
         error?: string;
+        redirectUrl?: string;
     };
     params: {
         provider?: OAuthProviders;
@@ -32,6 +34,7 @@ export interface SignUpRequest extends Request {
     query: {
         state?: string;
         error?: string;
+        redirectUrl?: string;
     };
     params: {
         provider?: OAuthProviders;
@@ -41,6 +44,7 @@ export interface SignUpRequest extends Request {
 export interface SignUpDetailsAddRequest extends Request {
     query: {
         state?: string;
+        redirectUrl?: string;
     };
     params: {
         details?: string;
@@ -51,6 +55,7 @@ export interface SignUpDetailsAddRequest extends Request {
 export interface OAuthCallBackRequest extends Request {
     query: {
         state?: string;
+        redirectUrl?: string;
     };
     params: {
         provider?: OAuthProviders;
@@ -60,5 +65,6 @@ export interface OAuthCallBackRequest extends Request {
 export interface AuthRequest extends Request {
     query: {
         state?: string;
+        redirectUrl?: string;
     };
 }
