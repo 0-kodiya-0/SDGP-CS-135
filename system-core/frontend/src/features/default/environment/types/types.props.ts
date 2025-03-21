@@ -1,13 +1,15 @@
-import { ActiveAccount } from "../../user_account/index.ts";
 import { Environment } from "./types.data.ts";
 
-export interface EnvironmentButtonProps {
-    activeEnvironment: Environment | null;
-    activeAccount: ActiveAccount
+export interface EnvironmentCardProps {
+    environment: Environment;
+    isSelected: boolean;
+    onSelect: () => void;
 }
 
-export interface EnvironmentSliderProps {
-    onClose: () => void;
+export interface EnvironmentListProps {
+    environments: Environment[];
+    selectedEnvironment: Environment | null;
+    onEnvironmentSelect: (environment: Environment) => void;
 }
 
 export interface UpdateEnvironmentInputProps {
@@ -39,15 +41,12 @@ export interface CreateEnvironmentState {
 
 export type GetSliderStyle = () => React.CSSProperties;
 
-// LoadingView Props
 export interface LoadingViewProps {
-    getSliderStyle: GetSliderStyle;
+    getSliderStyle: () => React.CSSProperties;
 }
 
-// ErrorView Props
-export interface ErrorViewProps {
+export interface ErrorViewProps extends LoadingViewProps {
     onClick: (e: React.MouseEvent) => void;
-    getSliderStyle: GetSliderStyle;
     error: string;
 }
 
@@ -55,11 +54,6 @@ export interface EnvironmentCardProps {
     environment: Environment;
     isSelected: boolean;
     onSelect: () => void;
-}
-
-export interface CreateEnvironmentInputProps {
-    activeAccount: ActiveAccount;
-    onCancel: () => void;
 }
 
 export interface CreateEnvironmentButtonProps {

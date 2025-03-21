@@ -1,16 +1,13 @@
-import { Settings, UserCircle } from 'lucide-react';
-import { NavbarSearch } from '../../features/shared/search';
-import { EnvironmentButton } from '../../features/default/environment';
-import { LocalAccount, OAuthAccount } from '../../features/default/user_account/types/types.data';
-import { AccountPopup, usePopup, UserAvatar } from '../../features/default/user_account';
+import React from 'react';
+import { Settings } from 'lucide-react';
 import { MenuButton } from './MenuButton';
+import { EnvironmentButton } from '../../features/default/environment';
+import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
+import { NavbarSearch } from '../../features/shared/search';
 
-interface NavbarProps {
-  activeAccount: LocalAccount | OAuthAccount;
-}
-
-export function Navbar({ activeAccount }: NavbarProps) {
+export function Navbar() {
   const accountPopup = usePopup();
+  const { currentAccount, accountDetails, isLoading } = useAccount();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     accountPopup.toggle(e.currentTarget);
@@ -21,21 +18,33 @@ export function Navbar({ activeAccount }: NavbarProps) {
     console.log('Menu is now', isOpen ? 'open' : 'closed');
   };
 
+  // Create account display object for avatar
+  const accountDisplay = accountDetails ? {
+    id: accountDetails.id,
+    name: accountDetails.name,
+    email: accountDetails.email,
+    imageUrl: accountDetails.imageUrl,
+    provider: currentAccount?.provider || accountDetails.provider
+  } : null;
+
   return (
     <>
       <nav className="h-12 border-b flex items-center bg-white">
-        {/* Menu button component - now includes the wrapper div */}
+        {/* Menu button component */}
         <MenuButton onMenuToggle={handleMenuToggle} />
 
-        {/* Environment section - aligns with ProjectList */}
-        <div className={'w-64 border-x flex items-center h-full transition-all duration-200 ease-in-out'}>
-          <EnvironmentButton activeAccount={activeAccount} />
+        {/* Environment section */}
+        <div className="w-64 border-x flex items-center h-full transition-all duration-200 ease-in-out">
+          <EnvironmentButton className="w-full" />
         </div>
 
         {/* Main content section */}
         <div className="flex-1 flex items-center justify-end px-4 space-x-2">
           <NavbarSearch />
-          <button className="p-1.5 hover:bg-gray-100 rounded">
+          <button
+            className="p-1.5 hover:bg-gray-100 rounded"
+            aria-label="Settings"
+          >
             <Settings className="w-5 h-5" />
           </button>
           <button
@@ -43,12 +52,14 @@ export function Navbar({ activeAccount }: NavbarProps) {
             onClick={handleUserCircleClick}
             aria-label="User account menu"
           >
-            {activeAccount ? (
-              <UserAvatar account={activeAccount} size="sm" showProviderIcon={true} />
+            {isLoading ? (
+              <div className="w-5 h-5 animate-pulse bg-gray-200 rounded-full"></div>
             ) : (
-              <div className="w-5 h-5 flex items-center justify-center">
-                <UserCircle className="w-5 h-5" />
-              </div>
+              <UserAvatar
+                account={accountDisplay}
+                size="sm"
+                showProviderIcon={true}
+              />
             )}
           </button>
         </div>
@@ -58,7 +69,6 @@ export function Navbar({ activeAccount }: NavbarProps) {
         isOpen={accountPopup.isOpen}
         onClose={accountPopup.close}
         anchorEl={accountPopup.anchorEl}
-        activeAccount={activeAccount}
       />
     </>
   );

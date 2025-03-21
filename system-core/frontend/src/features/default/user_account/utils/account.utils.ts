@@ -4,6 +4,7 @@ import {
     DeviceType,
     OsType
 } from '../types/types.data.ts';
+import axios, { AxiosRequestConfig } from 'axios';
 
 /**
  * Creates a new Device object with detected values
@@ -124,3 +125,71 @@ export const validateDevice = (device: Partial<Device>): boolean => {
         !!device.os
     );
 };
+
+/**
+ * Utility function to make authenticated API requests
+ * Includes handling for authentication tokens, error responses, etc.
+ */
+export const authFetch = async (url: string, options: AxiosRequestConfig = {}) => {
+    try {
+        const response = await axios({
+            url,
+            ...options,
+            // The axios instance will automatically include cookies
+            withCredentials: true,
+        });
+
+        return response.data;
+    } catch (error: any) {
+        // Handle specific API error responses
+        if (error.response) {
+            // The request was made and the server responded with an error status
+            console.error('API Error:', error.response.status, error.response.data);
+
+            // Check for authentication errors
+            if (error.response.status === 401) {
+                // Redirect to login page if unauthorized
+                window.location.href = '/login';
+            }
+
+            // Return the error response for the caller to handle
+            return {
+                success: false,
+                error: error.response.data.error || 'API request failed',
+                status: error.response.status
+            };
+        } else if (error.request) {
+            // The request was made but no response was received
+            console.error('Network Error:', error.request);
+            return {
+                success: false,
+                error: 'Network error, please check your connection',
+                status: 0
+            };
+        } else {
+            // Something happened in setting up the request
+            console.error('Request Error:', error.message);
+            return {
+                success: false,
+                error: 'Failed to make request',
+                status: 0
+            };
+        }
+    }
+};
+
+/**
+ * Get account details by ID
+ */
+export const fetchAccountDetails = async (accountId: string) => {
+    return authFetch(`/api/v1/account/${accountId}`);
+};
+
+/**
+ * Fetch email for a specific account
+ */
+export const fetchAccountEmail = async (accountId: string) => {
+    return authFetch(`/api/v1/account/${accountId}/email`);
+};
+
+export default authFetch;

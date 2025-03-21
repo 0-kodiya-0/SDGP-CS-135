@@ -1,20 +1,24 @@
-import { Environment } from "./types.data";
+import { EnvironmentStatus, EnvironmentPrivacy, Environment } from "./types.data";
 
-// Define the environment data without the auto-generated fields
-export type EnvironmentCreateData = Omit<Environment, 'id' | 'created' | 'lastModified'>;
+export interface EnvironmentCreateData {
+    accountId: string;
+    name: string;
+    status: EnvironmentStatus;
+    privacy: EnvironmentPrivacy;
+}
 
 export interface EnvironmentStore {
-  // State
-  environments: Environment[];
-  selectedEnvironmentIds: { [accountId: number]: number };
-  
-  // Actions
-  setEnvironment: (environment: Environment, accountId: number) => void;
-  getEnvironment: (accountId: number) => Environment | null;
-  addEnvironment: (environment: EnvironmentCreateData) => Environment;
-  updateEnvironment: (id: number, data: Partial<Environment>) => void;
-  
-  // New account-specific actions
-  getEnvironmentsByAccount: (accountId: number) => Environment[];
-  clearSelectedEnvironment: (accountId: number) => void;
+    // Data
+    environments: Environment[];
+    selectedEnvironmentIds: Record<string, string>; // Changed from Record<string, number>
+
+    // Actions
+    setEnvironment: (environment: Environment, accountId: string) => void;
+    getEnvironment: (accountId: string) => Environment | null;
+    addEnvironment: (data: EnvironmentCreateData) => Environment;
+    updateEnvironment: (id: string, data: Partial<Environment>) => void; // Changed from number to string
+    
+    // Helpers
+    getEnvironmentsByAccount: (accountId: string) => Environment[];
+    clearSelectedEnvironment: (accountId: string) => void;
 }

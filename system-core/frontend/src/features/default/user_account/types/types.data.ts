@@ -21,7 +21,7 @@ export interface BaseSecuritySettings {
 
 export interface OAuthSecuritySettings extends BaseSecuritySettings {
     twoFactorEnabled: boolean;
- }
+}
 
 export interface LocalSecuritySettings extends BaseSecuritySettings {
     password: string;
@@ -64,26 +64,35 @@ export interface TokenDetails {
     refreshToken: string;
 }
 
-export interface BaseAccount {
-    id: number;
+export interface AccountDetails {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl?: string;
+    provider?: string;
+    status: string;
     created: string;
     updated: string;
-    device: Device
-    accountType: AccountType;
-    status: AccountStatus;
-    userDetails: UserDetails;
+    security?: {
+        twoFactorEnabled?: boolean;
+        sessionTimeout?: number;
+        autoLock?: boolean;
+    };
 }
 
-export interface LocalAccount extends BaseAccount {
-    accountType: AccountType.Local;
-    security: LocalSecuritySettings;
+export interface Account {
+    accountId: string;
+    accountType: string;
+    provider: string;
+    name?: string;
+    email?: string;
+    imageUrl?: string;
 }
 
-export interface OAuthAccount extends BaseAccount {
-    accountType: AccountType.OAuth;
-    provider: OAuthProviders;
-    security: OAuthSecuritySettings;
-    tokenDetails: TokenDetails;
+export interface Session {
+    sessionId: string;
+    accounts: Account[];
+    createdAt?: number;
+    expiresAt?: number;
+    iat?: number;
 }
-
-export type ActiveAccount = LocalAccount | OAuthAccount

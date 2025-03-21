@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { PluginConfig } from '../../../../plugin/core/types';
 import { TabState, PluginTab } from '../types/types.store';
-import { stateLogger } from '../../../../api/logger';
+import { stateLogger } from '../../../../../lib/logger';
 
 // Create dedicated logger for tab store
 const tabStoreLogger = stateLogger.extend('tab');

@@ -52,13 +52,13 @@ export interface UserDetails {
 export interface TokenDetails {
     accessToken: string;
     refreshToken: string;
+    tokenCreatedAt?: string; // Timestamp when the token was created/refreshed
 }
 
 export interface BaseAccount {
     id: string;
     created: string;
     updated: string;
-    device: Device
     accountType: AccountType;
     status: AccountStatus;
     userDetails: UserDetails;
@@ -75,3 +75,5 @@ export interface OAuthAccount extends BaseAccount {
     security: OAuthSecuritySettings;
     tokenDetails: TokenDetails;
 }
+
+export type OAuthAccountDTO = Omit<OAuthAccount, "tokenDetails">

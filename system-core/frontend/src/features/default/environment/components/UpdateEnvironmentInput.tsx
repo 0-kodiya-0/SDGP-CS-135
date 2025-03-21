@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
-import { useEnvironmentStore } from "../store";
 import { Environment } from "../types/types.data";
+import { useEnvironment } from "../contexts/EnvironmentContext";
 
 export interface UpdateEnvironmentInputProps {
     activeEnvironment: Environment;
@@ -16,7 +16,7 @@ export const UpdateEnvironmentInput: React.FC<UpdateEnvironmentInputProps> = ({
     const [isLoading, setIsLoading] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
-    const updateEnvironment = useEnvironmentStore(state => state.updateEnvironment);
+    const { updateEnvironment } = useEnvironment();
 
     useEffect(() => {
         inputRef.current?.focus();
