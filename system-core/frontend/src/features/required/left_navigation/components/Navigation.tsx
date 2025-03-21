@@ -7,9 +7,12 @@ interface NavigationProps {
   environment: Environment
   summaryBarClassName?: string;
   detailPaneClassName?: string;
+  refreshTrigger: number;
+  onFileChange: () => void;
+  onFileSelect: (fileName: string | null) => void;
 }
 
-export function Navigation({ environment, summaryBarClassName, detailPaneClassName }: NavigationProps) {
+export function Navigation({ environment, summaryBarClassName, detailPaneClassName, onFileChange, onFileSelect, refreshTrigger }: NavigationProps) {
 
   return (
     <>
@@ -17,7 +20,7 @@ export function Navigation({ environment, summaryBarClassName, detailPaneClassNa
         <SummaryBar className='w-full h-full' />
       </div>
       <Panel defaultSize={20} minSize={5} collapsible={true} collapsedSize={1} className="h-full">
-        <DetailPane environment={environment} className={`${detailPaneClassName}`} />
+        <DetailPane environment={environment} className={`${detailPaneClassName}`} onFileChange={onFileChange} onFileSelect={onFileSelect} refreshTrigger={refreshTrigger} />
       </Panel>
     </>
   );

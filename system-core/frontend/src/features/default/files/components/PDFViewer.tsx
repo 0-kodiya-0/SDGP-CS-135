@@ -1,0 +1,109 @@
+import { useEffect, useState } from "react";
+import { FiArrowLeft } from "react-icons/fi";
+
+interface UploadedFile {
+  name: string;
+  type: string;
+  data: string;
+}
+
+interface PDFViewerProps {
+  file: UploadedFile;
+  onBack: () => void;
+}
+
+export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Create blob URL from file data
+    const createBlobUrl = () => {
+      try {
+        setIsLoading(true);
+
+        // Handle base64 encoded PDF
+        if (file.data.includes("base64")) {
+          const base64Data = file.data.split(",")[1];
+          const byteCharacters = atob(base64Data);
+          const byteArray = new Uint8Array(byteCharacters.length);
+
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i);
+          }
+
+          const blob = new Blob([byteArray], { type: "application/pdf" });
+          return URL.createObjectURL(blob);
+        }
+
+        // Already a URL
+        return file.data;
+      } catch (error) {
+        console.error("Error processing PDF:", error);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const url = createBlobUrl();
+    setPdfUrl(url);
+
+    // Clean up function
+    return () => {
+      if (url && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [file.data]);
+
+  return (
+    <div className="flex flex-col w-full h-full">
+      {/* Header with back button and filename */}
+      <div className="bg-white shadow p-3 flex items-center">
+        <button
+          className="px-3 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          onClick={onBack}
+          aria-label="Go back"
+        >
+          <FiArrowLeft /> Back
+        </button>
+
+        <div className="flex-grow text-center">
+          <span className="font-semibold text-lg text-gray-800 truncate max-w-sm inline-block" title={file.name}>
+            {file.name}
+          </span>
+        </div>
+
+        <div className="w-16"></div> {/* Spacer for balance */}
+      </div>
+
+      {/* PDF Viewer - calculate height accounting for header */}
+      <div className="h-[calc(100%-56px)] w-full bg-gray-100">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-pulse flex flex-col items-center">
+              <div className="h-12 w-12 bg-blue-200 rounded-full mb-2"></div>
+              <div className="text-gray-500">Loading PDF...</div>
+            </div>
+          </div>
+        ) : pdfUrl ? (
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full"
+            style={{ border: "none" }}
+            title={`PDF: ${file.name}`}
+            onLoad={() => setIsLoading(false)}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="bg-red-50 text-red-500 p-4 rounded-lg shadow">
+              <p className="font-medium">Error loading PDF.</p>
+              <p className="text-sm">The file may be corrupted or in an unsupported format.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
