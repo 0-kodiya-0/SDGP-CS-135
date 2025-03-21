@@ -30,7 +30,7 @@ const App: React.FC = () => {
         );
     }
 
-    if (error) {
+    if (error || !accountDetails) {
         return (
             <div className="w-full h-screen flex flex-col justify-center items-center">
                 <div className="text-red-500 mb-4">
@@ -59,6 +59,7 @@ const App: React.FC = () => {
                         key={`env-${currentEnvironment?.id || 'none'}`}
                         environment={currentEnvironment}
                         isLoading={envLoading}
+                        accountId={accountDetails?.id}
                     />
                     <Footer />
                     <PopupDisplay />
