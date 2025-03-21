@@ -73,13 +73,13 @@ router.delete(
 );
 
 router.post(
-  '/contactGroups/:resourceName/members:add',
+  '/contactGroups/:resourceName/members/add',
   googleApiAuth('people', 'full'),
   PeopleController.addContactsToGroup
 );
 
 router.post(
-  '/contactGroups/:resourceName/members:remove',
+  '/contactGroups/:resourceName/members/remove',
   googleApiAuth('people', 'full'),
   PeopleController.removeContactsFromGroup
 );
