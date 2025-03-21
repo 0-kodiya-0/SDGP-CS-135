@@ -1,14 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ImageEditor from "tui-image-editor";
-import localForage from "localforage";
 import "tui-image-editor/dist/tui-image-editor.css";
 import { FiArrowLeft, FiEdit, FiSave, FiX } from "react-icons/fi";
-
-interface UploadedFile {
-  name: string;
-  type: string;
-  data: string;
-}
+import { UploadedFile, useFileHandling } from "../hooks/useFileHandling";
 
 interface ImageViewerProps {
   file: UploadedFile;
@@ -22,17 +16,16 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
   const [isEditing, setIsEditing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [newFileName, setNewFileName] = useState(file.name);
+  const { writeFile } = useFileHandling();
 
-  // Setup Image Editor when editing mode is enabled
   useEffect(() => {
     if (isEditing && editorRef.current) {
-      // Ensure any previous instance is destroyed
+      // Cleanup any existing instance
       if (instanceRef.current) {
         instanceRef.current.destroy();
         instanceRef.current = null;
       }
 
-      // Create new instance
       const instance = new ImageEditor(editorRef.current, {
         includeUI: {
           loadImage: {
@@ -43,7 +36,7 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
             "header.display": "none",
           } as any,
           menu: ["crop", "flip", "rotate", "draw", "shape", "icon", "text", "filter"],
-          initMenu: "filter",
+          initMenu: "text",
           uiSize: {
             width: "100%",
             height: "100%",
@@ -60,28 +53,31 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
 
       instanceRef.current = instance;
 
-      // Cleanup function
       return () => {
         if (instanceRef.current) {
           instanceRef.current.destroy();
           instanceRef.current = null;
         }
+
+        // ✅ Remove global SVG injected by TUI Image Editor
+        const svgDefs = document.getElementById("tui-image-editor-svg-default-icons");
+        if (svgDefs?.parentElement) {
+          svgDefs.parentElement.removeChild(svgDefs);
+        }
       };
     }
   }, [isEditing, file.data, file.name]);
 
-  // Handle saving the edited image
   const handleSave = async (saveAsNew: boolean) => {
     const instance = instanceRef.current;
     if (!instance) return;
 
     try {
       const dataUrl = instance.toDataURL();
-
-      // Validate the new filename has an extension
       let nameToSave = saveAsNew ? newFileName : file.name;
-      if (saveAsNew && !nameToSave.includes('.')) {
-        nameToSave += '.png'; // Add default extension if missing
+
+      if (saveAsNew && !nameToSave.includes(".")) {
+        nameToSave += ".png";
       }
 
       const updatedFile: UploadedFile = {
@@ -90,44 +86,41 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
         data: dataUrl,
       };
 
-      await localForage.setItem(nameToSave, updatedFile);
+      await writeFile(updatedFile);
 
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
         setIsEditing(false);
         onImageUpdated();
-      }, 1500);
-    } catch (error) {
-      console.error("Error saving image:", error);
-      alert("Failed to save the image. Please try again.");
+      }, 1000);
+    } catch (err) {
+      console.error("Error saving image:", err);
+      alert("Failed to save image. Please try again.");
     }
   };
 
-  // Reset new filename when file changes
   useEffect(() => {
     setNewFileName(file.name);
   }, [file.name]);
 
   return (
-    <div className="flex flex-col w-full h-full">
-      {/* Success Popup */}
+    <div className="flex flex-col w-full h-full bg-gray-100 p-4">
       {showSuccess && (
-        <div className="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
+        <div className="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded shadow-lg">
           ✅ Image saved successfully!
         </div>
       )}
 
-      {/* Header with buttons */}
-      <div className="bg-white shadow p-3 flex flex-wrap justify-between items-center gap-2">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white p-3 rounded-lg shadow">
         <button
-          className="px-3 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           onClick={onBack}
         >
-          <FiArrowLeft /> Back
+          ← Back
         </button>
 
-        <span className="font-semibold text-lg text-gray-800 truncate max-w-[150px] md:max-w-[250px]">
+        <span className="font-semibold text-lg text-gray-800 truncate max-w-[300px]">
           {file.name}
         </span>
 
@@ -135,27 +128,25 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
-              className="border px-3 py-2 rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="New name..."
+              className="border px-3 py-2 rounded-lg max-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="New image name..."
               value={newFileName}
               onChange={(e) => setNewFileName(e.target.value)}
             />
             <button
-              className="px-3 py-2 flex items-center gap-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              className="px-3 py-2 flex items-center gap-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               onClick={() => handleSave(false)}
-              disabled={!instanceRef.current}
             >
               <FiSave /> Save
             </button>
             <button
-              className="px-3 py-2 flex items-center gap-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+              className="px-3 py-2 flex items-center gap-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
               onClick={() => handleSave(true)}
-              disabled={!instanceRef.current || !newFileName.trim()}
             >
               <FiSave /> Save As
             </button>
             <button
-              className="px-3 py-2 flex items-center gap-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              className="px-3 py-2 flex items-center gap-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
               onClick={() => setIsEditing(false)}
             >
               <FiX /> Cancel
@@ -163,7 +154,7 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
           </div>
         ) : (
           <button
-            className="px-3 py-2 flex items-center gap-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+            className="px-3 py-2 flex items-center gap-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
             onClick={() => setIsEditing(true)}
           >
             <FiEdit /> Edit
@@ -171,21 +162,17 @@ export const ImageViewer = ({ file, onBack, onImageUpdated }: ImageViewerProps) 
         )}
       </div>
 
-      {/* Image Viewer or Editor - calculate height accounting for header */}
-      <div className="h-[calc(100%-56px)] w-full overflow-hidden">
+      <div className="flex-grow flex justify-center items-center bg-white rounded-lg shadow p-2 overflow-hidden">
         {!isEditing ? (
-          <div className="h-full w-full flex justify-center items-center bg-gray-100 p-2">
-            <img
-              src={file.data}
-              alt={file.name}
-              className="max-w-full max-h-full object-contain"
-            />
-          </div>
+          <img
+            src={file.data}
+            alt={file.name}
+            className="w-[90%] max-w-[1000px] max-h-[80vh] object-contain rounded"
+          />
         ) : (
           <div
             ref={editorRef}
-            className="w-full h-full"
-            style={{ contain: 'strict' }}
+            className="w-[90%] h-[80vh] max-w-[1200px] max-h-[800px] flex justify-center items-center overflow-hidden"
           />
         )}
       </div>

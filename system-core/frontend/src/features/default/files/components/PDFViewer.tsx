@@ -17,39 +17,34 @@ export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Create blob URL from file data
+    let url: string | null = null;
+
     const createBlobUrl = () => {
       try {
         setIsLoading(true);
-
-        // Handle base64 encoded PDF
-        if (file.data.includes("base64")) {
+        if (file.data.startsWith("data:application/pdf;base64,")) {
           const base64Data = file.data.split(",")[1];
           const byteCharacters = atob(base64Data);
           const byteArray = new Uint8Array(byteCharacters.length);
-
           for (let i = 0; i < byteCharacters.length; i++) {
             byteArray[i] = byteCharacters.charCodeAt(i);
           }
-
           const blob = new Blob([byteArray], { type: "application/pdf" });
-          return URL.createObjectURL(blob);
+          url = URL.createObjectURL(blob);
+        } else {
+          url = file.data;
         }
-
-        // Already a URL
-        return file.data;
+        setPdfUrl(url);
       } catch (error) {
         console.error("Error processing PDF:", error);
-        return null;
+        setPdfUrl(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const url = createBlobUrl();
-    setPdfUrl(url);
+    createBlobUrl();
 
-    // Clean up function
     return () => {
       if (url && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
@@ -59,7 +54,7 @@ export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
 
   return (
     <div className="flex flex-col w-full h-full">
-      {/* Header with back button and filename */}
+      {/* Header */}
       <div className="bg-white shadow p-3 flex items-center">
         <button
           className="px-3 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -75,10 +70,10 @@ export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
           </span>
         </div>
 
-        <div className="w-16"></div> {/* Spacer for balance */}
+        <div className="w-16" /> {/* Spacer */}
       </div>
 
-      {/* PDF Viewer - calculate height accounting for header */}
+      {/* PDF Viewer */}
       <div className="h-[calc(100%-56px)] w-full bg-gray-100">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -93,7 +88,6 @@ export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
             className="w-full h-full"
             style={{ border: "none" }}
             title={`PDF: ${file.name}`}
-            onLoad={() => setIsLoading(false)}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

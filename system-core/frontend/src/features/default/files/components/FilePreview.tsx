@@ -2,12 +2,7 @@ import { ImageViewer } from "./ImageViewer";
 import { PDFViewer } from "./PDFViewer";
 import { TextEditor } from "./TextEditor";
 import { CodeEditor } from "./CodeEditor";
-
-interface UploadedFile {
-  name: string;
-  type: string;
-  data: string;
-}
+import { UploadedFile } from "../hooks/useFileHandling";
 
 interface FilePreviewProps {
   file: UploadedFile;
@@ -29,15 +24,20 @@ export const FilePreview = ({ file, onBack, onFileUpdated }: FilePreviewProps) =
 
   if (file.type.startsWith("image/")) {
     return <ImageViewer file={file} onBack={onBack} onImageUpdated={onFileUpdated} />;
-  } else if (file.type === "application/pdf") {
+  }
+
+  if (file.type === "application/pdf") {
     return <PDFViewer file={file} onBack={onBack} />;
-  } else if (isPlainText) {
+  }
+
+  if (isPlainText) {
     return <TextEditor file={file} onBack={onBack} onFileUpdated={onFileUpdated} />;
-  } else if (isCodeFile) {
+  }
+
+  if (isCodeFile) {
     return <CodeEditor file={file} onBack={onBack} onFileUpdated={onFileUpdated} />;
   }
 
-  // Default no-preview view
   return (
     <div className="w-full h-full flex flex-col">
       <div className="p-3 bg-white shadow flex items-center">
@@ -49,7 +49,9 @@ export const FilePreview = ({ file, onBack, onFileUpdated }: FilePreviewProps) =
 
       <div className="flex-grow flex items-center justify-center p-4">
         <div className="text-center p-8 bg-gray-50 rounded-lg shadow-inner">
-          <p className="text-red-500 font-semibold mb-2">No preview available for {file.name}</p>
+          <p className="text-red-500 font-semibold mb-2">
+            No preview available for <strong>{file.name}</strong>
+          </p>
           <p className="text-gray-600">This file type is not supported for preview.</p>
         </div>
       </div>

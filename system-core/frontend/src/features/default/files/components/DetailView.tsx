@@ -1,13 +1,7 @@
-import { useState, useEffect } from "react";
-import localForage from "localforage";
+import { useEffect, useState } from "react";
 import { FilePreview } from "./FilePreview";
 import UploadComponent from "./UploadComponent";
-
-interface UploadedFile {
-  name: string;
-  type: string;
-  data: string;
-}
+import { useFileHandling } from "../hooks/useFileHandling";
 
 interface DetailViewProps {
   selectedFile: string | null;
@@ -16,15 +10,8 @@ interface DetailViewProps {
 }
 
 export default function DetailView({ selectedFile, onFileUploaded, onBack }: DetailViewProps) {
-  const [fileData, setFileData] = useState<UploadedFile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    localForage.config({
-      name: "FusionSpaceFileStorage",
-      storeName: "uploadedFiles",
-    });
-  }, []);
+  const { readFile, isLoading } = useFileHandling();
+  const [fileData, setFileData] = useState<Awaited<ReturnType<typeof readFile>>>(null);
 
   useEffect(() => {
     if (selectedFile) {
@@ -36,18 +23,12 @@ export default function DetailView({ selectedFile, onFileUploaded, onBack }: Det
 
   const loadSelectedFile = async (fileName: string) => {
     try {
-      setIsLoading(true);
       setFileData(null);
-
-      // Small delay to prevent UI flicker
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      const storedFile = await localForage.getItem<UploadedFile>(fileName);
-      setFileData(storedFile);
+      await new Promise(resolve => setTimeout(resolve, 50)); // Delay to prevent flicker
+      const file = await readFile(fileName);
+      setFileData(file);
     } catch (err) {
       console.error("Error loading file:", err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -58,7 +39,6 @@ export default function DetailView({ selectedFile, onFileUploaded, onBack }: Det
   return (
     <div className="w-full h-full overflow-hidden bg-gray-50">
       {isLoading ? (
-        // Loading indicator
         <div className="w-full h-full flex justify-center items-center">
           <div className="animate-pulse flex flex-col items-center">
             <div className="h-12 w-12 bg-blue-200 rounded-full mb-2"></div>
@@ -66,14 +46,12 @@ export default function DetailView({ selectedFile, onFileUploaded, onBack }: Det
           </div>
         </div>
       ) : selectedFile && fileData ? (
-        // File preview when a file is selected
         <FilePreview
           file={fileData}
           onBack={onBack}
           onFileUpdated={handleFileUpdated}
         />
       ) : (
-        // Upload component when no file is selected
         <div className="w-full h-full flex justify-center items-center">
           <UploadComponent onFileUploaded={onFileUploaded} />
         </div>

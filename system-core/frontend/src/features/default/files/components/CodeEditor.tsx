@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import localForage from "localforage";
 import { FiEdit, FiSave, FiX } from "react-icons/fi";
-
-interface UploadedFile {
-  name: string;
-  type: string;
-  data: string;
-}
+import { useFileHandling, UploadedFile } from "../hooks/useFileHandling";
 
 interface CodeEditorProps {
   file: UploadedFile;
@@ -36,6 +30,7 @@ const getLanguageFromExtension = (filename: string): string => {
 };
 
 export const CodeEditor = ({ file, onBack, onFileUpdated }: CodeEditorProps) => {
+  const { saveFile , listFiles } = useFileHandling();
   const [code, setCode] = useState<string>("");
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -48,13 +43,8 @@ export const CodeEditor = ({ file, onBack, onFileUpdated }: CodeEditorProps) => 
   }, [file]);
 
   const handleSave = async () => {
-    const updatedFile = {
-      name: file.name,
-      type: file.type,
-      data: `data:text/plain;base64,${btoa(code)}`, // Encode back to base64
-    };
-
-    await localForage.setItem(file.name, updatedFile);
+    console.log(file)
+    await saveFile(code, file.name, file.type);
 
     setShowSuccess(true);
     setTimeout(() => {
@@ -111,7 +101,7 @@ export const CodeEditor = ({ file, onBack, onFileUpdated }: CodeEditorProps) => 
         )}
       </div>
 
-      {/* Monaco Code Editor - Note the h-[calc(100%-56px)] to account for header height */}
+      {/* Monaco Code Editor */}
       <div className="h-[calc(100%-56px)] w-full overflow-hidden">
         <Editor
           height="100%"

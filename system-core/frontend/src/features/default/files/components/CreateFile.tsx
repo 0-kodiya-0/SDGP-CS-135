@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import localForage from "localforage";
 import ReactQuill from "react-quill";
 import Editor from "@monaco-editor/react";
 import { FiX, FiFileText, FiCode, FiSave } from "react-icons/fi";
 import "react-quill/dist/quill.snow.css";
+import { useFileHandling } from "../hooks/useFileHandling";
 
 interface CreateFileProps {
   onFileCreated: () => void;
@@ -11,6 +11,7 @@ interface CreateFileProps {
 }
 
 export default function CreateFile({ onFileCreated, onCancel }: CreateFileProps) {
+  const { saveFile } = useFileHandling();
   const [fileType, setFileType] = useState<"text" | "code" | null>(null);
   const [content, setContent] = useState("");
   const [filename, setFilename] = useState("");
@@ -34,13 +35,7 @@ export default function CreateFile({ onFileCreated, onCancel }: CreateFileProps)
       completeFileName += ".txt";
     }
 
-    const fileData = {
-      name: completeFileName,
-      type: fileType === "text" ? "text/plain" : "text/code",
-      data: `data:text/plain;base64,${btoa(content)}`,
-    };
-
-    await localForage.setItem(completeFileName, fileData);
+    await saveFile(content, completeFileName);
     onFileCreated();
   };
 

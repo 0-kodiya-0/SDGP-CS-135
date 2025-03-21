@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import localForage from "localforage";
 import { FiUpload, FiTrash2, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { useFileHandling } from "../hooks/useFileHandling"; // Make sure the path is correct
 
 interface FileItem {
   id: string;
@@ -20,6 +20,7 @@ const allowedTypes = [
 ];
 
 export default function UploadComponent({ onFileUploaded }: UploadComponentProps) {
+  const { uploadFiles } = useFileHandling();
   const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -27,7 +28,6 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Clear any error message after 5 seconds
   React.useEffect(() => {
     if (errorMessage) {
       const timer = setTimeout(() => setErrorMessage(null), 5000);
@@ -39,39 +39,33 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
     let fileList: FileList | null = null;
 
     if ('dataTransfer' in event) {
-      // Drag and drop
       event.preventDefault();
       setDragging(false);
       fileList = event.dataTransfer.files;
     } else {
-      // File input
       fileList = event.target.files;
     }
 
     if (!fileList || fileList.length === 0) return;
 
-    // Check for file size limits
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      if (file.size > 20 * 1024 * 1024) { // 20 MB limit
+      if (file.size > 20 * 1024 * 1024) {
         setErrorMessage(`File too large: ${file.name} (max 20MB)`);
         return;
       }
     }
 
-    // Process valid files
     const newSelectedFiles: FileItem[] = [];
 
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
 
       if (allowedTypes.includes(file.type) || allowedTypes.some(type => {
-        // Handle cases like ".py" files that might have different MIME types
         const fileExt = file.name.split('.').pop()?.toLowerCase();
         return type.includes(fileExt || '');
       })) {
         const reader = new FileReader();
-
         reader.onload = (e) => {
           if (e.target?.result) {
             newSelectedFiles.push({
@@ -80,13 +74,11 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
               preview: e.target.result as string,
             });
 
-            // Update when all files are processed
             if (newSelectedFiles.length === fileList!.length) {
-              setSelectedFiles(prevFiles => [...prevFiles, ...newSelectedFiles]);
+              setSelectedFiles(prev => [...prev, ...newSelectedFiles]);
             }
           }
         };
-
         reader.readAsDataURL(file);
       } else {
         setErrorMessage(`Unsupported file type: ${file.name}`);
@@ -102,33 +94,14 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
     setErrorMessage(null);
 
     try {
+
       for (let i = 0; i < selectedFiles.length; i++) {
-        const fileItem = selectedFiles[i];
-
-        // Check for duplicates
-        const existingFile = await localForage.getItem(fileItem.file.name);
-        if (existingFile) {
-          const overwrite = window.confirm(
-            `A file named "${fileItem.file.name}" already exists. Do you want to replace it?`
-          );
-          if (!overwrite) continue;
-        }
-
-        await localForage.setItem(fileItem.file.name, {
-          name: fileItem.file.name,
-          type: fileItem.file.type,
-          data: fileItem.preview,
-        });
-
-        // Update progress
+        await uploadFiles(selectedFiles[i].file);
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
-
-        // Small delay for visual feedback
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       setUploadSuccess(true);
-
       setTimeout(() => {
         setUploadSuccess(false);
         setSelectedFiles([]);
@@ -148,16 +121,11 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
 
   return (
     <div className="max-w-lg mx-auto p-4 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg h-full flex flex-col">
-      {/* Title */}
       <h2 className="text-xl font-semibold text-gray-800 mb-2 text-center">Upload Files</h2>
-      <p className="text-sm text-gray-500 mb-4 text-center">
-        Drag & Drop or Browse. Supports images, PDFs, and code files.
-      </p>
+      <p className="text-sm text-gray-500 mb-4 text-center">Drag & Drop or Browse. Supports images, PDFs, and code files.</p>
 
-      {/* Drop Zone */}
       <div
-        className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors ${dragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"
-          }`}
+        className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors ${dragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -179,7 +147,6 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
         </label>
       </div>
 
-      {/* Error Message */}
       {errorMessage && (
         <div className="mt-3 flex items-center gap-2 p-2 bg-red-50 text-red-600 rounded-lg border border-red-200">
           <FiAlertCircle className="flex-shrink-0" />
@@ -187,7 +154,6 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
         </div>
       )}
 
-      {/* Selected Files Preview */}
       <div className="mt-4 space-y-2 overflow-y-auto flex-grow">
         {selectedFiles.length > 0 ? (
           selectedFiles.map((fileItem) => (
@@ -209,18 +175,12 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-500 text-sm italic py-2">
-            No files selected
-          </p>
+          <p className="text-center text-gray-500 text-sm italic py-2">No files selected</p>
         )}
       </div>
 
-      {/* Upload Button */}
       <button
-        className={`w-full mt-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${selectedFiles.length === 0 || uploading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-blue-500 hover:bg-blue-600"
-          }`}
+        className={`w-full mt-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${selectedFiles.length === 0 || uploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
         disabled={selectedFiles.length === 0 || uploading}
         onClick={handleFilesUpload}
       >
@@ -236,17 +196,12 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
         )}
       </button>
 
-      {/* Progress Bar */}
       {uploading && (
         <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${uploadProgress}%` }}
-          ></div>
+          <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
         </div>
       )}
 
-      {/* Success Message */}
       {uploadSuccess && (
         <div className="flex justify-center items-center gap-2 mt-4 bg-green-100 text-green-700 p-2 rounded-lg">
           <FiCheckCircle className="w-5 h-5" />

@@ -1,13 +1,7 @@
-import React, { useEffect, useState } from "react";
-import localForage from "localforage";
-import SearchBar from "./SearchBar";
+import { useEffect, useState } from "react";
 import { FiRefreshCw, FiDownload, FiTrash2, FiFile, FiImage, FiFileText, FiCode } from "react-icons/fi";
-
-interface FileData {
-  name: string;
-  type: string;
-  data: string;
-}
+import SearchBar from "./SearchBar";
+import { useFileHandling, UploadedFile } from "../hooks/useFileHandling";
 
 interface SummaryViewProps {
   refreshTrigger: number;
@@ -20,40 +14,26 @@ export default function SummaryView({
   onFileChange,
   onFileSelect,
 }: SummaryViewProps) {
-  const [files, setFiles] = useState<FileData[]>([]);
-  const [filteredFiles, setFilteredFiles] = useState<FileData[]>([]);
+  const {
+    files,
+    deleteFile,
+    isLoading,
+    refreshFiles,
+  } = useFileHandling();
+
+  const [filteredFiles, setFilteredFiles] = useState<UploadedFile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const loadFiles = async () => {
-    try {
-      setIsLoading(true);
-      const keys = await localForage.keys();
-      const storedFiles = await Promise.all(
-        keys.map(async (key) => await localForage.getItem<FileData>(key))
-      );
-
-      const validFiles = storedFiles.filter(Boolean) as FileData[];
-
-      // Sort files by name
-      validFiles.sort((a, b) => a.name.localeCompare(b.name));
-
-      setFiles(validFiles);
-      setFilteredFiles(validFiles);
-    } catch (error) {
-      console.error("Error loading files:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
-    loadFiles();
-  }, [refreshTrigger]);
+    refreshFiles();
+  }, [refreshTrigger, refreshFiles]);
 
   useEffect(() => {
-    // Update filtered list based on search query
+    console.log("File information", files.length, files)
+  }, [files]);
+
+  useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredFiles(files);
     } else {
@@ -65,25 +45,19 @@ export default function SummaryView({
   }, [searchQuery, files]);
 
   const handleDeleteFile = async (e: React.MouseEvent, fileName: string) => {
-    e.stopPropagation(); // Prevent triggering file selection
-
+    e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
-      await localForage.removeItem(fileName);
-
-      // If the deleted file was selected, clear selection
+      await deleteFile(fileName);
       if (selectedFileName === fileName) {
         setSelectedFileName(null);
         onFileSelect(null);
       }
-
-      await loadFiles();
       onFileChange();
     }
   };
 
-  const handleDownload = (e: React.MouseEvent, file: FileData) => {
-    e.stopPropagation(); // Prevent triggering file selection
-
+  const handleDownload = (e: React.MouseEvent, file: UploadedFile) => {
+    e.stopPropagation();
     const link = document.createElement("a");
     link.href = file.data;
     link.download = file.name;
@@ -97,8 +71,7 @@ export default function SummaryView({
     onFileSelect(fileName);
   };
 
-  // Function to get appropriate icon for file type
-  const getFileIcon = (file: FileData) => {
+  const getFileIcon = (file: UploadedFile) => {
     if (file.type.startsWith("image/")) {
       return <FiImage className="text-purple-500" />;
     } else if (file.type === "application/pdf") {
@@ -107,13 +80,13 @@ export default function SummaryView({
       return <FiFileText className="text-blue-500" />;
     } else if (
       file.name.endsWith(".js") ||
+      file.name.endsWith(".ts") ||
       file.name.endsWith(".py") ||
       file.name.endsWith(".java") ||
       file.name.endsWith(".html") ||
       file.name.endsWith(".css") ||
       file.name.endsWith(".json") ||
       file.name.endsWith(".xml") ||
-      file.name.endsWith(".ts") ||
       file.name.endsWith(".jsx") ||
       file.name.endsWith(".tsx")
     ) {
@@ -125,25 +98,22 @@ export default function SummaryView({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Fixed Header (File Summary + Search Bar + Refresh Button) */}
+      {/* Header */}
       <div className="bg-white p-3 border-b">
-        {/* File Summary Header with Refresh Button */}
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-800">Files</h2>
           <button
-            onClick={loadFiles}
+            onClick={refreshFiles}
             className="text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1 p-1"
             title="Refresh file list"
           >
             <FiRefreshCw className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
-
-        {/* SearchBar Component */}
         <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       </div>
 
-      {/* Scrollable File List */}
+      {/* File List */}
       <div className="flex-grow overflow-y-auto bg-gray-50 p-2">
         {isLoading ? (
           <div className="flex justify-center items-center h-20">
@@ -154,9 +124,7 @@ export default function SummaryView({
           </div>
         ) : filteredFiles.length === 0 ? (
           <div className="text-center p-4 text-gray-500">
-            {files.length === 0
-              ? "No files uploaded yet."
-              : "No files match your search."}
+            {files.length === 0 ? "No files uploaded yet." : "No files match your search."}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -164,21 +132,13 @@ export default function SummaryView({
               <li
                 key={file.name}
                 onClick={() => handleFileClick(file.name)}
-                className={`flex items-center p-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors
-                  ${selectedFileName === file.name ? "bg-blue-100 border-l-4 border-blue-500" : "bg-white"}
-                `}
+                className={`flex items-center p-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors ${selectedFileName === file.name ? "bg-blue-100 border-l-4 border-blue-500" : "bg-white"
+                  }`}
               >
-                {/* File icon */}
-                <div className="flex-shrink-0 mr-2">
-                  {getFileIcon(file)}
-                </div>
-
-                {/* File name */}
+                <div className="flex-shrink-0 mr-2">{getFileIcon(file)}</div>
                 <div className="flex-grow truncate font-medium text-sm text-gray-800">
                   {file.name}
                 </div>
-
-                {/* Action buttons */}
                 <div className="flex items-center gap-1 ml-2">
                   <button
                     onClick={(e) => handleDownload(e, file)}
