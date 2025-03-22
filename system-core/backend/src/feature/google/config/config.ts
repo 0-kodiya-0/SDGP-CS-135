@@ -96,12 +96,11 @@ Object.entries(GoogleScopes).forEach(([service, levels]) => {
 /**
  * Create an OAuth2 client with the given credentials
  */
-export const createOAuth2Client = (accessToken: string, refreshToken: string): Auth.OAuth2Client => {
+export const createOAuth2Client = (accessToken: string): Auth.OAuth2Client => {
     const oauth2Client = GoogleAuthClient.getInstance().getBaseClient();
-    
+
     oauth2Client.setCredentials({
-        access_token: accessToken,
-        refresh_token: refreshToken
+        access_token: accessToken
     });
 
     return oauth2Client;
@@ -139,7 +138,7 @@ export const hasRequiredScope = async (token: string, requiredScope: string): Pr
 // /**
 //  * Create an authenticated Google API client for the requested service
 //  * This function ensures the token is valid before creating the client
-//  * 
+//  *
 //  * @param accountId User's account ID
 //  * @returns Promise resolving to an OAuth2 client
 //  */
@@ -163,7 +162,7 @@ export const hasRequiredScope = async (token: string, requiredScope: string): Pr
 
 // /**
 //  * Check if the user's token has the required scope and create a Google client
-//  * 
+//  *
 //  * @param accountId User's account ID
 //  * @param service Google service name
 //  * @param scopeLevel Level of access required

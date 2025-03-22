@@ -1,12 +1,15 @@
 import initAccountModels from '../feature/account/Account.model';
+import initAuthModels from '../feature/oauth/Auth.model'; // Import the Auth models
 import dbConfig from './db.config';
 
 // Define model types for type safety
 export type AccountModels = Awaited<ReturnType<typeof initAccountModels>>;
+export type AuthModels = Awaited<ReturnType<typeof initAuthModels>>;
 
 // Database models container with proper typing
 interface DatabaseModels {
     accounts: AccountModels;
+    auth: AuthModels;
 }
 
 // Track initialization state
@@ -23,13 +26,15 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         await dbConfig.connectAllDatabases();
 
         // Initialize models for both databases
-        const [accountModels] = await Promise.all([
-            initAccountModels()
+        const [accountModels, authModels] = await Promise.all([
+            initAccountModels(),
+            initAuthModels()
         ]);
 
         // Store initialized models
         models = {
-            accounts: accountModels
+            accounts: accountModels,
+            auth: authModels
         };
 
         isInitialized = true;

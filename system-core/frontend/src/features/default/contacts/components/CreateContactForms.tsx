@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, User, Plus, Trash2 } from 'lucide-react';
-import { PersonType, useContacts } from '../../features/default/contacts';
+import { X, Plus, Trash2 } from 'lucide-react';
+import { useContacts } from '../hooks/useContacts.google';
+import { PersonType } from '../types/types.data';
 
 interface CreateContactFormProps {
   accountId: string;
@@ -20,11 +21,11 @@ type ContactFormData = {
   notes: string;
 }
 
-const CreateContactForm: React.FC<CreateContactFormProps> = ({ 
-  accountId, 
-  isOpen, 
+const CreateContactForm: React.FC<CreateContactFormProps> = ({
+  accountId,
+  isOpen,
   onClose,
-  onContactCreated 
+  onContactCreated
 }) => {
   const { createContact } = useContacts(accountId);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,33 +106,33 @@ const CreateContactForm: React.FC<CreateContactFormProps> = ({
           value: phone.value,
           type: phone.type
         })),
-        organizations: formData.organization.name || formData.organization.title ? 
+        organizations: formData.organization.name || formData.organization.title ?
           [{
             name: formData.organization.name,
             title: formData.organization.title,
             department: formData.organization.department
-          }] : 
+          }] :
           undefined,
-        addresses: formData.address.value ? 
+        addresses: formData.address.value ?
           [{
             formattedValue: formData.address.value,
             type: formData.address.type
-          }] : 
+          }] :
           undefined,
-        birthdays: (formData.birthday.year || formData.birthday.month || formData.birthday.day) ? 
+        birthdays: (formData.birthday.year || formData.birthday.month || formData.birthday.day) ?
           [{
             date: {
               year: formData.birthday.year ? parseInt(formData.birthday.year) : undefined,
               month: formData.birthday.month ? parseInt(formData.birthday.month) : undefined,
               day: formData.birthday.day ? parseInt(formData.birthday.day) : undefined
             }
-          }] : 
+          }] :
           undefined,
-        biographies: formData.notes ? 
+        biographies: formData.notes ?
           [{
             value: formData.notes,
             contentType: 'TEXT_PLAIN'
-          }] : 
+          }] :
           undefined
       };
 
@@ -153,7 +154,7 @@ const CreateContactForm: React.FC<CreateContactFormProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Create New Contact</h2>
-          <button 
+          <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 focus:outline-none"
           >
