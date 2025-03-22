@@ -155,7 +155,7 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
             className="hidden"
             multiple
             onChange={handleFileSelection}
-            accept=".js,.ts,.tsx,.jsx,.py,.java,.cpp,.c,.cs,.html,.css,.json,.xml,.sql,.sh,.go,.php,.txt,.md,.yml,.yaml"
+            accept=".js,.ts,.tsx,.jsx,.py,.java,.cpp,.c,.cs,.html,.css,.json,.xml,.sql,.sh,.go,.php,.txt,.md,.yml,.yaml,.png,.jpg,.jpeg,.pdf"
           />
         </label>
       </div>
