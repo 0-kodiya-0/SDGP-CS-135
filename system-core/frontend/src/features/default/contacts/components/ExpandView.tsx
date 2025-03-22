@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import {
-  User, Mail, Phone, MapPin, Briefcase, Calendar, Edit, Trash2,
-  Star, Globe, Heart, AtSign, Link, Tag, Bookmark, Flag, Info, ChevronDown
-} from 'lucide-react';
-import { PersonType, useContacts } from '../../features/default/contacts';
+import { User, Mail, Phone, MapPin, Briefcase, Calendar, Edit, Trash2, Globe, Heart, Tag, Bookmark, Info, ChevronDown } from 'lucide-react';
+import { useContacts } from '../hooks/useContacts.google';
+import { PersonType } from '../types/types.data';
 
 interface ExpandViewProps {
   selectedContact?: PersonType | null;

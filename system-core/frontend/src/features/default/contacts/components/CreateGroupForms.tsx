@@ -1,6 +1,7 @@
 import React, { FC, useState, useEffect } from 'react';
 import { X, Users, Search, Check, User, ChevronDown, ChevronUp } from 'lucide-react';
-import { PersonType, useContacts } from '../../features/default/contacts';
+import { useContacts } from '../hooks/useContacts.google';
+import { PersonType } from '../types/types.data';
 
 interface CreateGroupFormProps {
   accountId: string;

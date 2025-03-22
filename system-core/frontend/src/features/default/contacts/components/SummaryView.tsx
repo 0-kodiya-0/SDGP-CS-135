@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Search, Plus, Users, ExternalLink, X, Phone, MessageCircle } from 'lucide-react';
-import { PersonType, useContacts } from '../../features/default/contacts';
+import { User, Search, Plus, Users, X, Phone, MessageCircle } from 'lucide-react';
 import CreateContactForm from './CreateContactForms';
 import GroupView from './GroupView';
 import CreateGroupForm from './CreateGroupForms';
+import { useContacts } from '../hooks/useContacts.google';
+import { PersonType } from '../types/types.data';
 
 interface ContactGroup {
   resourceName: string;
