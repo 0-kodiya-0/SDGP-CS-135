@@ -4,7 +4,8 @@ import { SummaryBar } from './SummaryBar.tsx';
 import { Environment } from '../../../default/environment/types/types.data.ts';
 
 interface NavigationProps {
-  environment: Environment
+  environment: Environment;
+  accountId: string;
   summaryBarClassName?: string;
   detailPaneClassName?: string;
   refreshTrigger: number;
@@ -12,15 +13,14 @@ interface NavigationProps {
   onFileSelect: (fileName: string | null) => void;
 }
 
-export function Navigation({ environment, summaryBarClassName, detailPaneClassName, onFileChange, onFileSelect, refreshTrigger }: NavigationProps) {
-
+export function Navigation({ environment, summaryBarClassName, detailPaneClassName, accountId }: NavigationProps) {
   return (
     <>
       <div className={`${summaryBarClassName}`}>
         <SummaryBar className='w-full h-full' />
       </div>
       <Panel defaultSize={20} minSize={5} collapsible={true} collapsedSize={1} className="h-full">
-        <DetailPane environment={environment} className={`${detailPaneClassName}`} onFileChange={onFileChange} onFileSelect={onFileSelect} refreshTrigger={refreshTrigger} />
+        <DetailPane environment={environment} className={`${detailPaneClassName}`} accountId={accountId} />
       </Panel>
     </>
   );

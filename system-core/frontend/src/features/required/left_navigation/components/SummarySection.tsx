@@ -1,14 +1,13 @@
 import { ReactNode } from 'react';
-import { PluginId } from '../../../../plugin/core/types';
-import { selectedPluginId, useNavigationStore } from '../store';
 
 interface SummarySectionProps {
   icon?: ReactNode;
   title: string;
   featureComponent: ReactNode;
-  featureType: PluginId;
-  onSelect: (pluginId: PluginId) => void;
+  featureType: string;
+  onSelect: (featureType: string) => void;
   badgeCount?: number;
+  isActive?: boolean;
 }
 
 export function SummarySection({
@@ -18,22 +17,20 @@ export function SummarySection({
   featureType,
   onSelect,
   badgeCount,
+  isActive = false,
 }: SummarySectionProps) {
-  const selectedPlugin = useNavigationStore(selectedPluginId);
-  const isSelected = selectedPlugin === featureType;
-
   if (!featureType) return null;
 
   return (
     <div className="space-y-2">
       <button
         className={`
-          relative w-full aspect-square rounded-lg
+          relative w-12 h-12 rounded-lg
           flex items-center justify-center
           transition-colors duration-200
-          ${isSelected
-            ? 'bg-white shadow-sm'
-            : 'hover:bg-white hover:shadow-sm'
+          ${isActive
+            ? 'bg-blue-100 text-blue-600'
+            : 'hover:bg-gray-100'
           }
         `}
         onClick={() => onSelect(featureType)}

@@ -1,18 +1,14 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { ScrollingText } from '../../../shared/scrolling_text';
-import usePluginTab from '../hooks/usePluginTab';
+import { useTabs } from '../context/TabContext';
 
 interface TabManagementProps {
-  environmentId: number;
   className?: string;
 }
 
-export const TabManagement: React.FC<TabManagementProps> = ({
-  environmentId,
-  className
-}) => {
-  const { tabs, activeTab, closeTab, setActiveTab } = usePluginTab({ environmentId });
+export const TabManagement: React.FC<TabManagementProps> = ({ className = '' }) => {
+  const { tabs, activeTabId, closeTab, setActiveTab } = useTabs();
 
   // Handle tab close
   const handleCloseTab = (tabId: string, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -33,7 +29,7 @@ export const TabManagement: React.FC<TabManagementProps> = ({
         </div>
       ) : (
         tabs.map((tab) => {
-          const isActive = activeTab?.id === tab.id;
+          const isActive = activeTabId === tab.id;
           return (
             <div
               key={tab.id}

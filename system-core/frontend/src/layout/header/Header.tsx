@@ -3,26 +3,19 @@ import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Navigation } from "../../features/required/left_navigation";
 import { Loader2 } from "lucide-react";
 import { Environment } from "../../features/default/environment/types/types.data";
-import DetailView from "../../features/default/files/components/DetailView";
+import { useEffect } from "react";
+import { TabProvider, TabView } from "../../features/required/tab_view";
+
 
 interface HeaderProps {
     environment: Environment | null;
     isLoading?: boolean;
+    accountId: string; // Added accountId prop
 }
 
-export const Header = ({ environment, isLoading = false }: HeaderProps) => {
-    const [selectedFile, setSelectedFile] = useState<string | null>(null);
-    const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+export const Header = ({ environment, isLoading = false, accountId }: HeaderProps) => {
 
-    const handleFileSelect = (fileName: string | null) => {
-        setSelectedFile(fileName);
-    };
-
-    const handleRefresh = () => {
-        setRefreshTrigger((prev) => prev + 1);
-        setSelectedFile(null);
-    };
-
+    // Add an effect to log when Header re-renders with a new environment
     useEffect(() => {
         console.log('[Header] Rendering with environment:', environment ? `${environment.id} (${environment.name})` : 'None');
     }, [environment]);
@@ -81,25 +74,28 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     // );
 
     return (
+
         <div className="w-full h-full overflow-hidden">
-            <PanelGroup direction="horizontal" className="w-full h-full">
-                {/* Navigation Panel - Fixed Width */}
-                <Navigation environment={environment} summaryBarClassName="w-[65px] h-full" detailPaneClassName="min-w-64 h-full overflow-hidden" refreshTrigger={refreshTrigger}
-                    onFileChange={handleRefresh}
-                    onFileSelect={handleFileSelect} />
+            <TabProvider>
+                <PanelGroup direction="horizontal" className="w-full h-full">
+                    {/* Navigation Panel - Fixed Width */}
+                    <Navigation
+                        environment={environment}
+                        summaryBarClassName="w-[65px] h-full"
+                        detailPaneClassName="min-w-64 h-full overflow-hidden" accountId={accountId} />
 
-                {/* Resize Handle */}
-                <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
+                    {/* Resize Handle */}
+                    <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
 
-                {/* Detail Pane - Expand/Collapse with Limits */}
-                <Panel defaultSize={80} minSize={10} className="h-full">
-                    <DetailView
-                        selectedFile={selectedFile}
-                        onFileUploaded={handleRefresh}
-                        onBack={() => setSelectedFile(null)}
-                    />
-                </Panel>
-            </PanelGroup>
+                    {/* Detail Pane - Expand/Collapse with Limits */}
+                    <Panel defaultSize={80} minSize={10} className="h-full">
+                        {/* {selectedContact ? <ExpandView accountId={accountId}
+                        selectedContact={selectedContact} /> : <></>} */}
+                        <TabView />
+                    </Panel>
+                </PanelGroup>
+            </TabProvider>
         </div>
+
     );
 };

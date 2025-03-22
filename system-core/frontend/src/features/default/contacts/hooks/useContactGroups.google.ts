@@ -284,7 +284,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members:add`,
+                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members/add`,
                 { resourceNames: contactResourceNames },
                 { withCredentials: true }
             );
@@ -326,7 +326,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members:remove`,
+                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members/remove`,
                 { resourceNames: contactResourceNames },
                 { withCredentials: true }
             );

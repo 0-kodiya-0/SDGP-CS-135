@@ -1,3 +1,4 @@
+// feature/default/user_account/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
@@ -8,10 +9,10 @@ interface AuthContextType {
     isLoading: boolean;
     session: Session | null;
     error: string | null;
-    // refreshTokens: (accountId: string) => Promise<boolean>;
     logout: (accountId?: string) => Promise<void>;
     logoutAll: () => Promise<void>;
     readSessionToken: () => void;
+    switchAccount: (accountId: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +35,7 @@ const readSessionTokenFromCookie = (): Session | null => {
             return {
                 sessionId: decodedSession.sessionId,
                 accounts: decodedSession.accounts || [],
+                selectedAccountId: decodedSession.selectedAccountId, // Add selected account support
                 createdAt: decodedSession.createdAt,
                 expiresAt: decodedSession.expiresAt,
                 iat: decodedSession.iat
@@ -81,25 +83,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("Session token manually read:", sessionData);
     };
 
-    // // Refresh tokens for a specific account
-    // const refreshTokens = async (accountId: string): Promise<boolean> => {
-    //     try {
-    //         setIsLoading(true);
-    //         const response = await axios.post(`/api/v1/account/${accountId}/refresh`);
-
-    //         if (response.data.success) {
-    //             // Re-read the session token after refresh
-    //             readSessionToken();
-    //             return true;
-    //         }
-    //         return false;
-    //     } catch (error) {
-    //         console.error('Token refresh failed:', error);
-    //         return false;
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
+    // Switch to a different account in the same session
+    const switchAccount = async (accountId: string): Promise<boolean> => {
+        try {
+            setIsLoading(true);
+            
+            if (!session) {
+                setError('No active session');
+                return false;
+            }
+            
+            // Make a request to the backend to switch accounts
+            const response = await fetch(`/api/v1/account/${accountId}/switch`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                // Read the updated session token with new selected account
+                readSessionToken();
+                return true;
+            } else {
+                const errorData = await response.json();
+                setError(errorData.error?.message || 'Failed to switch account');
+                return false;
+            }
+        } catch (error) {
+            console.error('Account switch failed:', error);
+            setError('Failed to switch account');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Logout from a specific account
     const logout = async (accountId?: string) => {
@@ -136,7 +155,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         logout,
         logoutAll,
-        readSessionToken
+        readSessionToken,
+        switchAccount
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

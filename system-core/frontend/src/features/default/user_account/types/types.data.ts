@@ -1,3 +1,4 @@
+// types.data.ts
 export enum AccountStatus {
     Active = 'active',
     Inactive = 'inactive'
@@ -62,6 +63,9 @@ export interface UserDetails {
 export interface TokenDetails {
     accessToken: string;
     refreshToken: string;
+    expiresAt?: string;
+    scope?: string;
+    tokenCreatedAt?: string;
 }
 
 export interface AccountDetails {
@@ -78,6 +82,7 @@ export interface AccountDetails {
         sessionTimeout?: number;
         autoLock?: boolean;
     };
+    tokenDetails?: TokenDetails; // Optional token details for the account
 }
 
 export interface Account {
@@ -87,11 +92,17 @@ export interface Account {
     name?: string;
     email?: string;
     imageUrl?: string;
+    tokenInfo?: {  // Add token info to the account interface
+        accessToken: string;
+        expiresAt: number;
+        scope?: string;
+    };
 }
 
 export interface Session {
     sessionId: string;
     accounts: Account[];
+    selectedAccountId?: string; // Add selectedAccountId to track active account
     createdAt?: number;
     expiresAt?: number;
     iat?: number;

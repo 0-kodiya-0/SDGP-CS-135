@@ -6,8 +6,8 @@ import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { router as accountRoutes } from './feature/account';
 import { router as googleRoutes } from './feature/google'; // Import Google API routes
-import { authenticateSession } from './utils/session';
 import db from './config/db';
+import { authenticateSession } from './services/session';
 
 dotenv.config();
 

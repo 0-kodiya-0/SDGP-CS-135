@@ -162,11 +162,13 @@ export class PeopleService {
             const response = await this.people.contactGroups.list({
                 pageSize: params.maxResults || 100,
                 pageToken: params.pageToken,
-                syncToken: params.syncToken
+                syncToken: params.syncToken,
             });
 
             return {
-                items: response.data.contactGroups || [],
+                items: response.data.contactGroups ? response.data.contactGroups.map(group => {
+                    return { ...group, resourceName: group.resourceName?.replace('contactGroups/', '') }
+                }) : [],
                 nextPageToken: response.data.nextPageToken || undefined,
                 syncToken: response.data.nextSyncToken || undefined
             };
@@ -182,7 +184,7 @@ export class PeopleService {
     async getContactGroup(resourceName: string): Promise<ContactGroupType> {
         try {
             const response = await this.people.contactGroups.get({
-                resourceName,
+                resourceName: `contactGroups/${resourceName}`,
                 maxMembers: 1000
             });
 
@@ -219,7 +221,7 @@ export class PeopleService {
     async updateContactGroup(params: UpdateContactGroupParams): Promise<ContactGroupType> {
         try {
             const response = await this.people.contactGroups.update({
-                resourceName: params.resourceName,
+                resourceName: `contactGroups/${params.resourceName}`,
                 requestBody: {
                     contactGroup: {
                         name: params.name,
@@ -241,7 +243,7 @@ export class PeopleService {
     async deleteContactGroup(params: DeleteContactGroupParams): Promise<void> {
         try {
             await this.people.contactGroups.delete({
-                resourceName: params.resourceName,
+                resourceName: `contactGroups/${params.resourceName}`,
                 deleteContacts: params.deleteContacts
             });
         } catch (error) {
@@ -256,7 +258,7 @@ export class PeopleService {
     async addContactsToGroup(params: AddContactsToGroupParams): Promise<ContactGroupType> {
         try {
             const response = await this.people.contactGroups.members.modify({
-                resourceName: params.resourceName,
+                resourceName: `contactGroups/${params.resourceName}`,
                 requestBody: {
                     resourceNamesToAdd: params.resourceNames,
                     resourceNamesToRemove: []
@@ -276,7 +278,7 @@ export class PeopleService {
     async removeContactsFromGroup(params: RemoveContactsFromGroupParams): Promise<ContactGroupType> {
         try {
             const response = await this.people.contactGroups.members.modify({
-                resourceName: params.resourceName,
+                resourceName: `contactGroups/${params.resourceName}`,
                 requestBody: {
                     resourceNamesToAdd: [],
                     resourceNamesToRemove: params.resourceNames

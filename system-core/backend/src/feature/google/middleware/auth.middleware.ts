@@ -1,15 +1,10 @@
 import { NextFunction, Response, Request } from "express";
+import { SessionManager } from "../../../services/session";
 import { ApiErrorCode } from "../../../types/response.types";
 import { sendError } from "../../../utils/response";
-import { OAuthProviders } from "../../account/Account.types";
-import { validateAndRefreshToken } from "../../../utils/session";
-import {
-    GoogleServiceName,
-    getGoogleScope,
-    createOAuth2Client,
-    hasRequiredScope
-} from "../config/config";
 import { getAbsoluteUrl } from "../../../utils/url";
+import { createOAuth2Client, GoogleServiceName, getGoogleScope } from "../config";
+import { GoogleTokenService } from "../services/token";
 import { GoogleApiRequest } from "../types";
 
 /**
@@ -32,15 +27,22 @@ export const authenticateGoogleApi = async (
     }
 
     try {
+        const sessionManager = SessionManager.getInstance();
+        const session = sessionManager.extractSession(req);
 
-        // Validate and refresh token if needed - only done once per request
-        const tokenDetails = await validateAndRefreshToken(accountId, OAuthProviders.Google);
+        if (!session) {
+            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
+        }
 
-        // Create OAuth2 client with the validated tokens
-        const oauth2Client = createOAuth2Client(
-            tokenDetails.accessToken,
-            tokenDetails.refreshToken
-        );
+        // Track activity for analytics
+        sessionManager.updateSessionActivity(session.sessionId)
+            .catch(err => console.error('Failed to update session activity:', err));
+
+        // Get a valid access token
+        const accessToken = await sessionManager.getValidAccessToken(session, accountId);
+
+        // Create OAuth2 client with the valid token
+        const oauth2Client = createOAuth2Client(accessToken);
 
         // Attach the Google Auth client to the request for use in route handlers
         const googleReq = req as GoogleApiRequest;
@@ -96,12 +98,12 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
                 throw new Error('Access token not available');
             }
 
-            // Check if the token has the required scope
-            const hasScope = await hasRequiredScope(accessToken, requiredScope);
+            // Use GoogleTokenService to check if the token has the required scope
+            const googleTokenService = GoogleTokenService.getInstance();
+            const hasScope = await googleTokenService.hasScope(accessToken, requiredScope);
 
             if (!hasScope) {
-                // Instead of redirecting, send an error response with permission info
-                // that the client can use to request additional permissions
+                // Send an error response with permission info
                 return sendError(
                     res,
                     403,
@@ -130,7 +132,7 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
                 errorMessage.includes('access');
 
             if (isLikelyPermissionError && req.googlePermissionInfo) {
-                // Send an error response with permission info instead of redirecting
+                // Send an error response with permission info
                 return sendError(
                     res,
                     403,
@@ -206,12 +208,17 @@ export const handleGoogleApiError = (req: Request, res: Response, error: any) =>
             }
         } else if (statusCode === 404) {
             errorCode = ApiErrorCode.RESOURCE_NOT_FOUND;
+        } else if (statusCode === 429) {
+            errorCode = ApiErrorCode.RATE_LIMIT_EXCEEDED;
         }
 
         sendError(res, statusCode, errorCode, message || 'Google API error');
     } else if (error.code === 'ECONNREFUSED') {
         // Network connection error
         sendError(res, 503, ApiErrorCode.SERVICE_UNAVAILABLE, 'Google API service unavailable');
+    } else if (error.message && error.message.includes('token expired')) {
+        // Token expired error - this should normally be caught and handled by the token refresh mechanism
+        sendError(res, 401, ApiErrorCode.TOKEN_EXPIRED, 'Authentication token expired');
     } else {
         // Check if this might be a permission error based on error message
         const errorMsg = error.message || 'Unknown Google API error';

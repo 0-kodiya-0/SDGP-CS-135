@@ -8,15 +8,15 @@ import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from 
 import { sendError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
-import { createSignInSession, createSignUpSession, updateUserTokens } from '../../utils/session';
 import passport from 'passport';
 import crypto from 'crypto';
 import db from '../../config/db';
 import { findUser } from '../account/Account.utils';
-import { toOAuthAccount } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 import { getRedirectUrl, redirectWithError, redirectWithSuccess } from '../../utils/redirect';
+import { SessionManager } from '../../services/session';
+import { GoogleTokenService } from '../google/services/token';
 
 export const router = express.Router();
 
@@ -79,6 +79,42 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
 //     })(req, res, next);
 // });
 
+// router.post('/signup/add/:details', async (req: SignUpDetailsAddRequest, res: Response) => {
+//     const { details } = req.params;
+//     const { state } = req.query;
+
+//     const stateDetails = await validateStateMiddleware(state as string, validateSignUpState, res) as SignUpState;
+//     if (!stateDetails) return;
+
+//     try {
+//         switch (details) {
+//             case 'device': {
+//                 const success = validateDevice(req.body);
+//                 if (!success) {
+//                     sendError(res, 400, ApiErrorCode.INVALID_DETAILS, 'Invalid device details');
+//                     return;
+//                 }
+
+//                 const models = await db.getModels();
+
+//                 // Update the state document with the device details
+//                 await models.auth.SignUpState.updateOne(
+//                     { state: stateDetails.state },
+//                     { $set: { 'accountDetails.device': req.body } }
+//                 );
+
+//                 sendSuccess(res, 201, { message: 'Device details added successfully' });
+//                 break;
+//             }
+//             default:
+//                 sendError(res, 404, ApiErrorCode.INVALID_DETAILS, 'Unsupported details type');
+//         }
+//     } catch (error) {
+//         console.error(error);
+//         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
+//     }
+// });
+
 router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
     const frontendRedirectUrl = getRedirectUrl(req, '/');
 
@@ -127,14 +163,17 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
             // Create the account in the accounts database
             await models.accounts.OAuthAccount.create(newAccount);
 
-            // Create session with the new account, checking for existing session
-            const sessionResponse = await createSignUpSession(res, newAccount, req);
+            // Create session with the new account using SessionManager
+            const sessionManager = SessionManager.getInstance();
+            const sessionResponse = await sessionManager.createOrUpdateSession(res, newAccount, req);
 
-            if (sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl, sessionResponse.code, sessionResponse.message);
+            if ('error' in sessionResponse && sessionResponse.error) {
+                redirectWithError(res, frontendRedirectUrl, 
+                    sessionResponse.code, 
+                    sessionResponse.message);
                 return;
             }
-
+            
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
             redirectWithSuccess(res, redirectTo, {
@@ -167,42 +206,6 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
     }
 });
 
-// router.post('/signup/add/:details', async (req: SignUpDetailsAddRequest, res: Response) => {
-//     const { details } = req.params;
-//     const { state } = req.query;
-
-//     const stateDetails = await validateStateMiddleware(state as string, validateSignUpState, res) as SignUpState;
-//     if (!stateDetails) return;
-
-//     try {
-//         switch (details) {
-//             case 'device': {
-//                 const success = validateDevice(req.body);
-//                 if (!success) {
-//                     sendError(res, 400, ApiErrorCode.INVALID_DETAILS, 'Invalid device details');
-//                     return;
-//                 }
-
-//                 const models = await db.getModels();
-
-//                 // Update the state document with the device details
-//                 await models.auth.SignUpState.updateOne(
-//                     { state: stateDetails.state },
-//                     { $set: { 'accountDetails.device': req.body } }
-//                 );
-
-//                 sendSuccess(res, 201, { message: 'Device details added successfully' });
-//                 break;
-//             }
-//             default:
-//                 sendError(res, 404, ApiErrorCode.INVALID_DETAILS, 'Unsupported details type');
-//         }
-//     } catch (error) {
-//         console.error(error);
-//         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
-//     }
-// });
-
 router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
     const frontendRedirectUrl = getRedirectUrl(req, '/');
 
@@ -234,18 +237,30 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
                 return;
             }
 
-            // Update the user's token details
-            dbUser.tokenDetails = stateDetails.oAuthResponse.tokenDetails;
+            // Get detailed token info from Google
+            const googleTokenService = GoogleTokenService.getInstance();
+            const tokenInfo = await googleTokenService.tokenDetailsToInfo(stateDetails.oAuthResponse.tokenDetails);
+
+            // Update the user's token details with expiration info
+            dbUser.tokenDetails = {
+                ...stateDetails.oAuthResponse.tokenDetails,
+                tokenCreatedAt: new Date().toISOString(),
+                expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
+                scope: tokenInfo.scope
+            };
             dbUser.updated = new Date().toISOString();
             await dbUser.save();
 
             await clearSignInState(stateDetails.state);
 
-            // Create or update session with the signed-in account
-            const sessionResponse = await createSignInSession(res, toOAuthAccount(dbUser)!, req);
+            // Create or update session with the signed-in account using SessionManager
+            const sessionManager = SessionManager.getInstance();
+            const sessionResponse = await sessionManager.createOrUpdateSession(res, dbUser, req);
 
-            if (sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl, sessionResponse.code, sessionResponse.message);
+            if ('error' in sessionResponse && sessionResponse.error) {
+                redirectWithError(res, frontendRedirectUrl, 
+                    sessionResponse.code, 
+                    sessionResponse.message);
                 return;
             }
 
@@ -317,6 +332,17 @@ router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Respons
             }
 
             try {
+                // Get token details from Google to have accurate expiration info
+                const googleTokenService = GoogleTokenService.getInstance();
+                const tokenInfo = await googleTokenService.getTokenInfo(userData.tokenDetails.accessToken);
+
+                // Update the token details with expiration info
+                userData.tokenDetails = {
+                    ...userData.tokenDetails,
+                    expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
+                    scope: tokenInfo.scope
+                };
+
                 const exists = await userExists(userEmail, provider as OAuthProviders);
 
                 if (stateDetails.authType === AuthType.SIGN_UP) {
@@ -385,13 +411,22 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
             }
 
             try {
+                const models = await db.getModels();
+
+                const dbUser = await models.accounts.OAuthAccount.findOne({ id: accountId });
+
+                if (!dbUser) {
+                    redirectWithError(res, redirect, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
+                    return;
+                }
+
                 console.log(`Processing permission callback for account ${accountId}, service ${service}, scope ${scopeLevel}`);
 
                 // Verify that the token belongs to the correct user account
-                const tokenInfo = await verifyTokenOwnership(result.tokenDetails.accessToken, accountId);
+                const token = await verifyTokenOwnership(result.tokenDetails.accessToken, accountId);
 
-                if (!tokenInfo.isValid) {
-                    console.error('Token ownership verification failed:', tokenInfo.reason);
+                if (!token.isValid) {
+                    console.error('Token ownership verification failed:', token.reason);
                     return redirectWithError(
                         res,
                         redirect,
@@ -400,13 +435,27 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                     );
                 }
 
-                const tokenDetails = { accessToken: result.tokenDetails.accessToken, refreshToken: '' };
+                // Use SessionManager to update the token
+                const sessionManager = SessionManager.getInstance();
+                await sessionManager.updateUserTokens(accountId, {
+                    accessToken: result.tokenDetails.accessToken,
+                    tokenCreatedAt: new Date().toISOString()
+                });
 
-                if (result.tokenDetails.refreshToken) {
-                    tokenDetails["refreshToken"] = result.tokenDetails.refreshToken;
-                }
+                const googleTokenService = GoogleTokenService.getInstance();
+                const tokenInfo = await googleTokenService.tokenDetailsToInfo(result.tokenDetails);
 
-                await updateUserTokens(accountId, tokenDetails);
+                dbUser.tokenDetails = {
+                    ...result.tokenDetails,
+                    refreshToken: dbUser.tokenDetails.refreshToken,
+                    tokenCreatedAt: new Date().toISOString(),
+                    expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
+                    scope: tokenInfo.scope
+                };
+                dbUser.updated = new Date().toISOString();
+                await dbUser.save();
+                
+                await sessionManager.createOrUpdateSession(res, dbUser, req);
 
                 console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirect}`);
 

@@ -1,16 +1,15 @@
 import express from 'express';
-import { validateAccountAccess } from '../../utils/session';
-import calendarRoutes from './services/calender';
-import gmailRoutes from './services/gmail';
-import driveRoutes from './services/drive';
-import peopleRoutes from './services/people';
-import meetRoutes from './services/meet';
-import tokenRoutes from './services/token';
+import calendarRoutes from './api/calender';
+import gmailRoutes from './api/gmail';
+import driveRoutes from './api/drive';
+import peopleRoutes from './api/people';
+import meetRoutes from './api/meet';
+import tokenRoutes from './api/token';
+import { validateAccountAccess } from '../../services/session';
 
 // Create the main router for all Google API services
 const router = express.Router();
 
-// Add account validation middleware to all Google routes
 router.use('/:accountId', validateAccountAccess);
 
 /**
