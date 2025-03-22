@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import filesStore from '../conf/localforage.conf';
+import filesStore from '../../../../conf/localforage/localforage.conf';
 
 export interface UploadedFile {
   name: string;
