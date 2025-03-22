@@ -1,4 +1,4 @@
-from rest_framework.views import APIView
+from rest_framework.views import AsyncAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async, async_to_sync
 from .serializers import TextGenerationRequestSerializer
 from .services import HuggingFaceService
 
-class HuggingFaceView(APIView):
+class HuggingFaceView(AsyncAPIView):
     """
     API view for generating text using Hugging Face models
     """

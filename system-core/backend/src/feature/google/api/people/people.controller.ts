@@ -253,6 +253,7 @@ export class PeopleController {
             sendSuccess(res, 200, { group });
         } catch (error) {
             handleGoogleApiError(req, res, error);
+           
         }
     }
 
