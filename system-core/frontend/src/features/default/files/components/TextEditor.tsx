@@ -1,139 +1,214 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
-import { FiEdit, FiSave, FiX } from "react-icons/fi";
-import "react-quill/dist/quill.snow.css";
-import { UploadedFile, useFileHandling } from "../hooks/useFileHandling";
-
-// ✅ Lazy-load ReactQuill to prevent "findDOMNode" warning
-const ReactQuill = lazy(() => import("react-quill"));
+import React, { useState, useEffect } from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { FiSave, FiChevronLeft } from 'react-icons/fi';
+import { UploadedFile, useFileHandling } from '../hooks/useFileHandling';
+import UnsavedChangesDialog from './UnsavedChangesDialog';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 interface TextEditorProps {
   file: UploadedFile;
   onBack: () => void;
-  onFileUpdated: () => void; // ✅ Callback to refresh file list
+  onFileUpdated: () => void;
+  onSelectOtherFile?: (fileName: string) => void;
 }
 
-export const TextEditor = ({ file, onBack, onFileUpdated }: TextEditorProps) => {
-  const [content, setContent] = useState<string>("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [newFileName, setNewFileName] = useState(file.name);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const { writeFile } = useFileHandling(); // ✅ Centralized logic
+export const TextEditor: React.FC<TextEditorProps> = ({
+  file,
+  onBack,
+  onFileUpdated,
+  onSelectOtherFile
+}) => {
+  const { writeFile } = useFileHandling();
+  const [content, setContent] = useState<string>('');
+  const [originalContent, setOriginalContent] = useState<string>('');
+  const [targetFileName, setTargetFileName] = useState<string | null>(null);
+  const [hasLoadedContent, setHasLoadedContent] = useState<boolean>(false); // 🧠 Important fix
 
-  // Decode file content on mount
+  const {
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    isUnsavedDialogOpen,
+    openUnsavedDialog,
+    closeUnsavedDialog,
+    pendingOperation,
+    setPendingOperation
+  } = useUnsavedChanges();
+
   useEffect(() => {
-    try {
-      const textContent = atob(file.data.split(",")[1]);
-      setContent(textContent);
-    } catch (err) {
-      console.error("Failed to decode file content:", err);
-    }
-  }, [file]);
-
-  const handleSave = async (saveAsNew: boolean) => {
-    if (saveAsNew && !newFileName.trim()) {
-      alert("Please enter a valid file name.");
-      return;
-    }
-
-    let fileNameToSave = saveAsNew ? newFileName : file.name;
-    if (!fileNameToSave.includes(".")) {
-      fileNameToSave += ".txt";
-    }
-
-    const updatedFile: UploadedFile = {
-      name: fileNameToSave,
-      type: "text/plain",
-      data: `data:text/plain;base64,${btoa(content)}`,
+    const loadFileContent = async () => {
+      try {
+        const base64Content = file.data.split(',')[1];
+        const decodedContent = atob(base64Content);
+        setHasLoadedContent(false); // Prevent false detection on initial load
+        setContent(decodedContent);
+        setOriginalContent(decodedContent);
+        setHasUnsavedChanges(false);
+        setTimeout(() => setHasLoadedContent(true), 0); // Enable detection after mount
+      } catch (error) {
+        console.error('Error loading file content:', error);
+      }
     };
 
-    await writeFile(updatedFile);
+    loadFileContent();
+  }, [file, setHasUnsavedChanges]);
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setIsEditing(false);
-      onFileUpdated(); // ✅ Refresh SummaryView
-    }, 500);
+  // Handle switching files with unsaved changes
+  useEffect(() => {
+    const handleFileSelectionChange = (fileName: string) => {
+      if (hasUnsavedChanges) {
+        setTargetFileName(fileName);
+        setPendingOperation(() => {
+          return () => {
+            if (onSelectOtherFile) {
+              onSelectOtherFile(fileName);
+            }
+          };
+        });
+        openUnsavedDialog();
+        return false;
+      }
+      return true;
+    };
+
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      window.handleFileSelectionChange = handleFileSelectionChange;
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        // @ts-ignore
+        delete window.handleFileSelectionChange;
+      }
+    };
+  }, [hasUnsavedChanges, openUnsavedDialog, setPendingOperation, onSelectOtherFile]);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    if (hasLoadedContent) {
+      setHasUnsavedChanges(value !== originalContent);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const fileType = file.type || 'text/plain';
+      const dataUrl = `data:${fileType};base64,${btoa(content)}`;
+
+      await writeFile({
+        ...file,
+        data: dataUrl
+      });
+
+      setOriginalContent(content);
+      setHasUnsavedChanges(false);
+      onFileUpdated();
+
+      if (pendingOperation) {
+        pendingOperation();
+        setPendingOperation(null);
+      }
+
+      closeUnsavedDialog();
+    } catch (error) {
+      console.error('Error saving file:', error);
+    }
+  };
+
+  const handleBackWithCheck = () => {
+    if (hasUnsavedChanges) {
+      setPendingOperation(() => onBack);
+      openUnsavedDialog();
+    } else {
+      onBack();
+    }
+  };
+
+  const handleDiscard = () => {
+    setContent(originalContent);
+    setHasUnsavedChanges(false);
+    closeUnsavedDialog();
+
+    if (pendingOperation) {
+      pendingOperation();
+      setPendingOperation(null);
+    }
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-gray-100 p-4">
-      {/* ✅ Success Toast */}
-      {showSuccess && (
-        <div className="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
-          ✅ File saved successfully!
-        </div>
-      )}
-
-      {/* ✅ Header */}
-      <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow">
-        <button
-          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          onClick={onBack}
-        >
-          ← Back
-        </button>
-
-        <span className="font-semibold text-lg text-gray-800 truncate max-w-[300px]">{file.name}</span>
-
-        {!isEditing ? (
+    <div className="w-full h-full flex flex-col">
+      {/* Header */}
+      <div className="p-3 bg-white shadow flex items-center justify-between">
+        <div className="flex items-center">
           <button
-            className="px-3 py-2 flex items-center gap-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-            onClick={() => setIsEditing(true)}
+            onClick={handleBackWithCheck}
+            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
           >
-            <FiEdit /> Edit
+            <FiChevronLeft /> Back
           </button>
-        ) : (
-          <div className="flex space-x-2">
-            <button
-              className="px-3 py-2 flex items-center gap-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-              onClick={() => handleSave(false)}
-            >
-              <FiSave /> Save
-            </button>
-            <button
-              className="px-3 py-2 flex items-center gap-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              onClick={() => setIsEditing(false)}
-            >
-              <FiX /> Cancel
-            </button>
-          </div>
-        )}
+          <span className="ml-4 font-semibold">{file.name}</span>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!hasUnsavedChanges}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+            hasUnsavedChanges
+              ? 'bg-green-500 text-white hover:bg-green-600'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          } transition-colors`}
+        >
+          <FiSave /> Save
+        </button>
       </div>
 
-      {/* ✅ Save As (when editing) */}
-      {isEditing && (
-        <div className="flex items-center space-x-3 mb-4 bg-white p-3 rounded-lg shadow">
-          <span className="text-gray-600 font-medium">Save As:</span>
-          <input
-            type="text"
-            className="border px-3 py-2 rounded-lg w-full max-w-[300px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="New file name..."
-            value={newFileName}
-            onChange={(e) => setNewFileName(e.target.value)}
-          />
-          <button
-            className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
-            onClick={() => handleSave(true)}
-            disabled={!newFileName.trim()}
-          >
-            Save As
-          </button>
-        </div>
-      )}
-
-      {/* ✅ Rich Text Editor */}
-      <div className="flex-grow overflow-auto bg-white rounded-lg shadow p-2">
-        <Suspense fallback={<div>Loading editor...</div>}>
+      {/* Editor Section */}
+      <div className="flex-grow bg-gray-50 overflow-hidden">
+        <div className="h-full bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden pb-10">
           <ReactQuill
             theme="snow"
             value={content}
-            onChange={setContent}
-            readOnly={!isEditing}
+            onChange={handleContentChange}
             className="h-full"
+            modules={{
+              toolbar: [
+                [{ header: [1, 2, 3, 4, 5, 6, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                [{ color: [] }, { background: [] }],
+                ['clean']
+              ]
+            }}
           />
-        </Suspense>
+        </div>
       </div>
+
+      {/* Custom Quill Styles */}
+      <style>
+        {`
+          .ql-container {
+            height: 100%;
+            border: none;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .ql-editor {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 3rem;
+          }
+        `}
+      </style>
+
+      <UnsavedChangesDialog
+        isOpen={isUnsavedDialogOpen}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        onCancel={closeUnsavedDialog}
+        fileName={file.name}
+        targetFileName={targetFileName}
+      />
     </div>
   );
 };

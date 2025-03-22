@@ -20,7 +20,6 @@ export default function SummaryView({
     isLoading,
     refreshFiles,
   } = useFileHandling();
-
   const [filteredFiles, setFilteredFiles] = useState<UploadedFile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -28,10 +27,6 @@ export default function SummaryView({
   useEffect(() => {
     refreshFiles();
   }, [refreshTrigger, refreshFiles]);
-
-  useEffect(() => {
-    console.log("File information", files.length, files)
-  }, [files]);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -67,6 +62,29 @@ export default function SummaryView({
   };
 
   const handleFileClick = (fileName: string) => {
+    // Skip if it's the same file
+    if (selectedFileName === fileName) {
+      // Force re-selecting same file after going back
+      onFileSelect(null); // Reset first
+      setTimeout(() => {
+        setSelectedFileName(fileName);
+        onFileSelect(fileName);
+      }, 0);
+      return;
+    }
+
+    // Check if there are unsaved changes
+    // @ts-ignore - Using the global function we exposed
+    if (window.handleFileSelectionChange && typeof window.handleFileSelectionChange === 'function') {
+      // @ts-ignore
+      const canProceed = window.handleFileSelectionChange(fileName);
+      
+      // Only proceed with file selection if there are no unsaved changes or user has dealt with them
+      if (!canProceed) {
+        return;
+      }
+    }
+    
     setSelectedFileName(fileName);
     onFileSelect(fileName);
   };
@@ -112,7 +130,6 @@ export default function SummaryView({
         </div>
         <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       </div>
-
       {/* File List */}
       <div className="flex-grow overflow-y-auto bg-gray-50 p-2">
         {isLoading ? (

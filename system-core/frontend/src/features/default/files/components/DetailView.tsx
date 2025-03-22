@@ -50,6 +50,7 @@ export default function DetailView({ selectedFile, onFileUploaded, onBack }: Det
           file={fileData}
           onBack={onBack}
           onFileUpdated={handleFileUpdated}
+          onSelectFile={loadSelectedFile}
         />
       ) : (
         <div className="w-full h-full flex justify-center items-center">
