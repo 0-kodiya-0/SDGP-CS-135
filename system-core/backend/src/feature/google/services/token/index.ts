@@ -1,3 +1,2 @@
-import tokenRoutes from "./token.route";
-
-export default tokenRoutes;
+export * from "./token.services";
+export * from "./token.types";
