@@ -50,7 +50,7 @@ export const AppRoutes: React.FC = () => {
                     </Route>
 
                     {/* Main application routes */}
-                    <Route path="/app/:accountId/*" element={
+                    <Route path="/app/:accountId" element={
                         <AuthGuard>
                             <AccountProvider>
                                 <EnvironmentProvider>

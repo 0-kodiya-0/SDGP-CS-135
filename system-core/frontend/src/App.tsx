@@ -5,6 +5,7 @@ import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
 import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 import { useAccount } from "./features/default/user_account";
+import { ChatProvider } from "./features/chat/ChatProvider";
 
 const App: React.FC = () => {
     const { accountDetails, isLoading, error, fetchAccountDetails } = useAccount();
@@ -54,15 +55,17 @@ const App: React.FC = () => {
         <div className="flex flex-col h-screen bg-white">
             <QueryClientProvider client={queryClient}>
                 <PopupProvider>
-                    <Navbar />
-                    <Header
-                        key={`env-${currentEnvironment?.id || 'none'}`}
-                        environment={currentEnvironment}
-                        isLoading={envLoading}
-                        accountId={accountDetails?.id}
-                    />
-                    <Footer />
-                    <PopupDisplay />
+                    <ChatProvider>
+                        <Navbar />
+                        <Header
+                            key={`env-${currentEnvironment?.id || 'none'}`}
+                            environment={currentEnvironment}
+                            isLoading={envLoading}
+                            accountId={accountDetails?.id}
+                        />
+                        <Footer />
+                        <PopupDisplay />
+                    </ChatProvider>
                 </PopupProvider>
             </QueryClientProvider>
         </div>

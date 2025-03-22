@@ -37,20 +37,25 @@
     "typescript-eslint": "^8.24.0"
   },
   "dependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/mongoose": "^5.11.96",
+    "@types/socket.io": "^3.0.1",
     "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^146.0.0",
     "jsonwebtoken": "^9.0.2",
     "lowdb": "^7.0.1",
     "lru-cache": "^11.0.2",
-    "mongoose": "^8.12.1",
+    "mongoose": "^8.12.2",
     "multer": "^1.4.5-lts.1",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-microsoft": "^2.1.0",
-    "passport-oauth2-refresh": "^2.2.0"
+    "passport-oauth2-refresh": "^2.2.0",
+    "socket.io": "^4.8.1"
   }
 }
