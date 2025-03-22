@@ -63,15 +63,7 @@ export default function SummaryView({
 
   const handleFileClick = (fileName: string) => {
     // Skip if it's the same file
-    if (selectedFileName === fileName) {
-      // Force re-selecting same file after going back
-      onFileSelect(null); // Reset first
-      setTimeout(() => {
-        setSelectedFileName(fileName);
-        onFileSelect(fileName);
-      }, 0);
-      return;
-    }
+    
 
     // Check if there are unsaved changes
     // @ts-ignore - Using the global function we exposed

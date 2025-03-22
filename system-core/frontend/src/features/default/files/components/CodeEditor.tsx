@@ -108,7 +108,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onBack, onFileUpda
       const dataUrl = `data:${fileType};base64,${btoa(content)}`;
       await writeFile({ ...file, data: dataUrl });
       
-      setOriginalContent(content); // ✅ Update original content after saving
+      setOriginalContent(content); // Update original content after saving
       setHasUnsavedChanges(false);
       onFileUpdated();
       
@@ -138,7 +138,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onBack, onFileUpda
   };
 
   const handleDiscard = () => {
-    setContent(originalContent); // ✅ Restore original content
+    setContent(originalContent); // Restore original content
     setHasUnsavedChanges(false);
     closeUnsavedDialog();
 
@@ -188,7 +188,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onBack, onFileUpda
       <div className="flex-grow overflow-hidden bg-gray-100">
         <div className="h-full bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
           <Editor
-            height="calc(100vh - 120px)" // ✅ Prevents extending into footer
+            height="calc(100vh - 120px)" // Prevents extending into footer
             language={language}
             theme="vs-dark"
             value={content}

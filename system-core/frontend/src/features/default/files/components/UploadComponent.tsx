@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FiUpload, FiTrash2, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
-import { useFileHandling } from "../hooks/useFileHandling"; // Make sure the path is correct
+import { useFileHandling } from "../hooks/useFileHandling";
 
 interface FileItem {
   id: string;
@@ -19,6 +19,17 @@ const allowedTypes = [
   "text/x-c", "text/x-c++", "text/x-csharp", "application/typescript",
 ];
 
+const allowedExtensions = [
+  "js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "cs",
+  "html", "css", "json", "xml", "sql", "sh", "go", "php",
+  "txt", "md", "yml", "yaml"
+];
+
+const isAllowedExtension = (fileName: string): boolean => {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  return allowedExtensions.includes(ext || '');
+};
+
 export default function UploadComponent({ onFileUploaded }: UploadComponentProps) {
   const { uploadFiles } = useFileHandling();
   const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]);
@@ -35,10 +46,12 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
     }
   }, [errorMessage]);
 
-  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+  const handleFileSelection = async (
+    event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>
+  ) => {
     let fileList: FileList | null = null;
 
-    if ('dataTransfer' in event) {
+    if ("dataTransfer" in event) {
       event.preventDefault();
       setDragging(false);
       fileList = event.dataTransfer.files;
@@ -61,10 +74,7 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
 
-      if (allowedTypes.includes(file.type) || allowedTypes.some(type => {
-        const fileExt = file.name.split('.').pop()?.toLowerCase();
-        return type.includes(fileExt || '');
-      })) {
+      if (allowedTypes.includes(file.type) || isAllowedExtension(file.name)) {
         const reader = new FileReader();
         reader.onload = (e) => {
           if (e.target?.result) {
@@ -75,7 +85,7 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
             });
 
             if (newSelectedFiles.length === fileList!.length) {
-              setSelectedFiles(prev => [...prev, ...newSelectedFiles]);
+              setSelectedFiles((prev) => [...prev, ...newSelectedFiles]);
             }
           }
         };
@@ -94,11 +104,10 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
     setErrorMessage(null);
 
     try {
-
       for (let i = 0; i < selectedFiles.length; i++) {
         await uploadFiles(selectedFiles[i].file);
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       setUploadSuccess(true);
@@ -116,16 +125,20 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
   };
 
   const removeFile = (id: string) => {
-    setSelectedFiles(selectedFiles.filter(file => file.id !== id));
+    setSelectedFiles((files) => files.filter((file) => file.id !== id));
   };
 
   return (
     <div className="max-w-lg mx-auto p-4 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg h-full flex flex-col">
       <h2 className="text-xl font-semibold text-gray-800 mb-2 text-center">Upload Files</h2>
-      <p className="text-sm text-gray-500 mb-4 text-center">Drag & Drop or Browse. Supports images, PDFs, and code files.</p>
+      <p className="text-sm text-gray-500 mb-4 text-center">
+        Drag & Drop or Browse. Supports images, PDFs, and code files.
+      </p>
 
       <div
-        className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors ${dragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"}`}
+        className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors ${
+          dragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"
+        }`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -142,7 +155,7 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
             className="hidden"
             multiple
             onChange={handleFileSelection}
-            accept={allowedTypes.join(",")}
+            accept=".js,.ts,.tsx,.jsx,.py,.java,.cpp,.c,.cs,.html,.css,.json,.xml,.sql,.sh,.go,.php,.txt,.md,.yml,.yaml"
           />
         </label>
       </div>
@@ -161,7 +174,10 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
               key={fileItem.id}
               className="flex items-center justify-between p-2 bg-gray-100 rounded-lg shadow"
             >
-              <span className="text-sm font-medium truncate max-w-[220px]" title={fileItem.file.name}>
+              <span
+                className="text-sm font-medium truncate max-w-[220px]"
+                title={fileItem.file.name}
+              >
                 {fileItem.file.name}
               </span>
               <button
@@ -175,12 +191,18 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-500 text-sm italic py-2">No files selected</p>
+          <p className="text-center text-gray-500 text-sm italic py-2">
+            No files selected
+          </p>
         )}
       </div>
 
       <button
-        className={`w-full mt-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${selectedFiles.length === 0 || uploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
+        className={`w-full mt-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+          selectedFiles.length === 0 || uploading
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-500 hover:bg-blue-600"
+        }`}
         disabled={selectedFiles.length === 0 || uploading}
         onClick={handleFilesUpload}
       >
@@ -191,14 +213,18 @@ export default function UploadComponent({ onFileUploaded }: UploadComponentProps
           </>
         ) : (
           <>
-            <FiUpload /> Upload {selectedFiles.length} {selectedFiles.length === 1 ? 'File' : 'Files'}
+            <FiUpload /> Upload {selectedFiles.length}{" "}
+            {selectedFiles.length === 1 ? "File" : "Files"}
           </>
         )}
       </button>
 
       {uploading && (
         <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+          <div
+            className="h-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${uploadProgress}%` }}
+          ></div>
         </div>
       )}
 

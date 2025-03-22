@@ -23,7 +23,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [targetFileName, setTargetFileName] = useState<string | null>(null);
-  const [hasLoadedContent, setHasLoadedContent] = useState<boolean>(false); // 🧠 Important fix
+  const [hasLoadedContent, setHasLoadedContent] = useState<boolean>(false); // Important fix
 
   const {
     hasUnsavedChanges,
