@@ -2,7 +2,7 @@ import { useState } from "react";
 import SummaryView from "../../../default/files/components/SummaryView";
 import CreateFile from "../../../default/files/components/CreateFile";
 import UploadComponent from "../../../default/files/components/UploadComponent";
-import { FiUpload, FiPlus, FiX } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
 import { Environment } from "../../../default/environment/types/types.data";
 
 interface DetailPaneProps {
@@ -27,37 +27,14 @@ export function DetailPane({
     <div
       className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${className}`}
     >
-      {/* Header */}
-      <div className="h-14 border-b border-gray-200 flex items-center px-4 justify-between bg-gray-50 shadow-sm">
-        <h1 className="text-lg font-semibold text-gray-800">File Summary</h1>
-
-        <div className="flex space-x-2">
-          {/* Upload Button */}
-          <button
-            className="flex items-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-md transition-all"
-            onClick={() => setIsUploadModalOpen(true)}
-          >
-            <FiUpload className="w-5 h-5" />
-            <span>Upload</span>
-          </button>
-
-          {/* Create File Button */}
-          <button
-            className="flex items-center gap-2 px-3 py-2 text-green-600 hover:text-green-700 hover:bg-green-100 rounded-md transition-all"
-            onClick={() => setIsCreateFileOpen(true)}
-          >
-            <FiPlus className="w-5 h-5" />
-            <span>Create</span>
-          </button>
-        </div>
-      </div>
-
       {/* File Summary View */}
       <div className="flex-1 overflow-y-auto p-4 w-full custom-scrollbar">
         <SummaryView
           refreshTrigger={refreshTrigger}
           onFileChange={onFileChange}
           onFileSelect={onFileSelect}
+          onOpenUploadModal={() => setIsUploadModalOpen(true)}
+          onOpenCreateModal={() => setIsCreateFileOpen(true)}
         />
       </div>
 
