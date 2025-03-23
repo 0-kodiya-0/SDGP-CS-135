@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 const ContactsFeature = lazy(() => import('../../../default/contacts/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const FilesFeature = lazy(() => import('../../../default/files/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const CalendarFeature = lazy(() => import('../../../default/calender/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
 export interface DetailPaneProps {
@@ -31,6 +32,8 @@ export function DetailPane({ environment, className, accountId }: DetailPaneProp
         return <ContactsFeature accountId={accountId} />;
       case 'files':
         return <FilesFeature accountId={accountId} />;
+      case 'calendar':
+        return <CalendarFeature accountId={accountId} />;
       default:
         return;
     }

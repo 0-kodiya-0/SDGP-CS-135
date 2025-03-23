@@ -6,7 +6,7 @@ interface FeaturePlaceholderProps {
   featureName?: string;
   icon?: LucideIcon;
   environment?: Environment;
-  accountId?: string;
+  accountId: string;
 }
 
 const FeaturePlaceholder: React.FC<FeaturePlaceholderProps> = ({ 

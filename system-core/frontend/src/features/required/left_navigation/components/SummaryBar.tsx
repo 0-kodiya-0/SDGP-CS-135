@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { File, Users } from 'lucide-react';
+import { Calendar, File, Users } from 'lucide-react';
 import { SummarySection } from './SummarySection';
 
 interface SummaryBarProps {
@@ -53,6 +53,14 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           featureType="files"
           onSelect={handleFeatureSelect}
           isActive={isActive('files')}
+        />
+        <SummarySection
+          icon={<Calendar className="w-6 h-6" />}
+          title="Calendar"
+          featureComponent={null}
+          featureType="calendar"
+          onSelect={handleFeatureSelect}
+          isActive={isActive('calendar')}
         />
       </div>
     </div>
