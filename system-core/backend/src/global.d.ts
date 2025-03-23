@@ -36,6 +36,7 @@ declare global {
             session?: SessionPayload;
             googleAuth?: Auth.OAuth2Client;
             googlePermissionRedirectUrl?: string;
+            workspaceId?: string;
         }
     }
 }

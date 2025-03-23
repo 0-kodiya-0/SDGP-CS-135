@@ -5,7 +5,8 @@ import cookieParser from 'cookie-parser';
 import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { router as accountRoutes } from './feature/account';
-import { router as googleRoutes } from './feature/google'; // Import Google API routes
+import { router as googleRoutes } from './feature/google';
+import { router as workspaceRoutes } from './feature/workspace'; // Import workspace routes
 import db from './config/db';
 import { authenticateSession } from './services/session';
 
@@ -42,7 +43,8 @@ app.use((req, res, next) => {
 // Routes
 app.use('/oauth', oauthRoutes);
 app.use('/account', authenticateSession, accountRoutes);
-app.use('/google', authenticateSession, googleRoutes); // Add Google API routes
+app.use('/google', authenticateSession, googleRoutes);
+app.use('/workspace', authenticateSession, workspaceRoutes); // Add workspace routes
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

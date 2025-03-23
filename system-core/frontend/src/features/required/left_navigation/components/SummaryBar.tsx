@@ -1,4 +1,4 @@
-import { Calendar, File, Mail, Users } from 'lucide-react';
+import { Calendar, File, Layout, Mail, Users } from 'lucide-react';
 import { SummarySection } from './SummarySection';
 import { useFeature, FeatureType } from '../context/FeatureContext';
 
@@ -30,6 +30,14 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
   return (
     <div className={`bg-white border-r border-gray-200 py-4 flex-shrink-0 ${className}`}>
       <div className="flex flex-col space-y-4 items-center">
+        <SummarySection
+          icon={<Layout className="w-6 h-6" />}
+          title="Workspace"
+          featureComponent={null}
+          featureType="workspace"
+          onSelect={() => handleFeatureSelect('workspace')}
+          isActive={isActive('workspace')}
+        />
         <SummarySection
           icon={<Users className="w-6 h-6" />}
           title="Contacts"

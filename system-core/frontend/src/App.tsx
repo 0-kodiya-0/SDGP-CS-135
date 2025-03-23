@@ -5,6 +5,7 @@ import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
 import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 import { useAccount } from "./features/default/user_account";
+import { WorkspaceProvider } from "./features/required/workspace";
 
 const App: React.FC = () => {
     const { accountDetails, isLoading, error, fetchAccountDetails } = useAccount();
@@ -55,12 +56,14 @@ const App: React.FC = () => {
             <QueryClientProvider client={queryClient}>
                 <PopupProvider>
                     <Navbar />
-                    <Header
-                        key={`env-${currentEnvironment?.id || 'none'}`}
-                        environment={currentEnvironment}
-                        isLoading={envLoading}
-                        accountId={accountDetails?.id}
-                    />
+                    <WorkspaceProvider>
+                        <Header
+                            key={`env-${currentEnvironment?.id || 'none'}`}
+                            environment={currentEnvironment}
+                            isLoading={envLoading}
+                            accountId={accountDetails?.id}
+                        />
+                    </WorkspaceProvider>
                     <Footer />
                     <PopupDisplay />
                 </PopupProvider>

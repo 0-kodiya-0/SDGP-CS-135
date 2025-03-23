@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 // Define the feature types
-export type FeatureType = 'contacts' | 'files' | 'calendar' | 'mail' | 'default';
+export type FeatureType = 'contacts' | 'files' | 'calendar' | 'mail' | 'default' | 'workspace';
 
 // Define the context type
 interface FeatureContextType {
