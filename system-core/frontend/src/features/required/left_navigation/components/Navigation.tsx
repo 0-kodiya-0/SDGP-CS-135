@@ -2,6 +2,7 @@ import { Panel } from 'react-resizable-panels';
 import { DetailPane } from './DetailPane.tsx';
 import { SummaryBar } from './SummaryBar.tsx';
 import { Environment } from '../../../default/environment/types/types.data.ts';
+import { FeatureProvider } from '../context/FeatureContext.tsx';
 
 interface NavigationProps {
   environment: Environment;
@@ -12,13 +13,13 @@ interface NavigationProps {
 
 export function Navigation({ environment, summaryBarClassName, detailPaneClassName, accountId }: NavigationProps) {
   return (
-    <>
+    <FeatureProvider>
       <div className={`${summaryBarClassName}`}>
         <SummaryBar className='w-full h-full' />
       </div>
       <Panel defaultSize={20} minSize={5} collapsible={true} collapsedSize={1} className="h-full">
         <DetailPane environment={environment} className={`${detailPaneClassName}`} accountId={accountId} />
       </Panel>
-    </>
+    </FeatureProvider>
   );
 }
