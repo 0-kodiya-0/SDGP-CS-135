@@ -2,6 +2,7 @@ from huggingface_hub import InferenceClient
 from django.conf import settings
 import asyncio
 
+
 class HuggingFaceService:
     def __init__(self, api_key=None, model_id=None):
         self.api_key = api_key or settings.HUGGINGFACE_API_KEY
