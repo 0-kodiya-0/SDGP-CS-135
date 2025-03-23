@@ -18,6 +18,7 @@ import UploadComponent from "./UploadComponent";
 import CreateFile from "./CreateFile";
 import { useTabs } from "../../../required/tab_view";
 import { Environment } from "../../environment";
+import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 
 // Ensuring SummaryView only has allowed parameters
 interface SummaryViewProps {
@@ -39,6 +40,9 @@ export default function SummaryView({
 
   // Using a Record<string, string> is more efficient for simple key-value storage than Map
   const [tabIdFileNameAssociations, setTabIdFileNameAssociations] = useState<Record<string, string>>({});
+  
+  // Delete
+  const [deleteFileName, setDeleteFileName] = useState<string | null>(null);
 
   // Track if upload modal is open
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -65,19 +69,11 @@ export default function SummaryView({
     }
   }, [activeTabId, tabIdFileNameAssociations]);
 
-  const handleDeleteFile = async (e: React.MouseEvent, fileName: string) => {
+  const handleDeleteFile = (e: React.MouseEvent, fileName: string) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
-      await deleteFile(fileName);
-      if (selectedFileName === fileName) {
-        setSelectedFileName(null);
-        // Close the tab if it exists
-        const tabId = `file-${fileName}`;
-        closeTab(tabId);
-      }
-      handleFileChange();
-    }
-  };
+    // Instead of using window.confirm, set the deleteFileName state.
+    setDeleteFileName(fileName);
+  };  
 
   const handleDownload = (e: React.MouseEvent, file: UploadedFile) => {
     e.stopPropagation();
@@ -120,7 +116,17 @@ export default function SummaryView({
   const findTabIdByFileName = (fileName: string): string | undefined => {
     for (const [tabId, fname] of Object.entries(tabIdFileNameAssociations)) {
       if (fname === fileName) {
-        return tabId;
+        // Check if the tab still exists in the current tabs list
+        if (tabs.some(tab => tab.id === tabId)) {
+          return tabId;
+        } else {
+          // Remove stale association if the tab is no longer open
+          setTabIdFileNameAssociations(prev => {
+            const updated = { ...prev };
+            delete updated[tabId];
+            return updated;
+          });
+        }
       }
     }
     return undefined;
@@ -129,7 +135,7 @@ export default function SummaryView({
   // Helper function to create a new file tab
   const createNewFileTab = (fileName: string) => {
     setSelectedFileName(fileName);
-
+  
     // Add the file to a tab
     const tabId = addTab(fileName, (
       <DetailView
@@ -137,13 +143,13 @@ export default function SummaryView({
         onFileUploaded={handleFileChange}
       />
     ));
-
+  
     // Update the associations
     setTabIdFileNameAssociations(prev => ({
       ...prev,
       [tabId]: fileName
     }));
-
+  
     return tabId;
   };
 
@@ -271,6 +277,42 @@ export default function SummaryView({
         )}
       </div>
 
+      {/* Render the DeleteConfirmationDialog */}
+      {deleteFileName && (
+        <DeleteConfirmationDialog
+        isOpen={!!deleteFileName}
+        fileName={deleteFileName}
+        onConfirm={async () => {
+          // Delete the file using your file handling hook
+          await deleteFile(deleteFileName);
+
+          // Iterate through tab associations and close any tab that has the deleted file open
+          Object.entries(tabIdFileNameAssociations).forEach(([tabId, fName]) => {
+            if (fName === deleteFileName) {
+              closeTab(tabId);
+              // Remove this association from state
+              setTabIdFileNameAssociations(prev => {
+                const updated = { ...prev };
+                delete updated[tabId];
+                return updated;
+              });
+            }
+          });
+
+          // Clear the selected file if it's the one being deleted
+          if (selectedFileName === deleteFileName) {
+            setSelectedFileName(null);
+          }
+
+          // Clear deleteFileName to close the dialog and refresh file list
+            setDeleteFileName(null);
+            handleFileChange();
+          }}
+          onCancel={() => setDeleteFileName(null)}
+        />
+      )}
+
+
       {/* Render modals at the root level for proper overlay */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50">
@@ -279,6 +321,7 @@ export default function SummaryView({
               handleFileChange();
               setIsUploadModalOpen(false);
             }}
+            onClose={() => setIsUploadModalOpen(false)}  // Make sure this is provided!
           />
         </div>
       )}
