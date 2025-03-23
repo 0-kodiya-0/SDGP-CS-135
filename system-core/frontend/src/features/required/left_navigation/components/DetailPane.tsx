@@ -7,6 +7,7 @@ const ContactsFeature = lazy(() => import('../../../default/contacts/components/
 const FilesFeature = lazy(() => import('../../../default/files/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const CalendarFeature = lazy(() => import('../../../default/calender/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const MailFeature = lazy(() => import('../../../default/mail/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const WorkspaceFeature = lazy(() => import('../../../required/workspace/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
 export interface DetailPaneProps {
@@ -33,6 +34,8 @@ export function DetailPane({ environment, className, accountId }: DetailPaneProp
         return <CalendarFeature accountId={accountId} />;
       case 'mail':
         return <MailFeature accountId={accountId} />;
+      case 'workspace':
+        return <WorkspaceFeature accountId={accountId} />
       default:
         return <DefaultFeature accountId={accountId} />;
     }
