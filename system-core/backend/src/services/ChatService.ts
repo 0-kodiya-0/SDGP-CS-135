@@ -115,4 +115,19 @@ export class ChatService {
       read: false
     });
   }
+
+  // Delete a conversation
+  async deleteConversation(conversationId: string): Promise<boolean> {
+    try {
+      // Delete all messages in the conversation
+      await Message.deleteMany({ conversationId: new mongoose.Types.ObjectId(conversationId) });
+      
+      // Delete the conversation
+      const result = await Conversation.findByIdAndDelete(conversationId);
+      return !!result;
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      return false;
+    }
+  }
 } 

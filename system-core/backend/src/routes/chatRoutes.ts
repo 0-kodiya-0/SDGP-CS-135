@@ -116,6 +116,28 @@ router.delete('/conversations/:conversationId/participants/:userId', async (req:
   }
 });
 
+// Delete a conversation
+router.delete('/conversations/:conversationId', async (req: Request<{ conversationId: string }>, res: Response) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.session?.accounts[0]?.accountId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const success = await chatService.deleteConversation(conversationId);
+    if (!success) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
 // Get unread message count
 router.get('/messages/unread/count', async (req: AuthenticatedRequest, res: Response) => {
   try {

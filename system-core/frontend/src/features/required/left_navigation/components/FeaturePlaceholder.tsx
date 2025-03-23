@@ -1,18 +1,15 @@
 import React from 'react';
-import { LucideIcon, FileQuestion, Mail } from 'lucide-react';
-import { Environment } from '../../../default/environment';
+import { LucideIcon, FileQuestion } from 'lucide-react';
 
 interface FeaturePlaceholderProps {
   featureName?: string;
   icon?: LucideIcon;
-  environment?: Environment;
-  accountId: string;
+  accountId?: string;
 }
 
 const FeaturePlaceholder: React.FC<FeaturePlaceholderProps> = ({ 
   featureName = 'Feature', 
   icon: Icon = FileQuestion,
-  environment,
   accountId 
 }) => {
   return (

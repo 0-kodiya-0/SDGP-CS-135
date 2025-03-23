@@ -1,4 +1,4 @@
-import { Calendar, File, Mail, Users } from 'lucide-react';
+import { Calendar, File, Mail, Users, MessageCircle } from 'lucide-react';
 import { SummarySection } from './SummarySection';
 import { useFeature, FeatureType } from '../context/FeatureContext';
 
@@ -61,6 +61,14 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           featureType="calendar"
           onSelect={() => handleFeatureSelect('calendar')}
           isActive={isActive('calendar')}
+        />
+        <SummarySection
+          icon={<MessageCircle className="w-6 h-6" />}
+          title="Chat"
+          featureComponent={null}
+          featureType="chat"
+          onSelect={() => handleFeatureSelect('chat')}
+          isActive={isActive('chat')}
         />
       </div>
     </div>
