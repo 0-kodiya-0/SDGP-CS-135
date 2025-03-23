@@ -12,46 +12,48 @@ export function useEnhancedCalendarEvents(accountId: string): UseCalendarEventsR
         timeMax: string
     ) => Promise<void>;
 } {
-    // Get the original hook
+    // Use the base hook
     const calendarEvents = useCalendarEvents(accountId);
-    // Get the original events state
+    // Local state for merged events
     const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
 
     /**
-     * Fetch events from multiple calendars
+     * Fetch events from multiple calendars and merge the results.
      */
     const fetchEventsFromCalendars = useCallback(
         async (calendarIds: string[], timeMin: string, timeMax: string): Promise<void> => {
-            if (calendarIds.length === 0) return;
+            if (calendarIds.length === 0) {
+                setAllEvents([]);
+                return;
+            }
 
-            // Clear existing events
-            setAllEvents([]);
+            let mergedEvents: CalendarEvent[] = [];
 
-            // Fetch events from each calendar
+            // For each calendar ID, fetch events and merge them.
             for (const calendarId of calendarIds) {
                 try {
-                    const event = await calendarEvents.listEvents({
+                    const eventsFromCalendar = await calendarEvents.listEvents({
                         calendarId,
                         timeMin,
                         timeMax,
                         singleEvents: true,
                         orderBy: 'startTime'
                     });
-
-                    // Append these events to our state
-                    // Since listEvents updates its own internal state, we need to get the events another way
-                    // This is where we would ideally modify the hook, but we'll use a different approach
+                    mergedEvents = mergedEvents.concat(eventsFromCalendar);
                 } catch (error) {
                     console.error(`Error fetching events for calendar ${calendarId}:`, error);
                 }
             }
+
+            setAllEvents(mergedEvents);
         },
-        [accountId, calendarEvents]
+        [calendarEvents]
     );
 
-    // Return the enhanced hook
+    // Return the enhanced hook, overriding the 'events' property with the merged events.
     return {
         ...calendarEvents,
+        events: allEvents,
         fetchEventsFromCalendars
     };
 }

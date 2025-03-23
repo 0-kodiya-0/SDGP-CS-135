@@ -5,8 +5,9 @@ import '@toast-ui/calendar/dist/toastui-calendar.min.css';
 import CreateEventView from './CreateEventView';
 import CalendarEventView from './CalendarEventView';
 import { useTabs } from '../../../required/tab_view';
-import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
 import { useCalendarList } from '../hooks/useCalendarList.google';
+import { useEnhancedCalendarEvents } from '../hooks/useEnhancedCalendarEvents';
+
 
 interface CalendarViewProps {
     accountId: string;
@@ -20,7 +21,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
     const [showCalendarSelector, setShowCalendarSelector] = useState(false);
 
     const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
-    const { events, loading: loadingEvents, error: eventsError, listEvents } = useCalendarEvents(accountId);
+    const { events, loading: loadingEvents, error: eventsError, fetchEventsFromCalendars } = useEnhancedCalendarEvents(accountId);
     const { addTab } = useTabs();
 
     // Format the date for display in the header
@@ -57,42 +58,36 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
 
     // Refresh events when view or date changes
     const refreshEvents = (date: Date) => {
-        // Calculate date range based on view
+        // Calculate date range based on view (same as before)
         let timeMin: Date, timeMax: Date;
         const year = date.getFullYear();
         const month = date.getMonth();
-
+    
         if (view === 'month') {
-            // For month view, get the entire month plus padding weeks
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
-
-            // Adjust to include previous/next month days that appear in the calendar view
-            const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const firstDayOfWeek = firstDay.getDay();
             const lastDayOfWeek = lastDay.getDay();
-
             timeMin = new Date(year, month, 1 - firstDayOfWeek);
             timeMax = new Date(year, month + 1, 6 - lastDayOfWeek);
         } else if (view === 'week') {
-            // For week view, get current week (Sunday to Saturday)
             const day = date.getDate();
             const dayOfWeek = date.getDay();
             timeMin = new Date(year, month, day - dayOfWeek);
             timeMax = new Date(year, month, day + (6 - dayOfWeek), 23, 59, 59);
         } else {
-            // For day view, get just the selected day
             timeMin = new Date(year, month, date.getDate());
             timeMax = new Date(year, month, date.getDate(), 23, 59, 59);
         }
-
-        // Fetch events for the calculated date range
-        listEvents({
-            timeMin: timeMin.toISOString(),
-            timeMax: timeMax.toISOString(),
-            singleEvents: true,
-            orderBy: 'startTime'
-        });
+    
+        // Use the enhanced hook to fetch events for all selected calendars
+        fetchEventsFromCalendars(
+            selectedCalendarIds,
+            timeMin.toISOString(),
+            timeMax.toISOString()
+        );
     };
+    
 
     // Navigate to previous period
     const handlePrev = () => {
@@ -135,8 +130,8 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
 
     // Handle event click
     const handleEventClick = (event: any) => {
-        const eventId = event.id;
-        addTab(`Event: ${event.title || 'Untitled'}`, <CalendarEventView accountId={accountId} eventId={eventId} />);
+        const eventDetails = event.event;
+        addTab(`Event: ${event.title || 'Untitled'}`, <CalendarEventView accountId={accountId} eventId={eventDetails.id} calendarId={eventDetails.calendarId}/>);
     };
 
     // Toggle all calendars
