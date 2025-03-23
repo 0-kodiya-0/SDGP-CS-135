@@ -1,6 +1,6 @@
-import { useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, File, Mail, Users } from 'lucide-react';
 import { SummarySection } from './SummarySection';
+import { useFeature, FeatureType } from '../context/FeatureContext';
 
 interface SummaryBarProps {
   className?: string;
@@ -8,30 +8,22 @@ interface SummaryBarProps {
 }
 
 export function SummaryBar({ className, accountId }: SummaryBarProps) {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { selectFeature, currentFeature } = useFeature();
 
-  // Extract the current feature from the path
-  const currentPath = location.pathname;
-  const currentFeature = currentPath.split('/').pop() || '';
+  // Extract the accountId from props or use a default
+  const effectiveAccountId = accountId || 'default';
 
-  // Extract the accountId from the URL if not provided as a prop
-  const pathSegments = location.pathname.split('/');
-  const urlAccountId = pathSegments.length >= 3 ? pathSegments[2] : null;
-  const effectiveAccountId = accountId || urlAccountId;
-
-  const handleFeatureSelect = (feature: string) => {
+  const handleFeatureSelect = (feature: FeatureType) => {
     if (!effectiveAccountId) {
       console.error('No accountId available for navigation');
       return;
     }
 
-    // Construct the full path with account ID
-    navigate(`/app/${effectiveAccountId}/${feature}`);
-    console.log(`Navigating to: /app/${effectiveAccountId}/${feature}`);
+    // Select the feature using the context function
+    selectFeature(feature);
   };
 
-  const isActive = (feature: string) => {
+  const isActive = (feature: FeatureType) => {
     return currentFeature === feature;
   };
 
@@ -43,7 +35,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           title="Contacts"
           featureComponent={null}
           featureType="contacts"
-          onSelect={handleFeatureSelect}
+          onSelect={() => handleFeatureSelect('contacts')}
           isActive={isActive('contacts')}
         />
         <SummarySection
@@ -51,7 +43,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           title="Mail"
           featureComponent={null}
           featureType="mail"
-          onSelect={handleFeatureSelect}
+          onSelect={() => handleFeatureSelect('mail')}
           isActive={isActive('mail')}
         />
         <SummarySection
@@ -59,7 +51,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           title="Files"
           featureComponent={null}
           featureType="files"
-          onSelect={handleFeatureSelect}
+          onSelect={() => handleFeatureSelect('files')}
           isActive={isActive('files')}
         />
         <SummarySection
@@ -67,7 +59,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           title="Calendar"
           featureComponent={null}
           featureType="calendar"
-          onSelect={handleFeatureSelect}
+          onSelect={() => handleFeatureSelect('calendar')}
           isActive={isActive('calendar')}
         />
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Environment } from '../../../default/environment/types/types.data';
 import { Loader2 } from 'lucide-react';
+import { useFeature } from '../context/FeatureContext';
 
 const ContactsFeature = lazy(() => import('../../../default/contacts/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const FilesFeature = lazy(() => import('../../../default/files/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
@@ -16,17 +16,13 @@ export interface DetailPaneProps {
 }
 
 export function DetailPane({ environment, className, accountId }: DetailPaneProps) {
-  const location = useLocation();
-
-  // Extract the current feature from the path
-  const pathSegments = location.pathname.split('/');
-  const currentFeature = pathSegments[pathSegments.length - 1];
+  const { currentFeature } = useFeature();
 
   useEffect(() => {
     console.log(`[DetailPane] Loading feature: ${currentFeature}`);
   }, [currentFeature]);
 
-  // Determine which component to render based on the URL path
+  // Determine which component to render based on the selected feature
   const renderFeatureComponent = () => {
     switch (currentFeature) {
       case 'contacts':
