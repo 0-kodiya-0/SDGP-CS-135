@@ -14,7 +14,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
   // Extract the current feature from the path
   const currentPath = location.pathname;
   const currentFeature = currentPath.split('/').pop() || '';
-  
+
   // Extract the accountId from the URL if not provided as a prop
   const pathSegments = location.pathname.split('/');
   const urlAccountId = pathSegments.length >= 3 ? pathSegments[2] : null;
@@ -25,7 +25,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
       console.error('No accountId available for navigation');
       return;
     }
-    
+
     // Construct the full path with account ID
     navigate(`/app/${effectiveAccountId}/${feature}`);
     console.log(`Navigating to: /app/${effectiveAccountId}/${feature}`);
