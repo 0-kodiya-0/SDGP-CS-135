@@ -7,7 +7,6 @@ import { UploadedFile } from "../hooks/useFileHandling";
 
 interface FilePreviewProps {
   file: UploadedFile;
-  onBack: () => void;
   onFileUpdated: () => void;
   onSelectFile: (fileName: string) => void;
 }
@@ -18,20 +17,15 @@ const codeFileExtensions = [
   "rb", "rs", "swift", "kt", "yaml", "toml", "ini", "dockerfile"
 ];
 
-export const FilePreview = ({ file, onBack, onFileUpdated, onSelectFile }: FilePreviewProps) => {
+export const FilePreview = ({ file, onFileUpdated, onSelectFile }: FilePreviewProps) => {
   const [lastSelectedFile, setLastSelectedFile] = useState<string | null>(null);
-  
+
   useEffect(() => {
     // Keep track of the currently opened file
     if (file) {
       setLastSelectedFile(file.name);
     }
   }, [file]);
-
-  const handleBack = () => {
-    // Pass the last selected file name so we can reopen it if needed
-    onBack();
-  };
 
   const isCodeFile = codeFileExtensions.some(ext =>
     file.name.toLowerCase().endsWith(`.${ext}`)
@@ -41,18 +35,17 @@ export const FilePreview = ({ file, onBack, onFileUpdated, onSelectFile }: FileP
   // Common props for all editor types
   const editorProps = {
     file,
-    onBack: handleBack,
     onFileUpdated,
     onSelectOtherFile: onSelectFile,
     lastSelectedFile
   };
 
   if (file.type.startsWith("image/")) {
-    return <ImageViewer file={file} onBack={handleBack} onImageUpdated={onFileUpdated} onSelectOtherFile={onSelectFile} />;
+    return <ImageViewer file={file} onImageUpdated={onFileUpdated} onSelectOtherFile={onSelectFile} />;
   }
 
   if (file.type === "application/pdf") {
-    return <PDFViewer file={file} onBack={handleBack} />;
+    return <PDFViewer file={file} />;
   }
 
   if (isPlainText) {
@@ -66,9 +59,6 @@ export const FilePreview = ({ file, onBack, onFileUpdated, onSelectFile }: FileP
   return (
     <div className="w-full h-full flex flex-col">
       <div className="p-3 bg-white shadow flex items-center">
-        <button onClick={handleBack} className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-          ← Back
-        </button>
         <span className="ml-4 font-semibold">{file.name}</span>
       </div>
       <div className="flex-grow flex items-center justify-center p-4">

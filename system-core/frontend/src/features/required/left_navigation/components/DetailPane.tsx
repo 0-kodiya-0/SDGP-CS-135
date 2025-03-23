@@ -4,15 +4,13 @@ import { Environment } from '../../../default/environment/types/types.data';
 import { Loader2 } from 'lucide-react';
 
 const ContactsFeature = lazy(() => import('../../../default/contacts/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const FilesFeature = lazy(() => import('../../../default/files/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
 export interface DetailPaneProps {
   environment: Environment;
   accountId: string;
   className?: string;
-  refreshTrigger: number;
-  onFileChange: () => void;
-  onFileSelect: (fileName: string | null) => void;
 }
 
 export function DetailPane({ environment, className, accountId }: DetailPaneProps) {
@@ -31,6 +29,8 @@ export function DetailPane({ environment, className, accountId }: DetailPaneProp
     switch (currentFeature) {
       case 'contacts':
         return <ContactsFeature accountId={accountId} />;
+      case 'files':
+        return <FilesFeature accountId={accountId} />;
       default:
         return;
     }

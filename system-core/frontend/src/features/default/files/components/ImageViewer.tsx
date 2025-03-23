@@ -1,21 +1,19 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ImageEditor from "tui-image-editor";
 import "tui-image-editor/dist/tui-image-editor.css";
-import { FiArrowLeft, FiSave, FiX, FiCheck } from "react-icons/fi";
+import { FiSave, FiCheck } from "react-icons/fi";
 import { UploadedFile, useFileHandling } from "../hooks/useFileHandling";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 
 interface ImageViewerProps {
   file: UploadedFile;
-  onBack: () => void;
   onImageUpdated: () => void;
   onSelectOtherFile?: (fileName: string) => void;
 }
 
 export const ImageViewer = ({
   file,
-  onBack,
   onImageUpdated,
   onSelectOtherFile
 }: ImageViewerProps) => {
@@ -184,15 +182,6 @@ export const ImageViewer = ({
     }
   };
 
-  const handleBackWithCheck = () => {
-    if (hasUnsavedChanges) {
-      setPendingOperation(() => onBack);
-      openUnsavedDialog();
-    } else {
-      onBack();
-    }
-  };
-
   const handleDiscard = () => {
     setHasUnsavedChanges(false);
     closeUnsavedDialog();
@@ -207,13 +196,7 @@ export const ImageViewer = ({
     <div className="flex flex-col w-full h-full bg-gray-100 p-4">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white p-3 rounded-lg shadow">
         <div className="flex items-center">
-          <button
-            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            onClick={handleBackWithCheck}
-          >
-            ← Back
-          </button>
-          <span className="font-semibold text-lg text-gray-800 truncate max-w-[300px] ml-4">
+          <span className="font-semibold text-lg text-gray-800 truncate max-w-[300px]">
             {file.name}
           </span>
 

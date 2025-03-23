@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { FiSave, FiChevronLeft } from 'react-icons/fi';
+import { FiSave } from 'react-icons/fi';
 import { UploadedFile, useFileHandling } from '../hooks/useFileHandling';
 import UnsavedChangesDialog from './UnsavedChangesDialog';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 interface TextEditorProps {
   file: UploadedFile;
-  onBack: () => void;
   onFileUpdated: () => void;
   onSelectOtherFile?: (fileName: string) => void;
 }
 
 export const TextEditor: React.FC<TextEditorProps> = ({
   file,
-  onBack,
   onFileUpdated,
   onSelectOtherFile
 }) => {
@@ -116,15 +114,6 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     }
   };
 
-  const handleBackWithCheck = () => {
-    if (hasUnsavedChanges) {
-      setPendingOperation(() => onBack);
-      openUnsavedDialog();
-    } else {
-      onBack();
-    }
-  };
-
   const handleDiscard = () => {
     setContent(originalContent);
     setHasUnsavedChanges(false);
@@ -141,22 +130,15 @@ export const TextEditor: React.FC<TextEditorProps> = ({
       {/* Header */}
       <div className="p-3 bg-white shadow flex items-center justify-between">
         <div className="flex items-center">
-          <button
-            onClick={handleBackWithCheck}
-            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
-          >
-            <FiChevronLeft /> Back
-          </button>
           <span className="ml-4 font-semibold">{file.name}</span>
         </div>
         <button
           onClick={handleSave}
           disabled={!hasUnsavedChanges}
-          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-            hasUnsavedChanges
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${hasUnsavedChanges
               ? 'bg-green-500 text-white hover:bg-green-600'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          } transition-colors`}
+            } transition-colors`}
         >
           <FiSave /> Save
         </button>

@@ -6,10 +6,9 @@ import { useFileHandling } from "../hooks/useFileHandling";
 interface DetailViewProps {
   selectedFile: string | null;
   onFileUploaded: () => void;
-  onBack: () => void;
 }
 
-export default function DetailView({ selectedFile, onFileUploaded, onBack }: DetailViewProps) {
+export default function DetailView({ selectedFile, onFileUploaded }: DetailViewProps) {
   const { readFile, isLoading } = useFileHandling();
   const [fileData, setFileData] = useState<Awaited<ReturnType<typeof readFile>>>(null);
 
@@ -48,7 +47,6 @@ export default function DetailView({ selectedFile, onFileUploaded, onBack }: Det
       ) : selectedFile && fileData ? (
         <FilePreview
           file={fileData}
-          onBack={onBack}
           onFileUpdated={handleFileUpdated}
           onSelectFile={loadSelectedFile}
         />

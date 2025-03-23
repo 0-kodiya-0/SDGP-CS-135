@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { FiArrowLeft } from "react-icons/fi";
 
 interface UploadedFile {
   name: string;
@@ -9,10 +8,9 @@ interface UploadedFile {
 
 interface PDFViewerProps {
   file: UploadedFile;
-  onBack: () => void;
 }
 
-export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
+export const PDFViewer = ({ file }: PDFViewerProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,21 +54,11 @@ export const PDFViewer = ({ file, onBack }: PDFViewerProps) => {
     <div className="flex flex-col w-full h-full">
       {/* Header */}
       <div className="bg-white shadow p-3 flex items-center">
-        <button
-          className="px-3 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          onClick={onBack}
-          aria-label="Go back"
-        >
-          <FiArrowLeft /> Back
-        </button>
-
-        <div className="flex-grow text-center">
+        <div className="flex-grow">
           <span className="font-semibold text-lg text-gray-800 truncate max-w-sm inline-block" title={file.name}>
             {file.name}
           </span>
         </div>
-
-        <div className="w-16" /> {/* Spacer */}
       </div>
 
       {/* PDF Viewer */}

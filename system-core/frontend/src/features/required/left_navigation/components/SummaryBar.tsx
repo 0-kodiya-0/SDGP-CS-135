@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { File, Users } from 'lucide-react';
 import { SummarySection } from './SummarySection';
 
 interface SummaryBarProps {
@@ -45,6 +45,14 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           featureType="contacts"
           onSelect={handleFeatureSelect}
           isActive={isActive('contacts')}
+        />
+        <SummarySection
+          icon={<File className="w-6 h-6" />}
+          title="Files"
+          featureComponent={null}
+          featureType="files"
+          onSelect={handleFeatureSelect}
+          isActive={isActive('files')}
         />
       </div>
     </div>

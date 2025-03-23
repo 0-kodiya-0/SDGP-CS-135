@@ -3,7 +3,6 @@ import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Navigation } from "../../features/required/left_navigation";
 import { Loader2 } from "lucide-react";
 import { Environment } from "../../features/default/environment/types/types.data";
-import { useEffect } from "react";
 import { TabProvider, TabView } from "../../features/required/tab_view";
 
 
