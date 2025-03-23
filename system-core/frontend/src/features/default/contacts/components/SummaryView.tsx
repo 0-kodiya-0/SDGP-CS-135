@@ -2,27 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Search, Plus, Users, X, Phone, MessageCircle } from 'lucide-react';
 import CreateContactForm from './CreateContactForms';
 import GroupView from './GroupView';
+import ExpandView from './ExpandView';
+import GroupDetailView from './GroupDetailView';
 import CreateGroupForm from './CreateGroupForms';
 import { useContacts } from '../hooks/useContacts.google';
-import { PersonType } from '../types/types.data';
-
-interface ContactGroup {
-  resourceName: string;
-  etag: string;
-  groupType: string;
-  name: string;
-  formattedName: string;
-  description?: string;
-  memberCount: number;
-  memberResourceNames?: string[];
-}
+import { PersonType, ContactGroupType } from '../types/types.data';
+import { useTabs } from '../../../required/tab_view';
 
 interface SummaryViewProps {
   accountId: string;
-  onContactSelect?: (contact: PersonType) => void;
+  compact?: boolean;
 }
 
-const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect }) => {
+const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false }) => {
   const {
     contacts,
     loading,
@@ -31,12 +23,21 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
     fetchContacts,
   } = useContacts(accountId);
   
+  // Use the tabs hook
+  const { addTab, updateTab, closeTab, setActiveTab: setActiveTabInContext, tabs } = useTabs();
+  
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'groups'>('all');
+  const [activeSummaryTab, setActiveSummaryTab] = useState<'all' | 'groups'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isCreateContactModalOpen, setIsCreateContactModalOpen] = useState<boolean>(false);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState<boolean>(false);
+  
+  // Keep track of our main content tab ID
+  const [mainTabId, setMainTabId] = useState<string | null>(null);
+  
+  // Track current tab content type
+  const [currentTabContent, setCurrentTabContent] = useState<'contact' | 'group' | null>(null);
 
   useEffect(() => {
     fetchContacts();
@@ -80,9 +81,48 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
 
   const handleContactClick = (contact: PersonType) => {
     setSelectedContactId(contact.resourceName || null);
-    if (onContactSelect) {
-      onContactSelect(contact);
+    
+    // Get the contact name for the tab title
+    const contactName = contact.names?.[0]?.displayName || 'Unnamed Contact';
+    
+    // Create the tab content with the selected contact
+    const tabContent = (
+      <ExpandView 
+        selectedContact={contact} 
+        accountId={accountId} 
+        onContactDeleted={() => {
+          fetchContacts();
+          // If the current contact is deleted, close its tab
+          if (mainTabId) {
+            closeTab(mainTabId);
+            setMainTabId(null);
+            setCurrentTabContent(null);
+          }
+        }}
+        onContactUpdated={() => {
+          fetchContacts();
+        }}
+      />
+    );
+    
+    // Check if we already have a main tab
+    if (mainTabId) {
+      // Update the existing tab with new content and title
+      updateTab(mainTabId, {
+        title: contactName,
+        content: tabContent
+      });
+      
+      // Activate the tab
+      setActiveTabInContext(mainTabId);
+    } else {
+      // Create a new tab
+      const newTabId = addTab(contactName, tabContent);
+      setMainTabId(newTabId);
     }
+    
+    // Update current content type
+    setCurrentTabContent('contact');
   };
 
   const handleLoadMore = () => {
@@ -122,23 +162,56 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
     // Refresh the contacts list to include the new contact
     fetchContacts();
     
-    // Select the newly created contact
-    if (onContactSelect) {
-      onContactSelect(newContact);
-    }
-    setSelectedContactId(newContact.resourceName || null);
+    // Open the newly created contact in the tab
+    handleContactClick(newContact);
   };
 
-  const handleGroupSelect = (group: ContactGroup) => {
-    // Get contacts from this group and select them
-    console.log('Group selected:', group);
-    // In a real implementation, you would typically:
-    // 1. Fetch contacts belonging to this group
-    // 2. Update the contacts display to show only these contacts
-    // 3. Update UI to indicate you're viewing a group
+  const handleGroupSelect = (group: ContactGroupType) => {
+    // Get the group name for the tab title
+    const groupName = group.formattedName || group.name || "Group";
     
-    // For now we'll just log it, this would need backend implementation
+    // Create the tab content for the group
+    const tabContent = (
+      <GroupDetailView 
+        group={group} 
+        accountId={accountId} 
+        onRefresh={() => {
+          // Refresh groups list if needed
+        }}
+      />
+    );
+    
+    // Check if we already have a main tab
+    if (mainTabId) {
+      // Update the existing tab with new content and title
+      updateTab(mainTabId, {
+        title: groupName,
+        content: tabContent
+      });
+      
+      // Activate the tab
+      setActiveTabInContext(mainTabId);
+    } else {
+      // Create a new tab
+      const newTabId = addTab(groupName, tabContent);
+      setMainTabId(newTabId);
+    }
+    
+    // Update current content type
+    setCurrentTabContent('group');
   };
+
+  // When a tab is closed, check if it's our main tab and update state accordingly
+  useEffect(() => {
+    if (mainTabId && !tabs.some(tab => tab.id === mainTabId)) {
+      setMainTabId(null);
+      setCurrentTabContent(null);
+      
+      if (currentTabContent === 'contact') {
+        setSelectedContactId(null);
+      }
+    }
+  }, [tabs, mainTabId, currentTabContent]);
 
   // Google icon SVG for indicating Google-synced contacts
   const GoogleIcon = () => (
@@ -153,6 +226,49 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
   // Determine which contacts to display based on search status
   const displayedContacts = isSearching ? filteredContacts : contacts;
   const isSearchActive = isSearching && searchQuery.trim() !== '';
+
+  // Render compact view if sidebar is collapsed
+  if (compact) {
+    return (
+      <div className="w-full h-full flex flex-col bg-white">
+        <div className="p-4 border-b border-gray-200 flex justify-center">
+          <button
+            onClick={handleCreateContact}
+            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full"
+            title="Add new contact"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+          <div className="flex flex-col items-center py-4 space-y-6">
+            {displayedContacts.slice(0, 15).map((contact) => (
+              <div
+                key={contact.resourceName}
+                className={`p-2 rounded-full hover:bg-gray-100 cursor-pointer ${
+                  selectedContactId === contact.resourceName ? 'bg-blue-50' : ''
+                }`}
+                onClick={() => handleContactClick(contact)}
+                title={contact.names?.[0]?.displayName || 'Unnamed Contact'}
+              >
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                  {contact.photos && contact.photos[0]?.url ? (
+                    <img
+                      src={contact.photos[0].url}
+                      alt={contact.names?.[0]?.displayName || 'Contact'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User size={20} className="text-gray-500" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col bg-white border-r border-gray-200">
@@ -175,7 +291,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
           onGroupCreated={() => {
             // Refresh or update group list if needed
             // Switch to groups tab to show the newly created group
-            setActiveTab('groups');
+            setActiveSummaryTab('groups');
           }}
         />
       )}
@@ -185,7 +301,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Contacts</h2>
           <div className="flex space-x-2">
-            {activeTab === 'all' && (
+            {activeSummaryTab === 'all' && (
               <button 
                 className={`p-2 ${isSearching ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'} rounded-full`}
                 onClick={toggleSearch}
@@ -197,17 +313,17 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
             
             <button 
               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-              title={activeTab === 'all' ? "Add new contact" : "Create new group"}
-              onClick={activeTab === 'all' ? handleCreateContact : handleCreateGroup}
+              title={activeSummaryTab === 'all' ? "Add new contact" : "Create new group"}
+              onClick={activeSummaryTab === 'all' ? handleCreateContact : handleCreateGroup}
             >
               <Plus size={18} />
             </button>
             
-            {activeTab === 'all' && (
+            {activeSummaryTab === 'all' && (
               <button 
                 className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
                 title="Manage groups"
-                onClick={() => setActiveTab('groups')}
+                onClick={() => setActiveSummaryTab('groups')}
               >
                 <Users size={18} />
               </button>
@@ -216,7 +332,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
         </div>
 
         {/* Search input - conditionally visible when on contacts tab */}
-        {activeTab === 'all' && isSearching && (
+        {activeSummaryTab === 'all' && isSearching && (
           <div className="mb-3">
             <div className="relative">
               <input
@@ -245,21 +361,21 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
           <div className="flex border-b border-gray-200">
             <button
               className={`px-4 py-2 font-medium text-sm ${
-                activeTab === 'all' 
+                activeSummaryTab === 'all' 
                   ? 'text-blue-600 border-b-2 border-blue-600' 
                   : 'text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setActiveTab('all')}
+              onClick={() => setActiveSummaryTab('all')}
             >
               All Contacts
             </button>
             <button
               className={`px-4 py-2 font-medium text-sm ${
-                activeTab === 'groups' 
+                activeSummaryTab === 'groups' 
                   ? 'text-blue-600 border-b-2 border-blue-600' 
                   : 'text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setActiveTab('groups')}
+              onClick={() => setActiveSummaryTab('groups')}
             >
               Groups
             </button>
@@ -268,14 +384,14 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
       </div>
 
       {/* Search results indicator */}
-      {activeTab === 'all' && isSearchActive && (
+      {activeSummaryTab === 'all' && isSearchActive && (
         <div className="px-4 py-2 bg-gray-50 text-sm text-gray-600 border-b border-gray-200">
           Found {filteredContacts.length} {filteredContacts.length === 1 ? 'result' : 'results'} for "{searchQuery}"
         </div>
       )}
 
       {/* Conditional rendering based on active tab */}
-      {activeTab === 'groups' ? (
+      {activeSummaryTab === 'groups' ? (
         <GroupView 
           accountId={accountId}
           onGroupSelect={handleGroupSelect}
@@ -285,8 +401,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, onContactSelect })
         />
       ) : (
         <>
-          {/* Contact list - scrollable section */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Contact list - scrollable section with custom scrollbar */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
             {loading && displayedContacts.length === 0 ? (
               <div className="flex justify-center items-center h-32">
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>

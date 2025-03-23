@@ -49,10 +49,13 @@ export interface UserDetails {
     imageUrl?: string;
 }
 
+
 export interface TokenDetails {
     accessToken: string;
     refreshToken: string;
-    tokenCreatedAt?: string; // Timestamp when the token was created/refreshed
+    tokenCreatedAt?: string;
+    expiresAt?: string;      // Add expiresAt property
+    scope?: string;          // Add scope property
 }
 
 export interface BaseAccount {

@@ -8,6 +8,9 @@ interface NavigationProps {
   accountId: string;
   summaryBarClassName?: string;
   detailPaneClassName?: string;
+  refreshTrigger: number;
+  onFileChange: () => void;
+  onFileSelect: (fileName: string | null) => void;
 }
 
 export function Navigation({ environment, summaryBarClassName, detailPaneClassName, accountId }: NavigationProps) {

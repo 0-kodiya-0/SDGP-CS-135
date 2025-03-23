@@ -184,7 +184,7 @@ export class PeopleService {
     async getContactGroup(resourceName: string): Promise<ContactGroupType> {
         try {
             const response = await this.people.contactGroups.get({
-                resourceName,
+                resourceName: `contactGroups/${resourceName}`,
                 maxMembers: 1000
             });
 

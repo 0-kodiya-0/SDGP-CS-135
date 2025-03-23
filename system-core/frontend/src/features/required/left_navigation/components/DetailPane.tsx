@@ -10,6 +10,9 @@ export interface DetailPaneProps {
   environment: Environment;
   accountId: string;
   className?: string;
+  refreshTrigger: number;
+  onFileChange: () => void;
+  onFileSelect: (fileName: string | null) => void;
 }
 
 export function DetailPane({ environment, className, accountId }: DetailPaneProps) {

@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Folder, Settings, ChevronRight, Loader2 } from 'lucide-react';
 import CreateGroupForm from './CreateGroupForms';
-
-interface ContactGroup {
-  resourceName: string;
-  etag: string;
-  groupType: string;
-  name: string;
-  formattedName: string;
-  description?: string;
-  memberCount: number;
-  memberResourceNames?: string[];
-}
+import { useContactGroups } from '../hooks/useContactGroups.google';
+import { ContactGroupType } from '../types/types.data';
 
 interface GroupViewProps {
   accountId: string;
-  onGroupSelect?: (group: ContactGroup) => void;
+  onGroupSelect: (group: ContactGroupType) => void;
   onCreateGroupClick: () => void;
   isCreateGroupModalOpen: boolean;
   onCloseCreateGroupModal: () => void;
@@ -28,44 +19,28 @@ const GroupView: React.FC<GroupViewProps> = ({
   isCreateGroupModalOpen,
   onCloseCreateGroupModal
 }) => {
-  const [groups, setGroups] = useState<ContactGroup[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Use the useContactGroups hook instead of managing state locally
+  const {
+    groups,
+    loading,
+    error,
+    fetchGroups
+  } = useContactGroups(accountId);
+  
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   // Fetch groups when component mounts
   useEffect(() => {
     fetchGroups();
-  }, []);
+  }, [fetchGroups]);
 
-  const fetchGroups = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/accounts/${accountId}/contactGroups`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch contact groups');
-      }
-      
-      const data = await response.json();
-      setGroups(data.contactGroups || []);
-    } catch (err) {
-      console.error('Error fetching contact groups:', err);
-      setError('Failed to load contact groups. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleGroupCreated = () => {
+    // Refresh groups after a new group is created
+    fetchGroups();
   };
 
-  const handleGroupCreated = (newGroup: ContactGroup) => {
-    setGroups(prevGroups => [newGroup, ...prevGroups]);
-    fetchGroups(); // Refresh the list to ensure consistency
-  };
-
-  const handleGroupClick = (group: ContactGroup) => {
-    setSelectedGroupId(group.resourceName);
+  const handleGroupClick = (group: ContactGroupType) => {
+    setSelectedGroupId(group.resourceName || null);
     if (onGroupSelect) {
       onGroupSelect(group);
     }
@@ -94,13 +69,7 @@ const GroupView: React.FC<GroupViewProps> = ({
       {/* Header with create group button */}
       <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-800">Contact Groups</h3>
-        <button
-          onClick={onCreateGroupClick}
-          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-          title="Create new group"
-        >
-          <Plus size={18} />
-        </button>
+
       </div>
 
       {/* Groups list - scrollable section */}
@@ -113,7 +82,7 @@ const GroupView: React.FC<GroupViewProps> = ({
           <div className="p-4 text-red-500 text-center">
             <p>{error}</p>
             <button 
-              onClick={fetchGroups}
+              onClick={() => fetchGroups()}
               className="mt-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
             >
               Try Again
@@ -164,13 +133,10 @@ const GroupView: React.FC<GroupViewProps> = ({
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-700">{group.formattedName || group.name}</span>
-                          {group.memberCount > 0 && (
+                          {group.memberCount && group.memberCount > 0 && (
                             <span className="ml-2 text-xs text-gray-500">
                               ({group.memberCount} {group.memberCount === 1 ? 'contact' : 'contacts'})
                             </span>
-                          )}
-                          {group.description && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{group.description}</p>
                           )}
                         </div>
                       </div>

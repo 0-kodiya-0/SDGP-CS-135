@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express';
 import db from '../../config/db';
 import { sendSuccess, sendError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
-import { clearSession, removeAccountFromSession, validateAccountAccess } from '../../utils/session';
 import { toOAuthAccount } from './Account.utils';
+import { SessionManager, validateAccountAccess } from '../../services/session';
 
 export const router = express.Router();
 
@@ -17,7 +17,7 @@ router.get('/', (req: Request, res: Response) => {
 
 // Logout all accounts (clear entire session)
 router.get('/logout/all', (req: Request, res: Response) => {
-    clearSession(res);
+    res.clearCookie('session_token', { path: '/' });
     res.redirect('/');
 });
 
@@ -82,10 +82,39 @@ router.patch('/:accountId', async (req: Request, res: Response) => {
 
 // Remove account from session and revoke tokens
 router.delete('/:accountId', async (req: Request, res: Response) => {
-    // const { accountId } = req.params;
+    const { accountId } = req.params;
 
     try {
+        const sessionManager = SessionManager.getInstance();
+        const session = sessionManager.extractSession(req);
 
+        if (!session) {
+            sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
+            return;
+        }
+
+        // Remove account from session
+        const updatedAccounts = session.accounts.filter(acc => acc.accountId !== accountId);
+
+        // If no accounts left, clear the session
+        if (updatedAccounts.length === 0) {
+            res.clearCookie('session_token', { path: '/' });
+            sendSuccess(res, 200, { message: 'Account removed and session cleared' });
+            return;
+        }
+
+        // Update selected account if necessary
+        if (session.selectedAccountId === accountId) {
+            session.selectedAccountId = updatedAccounts[0].accountId;
+        }
+
+        // Update the session
+        const updatedSession = {
+            ...session,
+            accounts: updatedAccounts
+        };
+
+        sessionManager.createSessionToken(res, updatedSession);
         sendSuccess(res, 200, { message: 'Account removed from session' });
     } catch (error) {
         console.error(error);
@@ -157,11 +186,76 @@ router.patch('/:accountId/security', async (req: Request, res: Response) => {
 router.get('/:accountId/logout', (req: Request, res: Response) => {
     const { accountId } = req.params;
 
-    const success = removeAccountFromSession(res, req, accountId);
+    try {
+        const sessionManager = SessionManager.getInstance();
+        const session = sessionManager.extractSession(req);
 
-    if (success) {
+        if (!session) {
+            res.redirect('/');
+            return;
+        }
+
+        // Remove account from session
+        const updatedAccounts = session.accounts.filter(acc => acc.accountId !== accountId);
+
+        // If no accounts left, clear the session
+        if (updatedAccounts.length === 0) {
+            res.clearCookie('session_token', { path: '/' });
+            res.redirect('/');
+            return;
+        }
+
+        // Update selected account if necessary
+        if (session.selectedAccountId === accountId) {
+            session.selectedAccountId = updatedAccounts[0].accountId;
+        }
+
+        // Update the session
+        const updatedSession = {
+            ...session,
+            accounts: updatedAccounts
+        };
+
+        sessionManager.createSessionToken(res, updatedSession);
         res.redirect('/');
-    } else {
+    } catch (error) {
+        console.error(error);
         sendError(res, 400, ApiErrorCode.AUTH_FAILED, 'Failed to logout account');
+    }
+});
+
+// Switch active account
+router.post('/:accountId/switch', (req: Request, res: Response) => {
+    const { accountId } = req.params;
+
+    try {
+        const sessionManager = SessionManager.getInstance();
+        const session = sessionManager.extractSession(req);
+
+        if (!session) {
+            sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
+            return;
+        }
+
+        // Check if account is in session
+        const accountExists = session.accounts.some(acc => acc.accountId === accountId);
+        if (!accountExists) {
+            sendError(res, 403, ApiErrorCode.AUTH_FAILED, 'Account not found in session');
+            return;
+        }
+
+        // Update selected account
+        session.selectedAccountId = accountId;
+
+        // Update the session
+        sessionManager.createSessionToken(res, session);
+
+        sendSuccess(res, 200, {
+            message: 'Active account switched successfully',
+            selectedAccountId: accountId
+        });
+    } catch (error) {
+        console.error(error);
+        sendError(res, 500, ApiErrorCode.SERVER_ERROR, 'Failed to switch account');
     }
 });
