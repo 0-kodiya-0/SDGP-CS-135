@@ -19,6 +19,18 @@ const GroupView: React.FC<GroupViewProps> = ({
   isCreateGroupModalOpen,
   onCloseCreateGroupModal
 }) => {
+  // CSS for no-scrollbar class
+  const noScrollbarStyle = `
+    .no-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;  /* Chrome, Safari, Opera */
+    }
+  `;
+
   // Use the useContactGroups hook instead of managing state locally
   const {
     groups,
@@ -56,6 +68,8 @@ const GroupView: React.FC<GroupViewProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col bg-white">
+      <style>{noScrollbarStyle}</style>
+      
       {/* Create Group Modal */}
       {isCreateGroupModalOpen && (
         <CreateGroupForm
@@ -67,13 +81,12 @@ const GroupView: React.FC<GroupViewProps> = ({
       )}
 
       {/* Header with create group button */}
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+      {/* <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-800">Contact Groups</h3>
+      </div> */}
 
-      </div>
-
-      {/* Groups list - scrollable section */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Groups list - scrollable section with hidden scrollbar */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
         {loading ? (
           <div className="flex justify-center items-center h-32">
             <Loader2 size={24} className="animate-spin text-blue-500" />

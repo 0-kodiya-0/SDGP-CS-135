@@ -227,10 +227,23 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
   const displayedContacts = isSearching ? filteredContacts : contacts;
   const isSearchActive = isSearching && searchQuery.trim() !== '';
 
+  // Custom styles for hiding scrollbars
+  const noScrollbarStyle = `
+    .no-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;  /* Chrome, Safari, Opera */
+    }
+  `;
+
   // Render compact view if sidebar is collapsed
   if (compact) {
     return (
       <div className="w-full h-full flex flex-col bg-white">
+        <style>{noScrollbarStyle}</style>
         <div className="p-4 border-b border-gray-200 flex justify-center">
           <button
             onClick={handleCreateContact}
@@ -240,7 +253,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
             <Plus size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+        <div className="flex-1 overflow-y-auto no-scrollbar">
           <div className="flex flex-col items-center py-4 space-y-6">
             {displayedContacts.slice(0, 15).map((contact) => (
               <div
@@ -272,6 +285,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
 
   return (
     <div className="w-full h-full flex flex-col bg-white border-r border-gray-200">
+      <style>{noScrollbarStyle}</style>
+      
       {/* Create Contact Modal */}
       {isCreateContactModalOpen && (
         <CreateContactForm 
@@ -401,8 +416,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
         />
       ) : (
         <>
-          {/* Contact list - scrollable section with custom scrollbar */}
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+          {/* Contact list - scrollable section with hidden scrollbar */}
+          <div className="flex-1 overflow-y-auto no-scrollbar">
             {loading && displayedContacts.length === 0 ? (
               <div className="flex justify-center items-center h-32">
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>

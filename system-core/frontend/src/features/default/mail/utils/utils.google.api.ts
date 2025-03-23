@@ -4,84 +4,138 @@ import { GmailMessage, ParsedEmail, MessagePayload, MessagePart, SendMessagePara
  * Parse a Gmail message into a more user-friendly format
  */
 export function parseGmailMessage(message: GmailMessage): ParsedEmail {
+    // Create the base parsed email object
     const parsedEmail: ParsedEmail = {
         id: message.id,
         threadId: message.threadId,
         labelIds: message.labelIds,
         isUnread: message.labelIds?.includes('UNREAD'),
         isStarred: message.labelIds?.includes('STARRED'),
-        isImportant: message.labelIds?.includes('IMPORTANT')
+        isImportant: message.labelIds?.includes('IMPORTANT'),
+        snippet: message.snippet
     };
 
+    // If there's no payload, the message might be in the minimal format
+    // We can still use the snippet and ID, but won't have sender/subject info
     if (!message.payload) {
+        console.warn('Message has no payload, using minimal info:', message.id);
+        
+        // Set subject from snippet as a fallback
+        if (message.snippet) {
+            parsedEmail.subject = message.snippet.substring(0, 50);
+            if (message.snippet.length > 50) {
+                parsedEmail.subject += '...';
+            }
+        }
+        
+        // Set a generic sender as fallback
+        parsedEmail.from = {
+            name: 'Mail Sender',
+            email: 'mail@example.com'
+        };
+        
         return parsedEmail;
     }
 
     // Extract headers
     const headers = message.payload.headers || [];
-
+    
+    // Function to find header values case-insensitively
+    const getHeaderValue = (name: string): string | undefined => {
+        const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
+        return header?.value;
+    };
+    
     // Get subject
-    const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject');
-    if (subjectHeader) {
-        parsedEmail.subject = subjectHeader.value;
-    }
-
+    parsedEmail.subject = getHeaderValue('subject');
+    
     // Get From
-    const fromHeader = headers.find(h => h.name.toLowerCase() === 'from');
-    if (fromHeader && fromHeader.value) {
-        const matches = fromHeader.value.match(/([^<]+)?<?([^>]+)>?/);
-        if (matches) {
+    const fromValue = getHeaderValue('from');
+    if (fromValue) {
+        // Try multiple regex patterns to cover different email formats
+        let matches;
+        // Pattern for "Name <email@example.com>"
+        matches = fromValue.match(/(.+?)\s*<([^>]+)>/);
+        
+        if (matches && matches.length >= 3) {
             parsedEmail.from = {
-                name: matches[1]?.trim(),
-                email: matches[2]?.trim()
+                name: matches[1].trim(),
+                email: matches[2].trim()
             };
         } else {
-            parsedEmail.from = {
-                email: fromHeader.value.trim()
-            };
+            // Simple email pattern for "email@example.com"
+            matches = fromValue.match(/([^\s]+@[^\s]+)/);
+            if (matches && matches.length >= 2) {
+                parsedEmail.from = {
+                    email: matches[1].trim()
+                };
+            } else {
+                // Fallback - just use the whole value
+                parsedEmail.from = {
+                    email: fromValue.trim()
+                };
+            }
         }
     }
 
     // Get To
-    const toHeader = headers.find(h => h.name.toLowerCase() === 'to');
-    if (toHeader && toHeader.value) {
-        parsedEmail.to = toHeader.value.split(',').map(recipient => {
-            const matches = recipient.match(/([^<]+)?<?([^>]+)>?/);
-            if (matches) {
+    const toValue = getHeaderValue('to');
+    if (toValue) {
+        parsedEmail.to = toValue.split(',').map(recipient => {
+            let matches = recipient.match(/(.+?)\s*<([^>]+)>/);
+            if (matches && matches.length >= 3) {
                 return {
-                    name: matches[1]?.trim(),
-                    email: matches[2]?.trim()
+                    name: matches[1].trim(),
+                    email: matches[2].trim()
                 };
             } else {
-                return {
-                    email: recipient.trim()
-                };
+                matches = recipient.match(/([^\s]+@[^\s]+)/);
+                if (matches && matches.length >= 2) {
+                    return {
+                        email: matches[1].trim()
+                    };
+                } else {
+                    return {
+                        email: recipient.trim()
+                    };
+                }
             }
         });
     }
 
     // Get CC
-    const ccHeader = headers.find(h => h.name.toLowerCase() === 'cc');
-    if (ccHeader && ccHeader.value) {
-        parsedEmail.cc = ccHeader.value.split(',').map(recipient => {
-            const matches = recipient.match(/([^<]+)?<?([^>]+)>?/);
-            if (matches) {
+    const ccValue = getHeaderValue('cc');
+    if (ccValue) {
+        parsedEmail.cc = ccValue.split(',').map(recipient => {
+            let matches = recipient.match(/(.+?)\s*<([^>]+)>/);
+            if (matches && matches.length >= 3) {
                 return {
-                    name: matches[1]?.trim(),
-                    email: matches[2]?.trim()
+                    name: matches[1].trim(),
+                    email: matches[2].trim()
                 };
             } else {
-                return {
-                    email: recipient.trim()
-                };
+                matches = recipient.match(/([^\s]+@[^\s]+)/);
+                if (matches && matches.length >= 2) {
+                    return {
+                        email: matches[1].trim()
+                    };
+                } else {
+                    return {
+                        email: recipient.trim()
+                    };
+                }
             }
         });
     }
 
     // Get Date
-    const dateHeader = headers.find(h => h.name.toLowerCase() === 'date');
-    if (dateHeader) {
-        parsedEmail.date = new Date(dateHeader.value);
+    const dateValue = getHeaderValue('date');
+    if (dateValue) {
+        try {
+            parsedEmail.date = new Date(dateValue);
+        } catch (error) {
+            console.error('Error parsing date:', dateValue, error);
+        }
     }
 
     // Extract body and attachments
@@ -110,9 +164,7 @@ export function parseGmailMessage(message: GmailMessage): ParsedEmail {
     }
 
     // Process the message payload
-    if (message.payload) {
-        processParts(message.payload);
-    }
+    processParts(message.payload);
 
     return parsedEmail;
 }
