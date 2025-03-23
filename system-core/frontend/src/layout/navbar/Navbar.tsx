@@ -4,6 +4,7 @@ import { MenuButton } from './MenuButton';
 import { EnvironmentButton } from '../../features/default/environment';
 import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
 import { NavbarSearch } from '../../features/shared/search';
+import { NotificationIcon } from '../../features/chat/components/NotificationIcon';
 
 export function Navbar() {
   const accountPopup = usePopup();
@@ -41,6 +42,7 @@ export function Navbar() {
         {/* Main content section */}
         <div className="flex-1 flex items-center justify-end px-4 space-x-2">
           <NavbarSearch />
+          <NotificationIcon />
           <button
             className="p-1.5 hover:bg-gray-100 rounded"
             aria-label="Settings"
