@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, SquarePlus, Loader2, Check, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SquarePlus, Loader2, Check, Filter, RefreshCcw, CalendarPlus } from 'lucide-react';
 import Calendar from '@toast-ui/react-calendar';
 import '@toast-ui/calendar/dist/toastui-calendar.min.css';
 import CreateEventView from './CreateEventView';
@@ -7,6 +7,7 @@ import CalendarEventView from './CalendarEventView';
 import { useTabs } from '../../../required/tab_view';
 import { useCalendarList } from '../hooks/useCalendarList.google';
 import { useEnhancedCalendarEvents } from '../hooks/useEnhancedCalendarEvents';
+import CreateCalendarView from './CreateCalendarView';
 
 
 interface CalendarViewProps {
@@ -216,6 +217,13 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                         >
                             Today
                         </button>
+                        <button
+                            onClick={() => refreshEvents(currentDate)}
+                            className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
+                            title="Refresh"
+                        >
+                            <RefreshCcw className="w-5 h-5" />
+                        </button>
                     </div>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -339,6 +347,14 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                     >
                         <SquarePlus className="w-4 h-4 mr-1" />
                         New Event
+                    </button>
+
+                    <button
+                        onClick={() => addTab("Create Calendar", <CreateCalendarView accountId={accountId} />)}
+                        className="flex items-center px-3 py-1 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded"
+                    >
+                        <CalendarPlus className="w-4 h-4 mr-1" />
+                        New Calendar
                     </button>
                 </div>
             </div>
