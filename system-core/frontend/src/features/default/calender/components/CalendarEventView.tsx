@@ -9,9 +9,10 @@ import EditEventView from './EditEventView';
 interface CalendarEventViewProps {
     accountId: string;
     eventId: string;
+    calendarId?: string;
 }
 
-export default function CalendarEventView({ accountId, eventId }: CalendarEventViewProps) {
+export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
     const [event, setEvent] = useState<CalendarEvent | null>(null);
     const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
     const { updateTab, addTab, closeTab } = useTabs();
@@ -22,15 +23,15 @@ export default function CalendarEventView({ accountId, eventId }: CalendarEventV
     useEffect(() => {
         if (accountId && eventId) {
             const fetchEvent = async () => {
-                const eventData = await getEvent(eventId);
+                // Pass calendarId to your hook:
+                const eventData = await getEvent(eventId, calendarId);
                 if (eventData) {
                     setEvent(eventData);
                 }
             };
-
             fetchEvent();
         }
-    }, [accountId, eventId, getEvent]);
+    }, [accountId, eventId, calendarId, getEvent]);
 
     // Handle edit event
     const handleEditEvent = () => {
