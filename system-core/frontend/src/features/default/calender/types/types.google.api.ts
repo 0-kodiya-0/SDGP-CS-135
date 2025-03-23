@@ -16,7 +16,7 @@ export interface UseCalendarEventsReturn {
         singleEvents?: boolean;
         orderBy?: 'startTime' | 'updated';
         q?: string;
-    }) => Promise<void>;
+    }) => Promise<CalendarEvent[]>;
     getEvent: (eventId: string, calendarId?: string) => Promise<CalendarEvent | null>;
     createEvent: (params: CreateEventParams) => Promise<CalendarEvent | null>;
     updateEvent: (eventId: string, params: Omit<UpdateEventParams, 'eventId'>) => Promise<CalendarEvent | null>;

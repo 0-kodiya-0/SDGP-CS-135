@@ -6,7 +6,7 @@ import {
     formatFileSize,
     useDrivePermissions,
     Permission
-} from "../features/default/drive";
+} from "../features/default/files";
 import { useAuth, useAccount } from "../features/default/user_account";
 
 export const DriveFilesList: React.FC<{ accountId: string }> = ({ accountId }) => {

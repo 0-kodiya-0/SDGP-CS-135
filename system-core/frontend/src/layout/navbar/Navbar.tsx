@@ -4,13 +4,10 @@ import { MenuButton } from './MenuButton';
 import { EnvironmentButton } from '../../features/default/environment';
 import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
 import { NavbarSearch } from '../../features/shared/search';
-import { useChat } from '../../features/chat/ChatProvider';
-import { ChatIconComponent } from '../../features/chat/components/ChatIcon';
 
 export function Navbar() {
   const accountPopup = usePopup();
   const { currentAccount, accountDetails, isLoading } = useAccount();
-  const { toggleChat } = useChat();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     accountPopup.toggle(e.currentTarget);
@@ -44,7 +41,6 @@ export function Navbar() {
         {/* Main content section */}
         <div className="flex-1 flex items-center justify-end px-4 space-x-2">
           <NavbarSearch />
-          <ChatIconComponent onClick={toggleChat} unreadCount={0} />
           <button
             className="p-1.5 hover:bg-gray-100 rounded"
             aria-label="Settings"

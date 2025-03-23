@@ -56,18 +56,18 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             orderBy?: 'startTime' | 'updated';
             q?: string;
         }
-    ): Promise<void> => {
+    ): Promise<CalendarEvent[]> => {
         setLoading(true);
         setError(null);
-
+    
         try {
             // Verify access first
             const hasAccess = await verifyAccess("readonly");
             if (!hasAccess) {
                 setLoading(false);
-                return;
+                return [];
             }
-
+    
             // Build query parameters
             const queryParams = new URLSearchParams();
             if (params?.calendarId) queryParams.append('calendarId', params.calendarId);
@@ -78,7 +78,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             if (params?.singleEvents) queryParams.append('singleEvents', params.singleEvents.toString());
             if (params?.orderBy) queryParams.append('orderBy', params.orderBy);
             if (params?.q) queryParams.append('q', params.q);
-
+    
             const response = await axios.get<ApiResponse<{
                 events: CalendarEvent[];
                 nextPageToken?: string;
@@ -86,27 +86,30 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 `${API_BASE_URL}/google/${accountId}/calendar/events?${queryParams.toString()}`,
                 { withCredentials: true }
             );
-
+    
             if (response.data.success && response.data.data) {
+                const fetchedEvents = response.data.data.events;
                 if (params?.pageToken) {
-                    // If using pagination, append to existing events
-                    setEvents(prev => [...prev, ...response.data.data!.events]);
+                    // Append to existing events if paginating
+                    setEvents(prev => [...prev, ...fetchedEvents]);
                 } else {
-                    // Otherwise replace the events list
-                    setEvents(response.data.data.events);
+                    // Replace events list
+                    setEvents(fetchedEvents);
                 }
                 setNextPageToken(response.data.data.nextPageToken);
+                return fetchedEvents;
             } else {
                 setError(response.data.error?.message || 'Failed to list events');
+                return [];
             }
         } catch (err) {
-            // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
                 requestPermission(permissionError);
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing events');
             }
+            return [];
         } finally {
             setLoading(false);
         }
