@@ -81,13 +81,43 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
 
     useEffect(() => {
         // Parse messages when they change
-        if (messages && messages.length > 0) {
-            const parsed = messages.map(message => parseGmailMessage(message));
-            setParsedEmails(parsed);
-        } else {
-            setParsedEmails([]);
-        }
-    }, [messages]);
+        const processMessages = async () => {
+            if (messages && messages.length > 0) {
+                // Create an array to hold the parsed emails
+                const parsedArray: ParsedEmail[] = [];
+                
+                // Process each message
+                for (const message of messages) {
+                    // Check if this message lacks payload (needs full details)
+                    if (!message.payload) {
+                        try {
+                            // Fetch full message details
+                            const fullMessage = await getMessage(message.id, 'full');
+                            if (fullMessage) {
+                                parsedArray.push(parseGmailMessage(fullMessage));
+                            } else {
+                                // Fallback if fetch fails
+                                parsedArray.push(parseGmailMessage(message));
+                            }
+                        } catch (error) {
+                            console.error('Error fetching full message:', error);
+                            // Use minimal info if fetch fails
+                            parsedArray.push(parseGmailMessage(message));
+                        }
+                    } else {
+                        // Message already has payload, parse it directly
+                        parsedArray.push(parseGmailMessage(message));
+                    }
+                }
+                
+                setParsedEmails(parsedArray);
+            } else {
+                setParsedEmails([]);
+            }
+        };
+    
+        processMessages();
+    }, [messages, getMessage]);
 
     // Handlers
     const handleLabelClick = (labelId: string) => {
@@ -333,7 +363,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                 </div>
 
                 {/* Label selector */}
-                <div className="flex overflow-x-auto py-1 px-2 text-sm border-t border-gray-100">
+                <div className="flex overflow-x-auto py-1 px-2 text-sm border-t border-gray-100 no-scrollbar">
                     {/* System labels as horizontal tabs */}
                     <button
                         className={`px-3 py-1 rounded-md whitespace-nowrap flex items-center mr-1 ${selectedLabel === GMAIL_SYSTEM_LABELS.INBOX ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}
@@ -389,8 +419,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                 </div>
             </div>
 
-            {/* Email List Section */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Email List Section - Now with hidden scrollbar */}
+            <div className="flex-1 overflow-y-auto no-scrollbar">
                 {messagesError && (
                     <div className="p-2 text-red-600 text-sm">
                         Error: {messagesError}
@@ -417,17 +447,19 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                         </div>
 
                         {/* Compact Email List */}
-                        {parsedEmails.map((email) => (
-                            <EmailListItem
-                                key={email.id}
-                                email={email}
-                                isSelected={selectedEmailId === email.id}
-                                onClick={() => handleEmailClick(email.id)}
-                                onTrash={() => handleTrashEmail(email.id)}
-                                onToggleStarred={() => handleToggleStarred(email.id, email.isStarred || false)}
-                                onToggleImportant={() => handleToggleImportant(email.id, email.isImportant || false)}
-                            />
-                        ))}
+                        <div className="email-list">
+                            {parsedEmails.map((email) => (
+                                <EmailListItem
+                                    key={email.id}
+                                    email={email}
+                                    isSelected={selectedEmailId === email.id}
+                                    onClick={() => handleEmailClick(email.id)}
+                                    onTrash={() => handleTrashEmail(email.id)}
+                                    onToggleStarred={() => handleToggleStarred(email.id, email.isStarred || false)}
+                                    onToggleImportant={() => handleToggleImportant(email.id, email.isImportant || false)}
+                                />
+                            ))}
+                        </div>
 
                         {nextPageToken && (
                             <div className="p-2 flex justify-center">
@@ -443,6 +475,23 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                     </>
                 )}
             </div>
+
+            {/* Add this CSS to your global styles file */}
+            <style jsx>{`
+                .no-scrollbar {
+                    -ms-overflow-style: none;  /* IE and Edge */
+                    scrollbar-width: none;  /* Firefox */
+                }
+                
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;  /* Chrome, Safari and Opera */
+                }
+                
+                .email-list {
+                    /* Add a slight fade effect at the bottom to indicate more content */
+                    mask-image: linear-gradient(to bottom, black 95%, transparent 100%);
+                }
+            `}</style>
         </div>
     );
 };
