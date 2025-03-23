@@ -34,9 +34,6 @@ export interface UseGmailLabelsReturn {
     getLabel: (labelId: string) => Promise<GmailLabel | null>;
 }
 
-// types.ts
-// These types mirror the backend types but are adapted for frontend use
-
 // Gmail Message types
 export interface GmailMessage {
     id: string;
@@ -128,6 +125,7 @@ export interface ParsedEmail {
     id: string;
     threadId?: string;
     subject?: string;
+    snippet?: string; // Added snippet property
     from?: {
         name?: string;
         email?: string;
