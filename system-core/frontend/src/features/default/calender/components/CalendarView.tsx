@@ -126,7 +126,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
         addTab(
             "New Event", 
             null, 
-            ComponentTypes.CREATE_EVENT_VIEW, 
+            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW, 
             { accountId }
         );
     };
@@ -364,7 +364,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                         onClick={() => addTab(
                             "Create Calendar", 
                             null,
-                            ComponentTypes.CREATE_CALENDAR_VIEW, 
+                            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW 
                             { accountId }
                         )}
                         className="flex items-center px-3 py-1 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded"
