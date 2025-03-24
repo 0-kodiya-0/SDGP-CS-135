@@ -34,7 +34,7 @@ export const ImageViewer = ({
     setPendingOperation
   } = useUnsavedChanges();
 
-  // Add animation keyframes
+  // Inject animation keyframes (and extra CSS if needed)
   useEffect(() => {
     const styleElement = document.createElement("style");
     styleElement.innerHTML = `
@@ -53,7 +53,29 @@ export const ImageViewer = ({
     };
   }, []);
 
-  // ✅ Initialize editor with unsaved tracking only after image load
+  // Use MutationObserver to hide the unwanted SVG
+  useEffect(() => {
+    const observer = new MutationObserver((mutationsList) => {
+      for (const mutation of mutationsList) {
+        if (mutation.type === "childList") {
+          const svgDefs = document.getElementById("tui-image-editor-svg-default-icons");
+          if (svgDefs) {
+            const svgElement = svgDefs.closest("svg");
+            if (svgElement) {
+              svgElement.style.display = "none";
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // Initialize editor with unsaved tracking only after image load
   useEffect(() => {
     if (editorRef.current) {
       if (instanceRef.current) {
@@ -86,7 +108,7 @@ export const ImageViewer = ({
 
       instanceRef.current = instance;
 
-      // ✅ Track readiness before setting unsaved state
+      // Track readiness before setting unsaved state
       let editorReady = false;
       instance.on("loadImage", () => {
         editorReady = true;
@@ -103,15 +125,12 @@ export const ImageViewer = ({
           instanceRef.current.destroy();
           instanceRef.current = null;
         }
-        const svgDefs = document.getElementById("tui-image-editor-svg-default-icons");
-        if (svgDefs?.parentElement) {
-          svgDefs.parentElement.removeChild(svgDefs);
-        }
+        // Do not remove the SVG element, so TUI can reuse it.
       };
     }
   }, [file.data, file.name, setHasUnsavedChanges]);
 
-  // Reset file name and clear unsaved flag
+  // Reset file name and clear unsaved flag when file changes
   useEffect(() => {
     setNewFileName(file.name);
     setHasUnsavedChanges(false);
