@@ -5,5 +5,5 @@ export * from "./types/types.google.api";
 
 export * from "./utils/utils.google.api";
 
-export { default as SummaryView } from "./components/SummaryView";
+export { default as SummaryView } from "./components/EmailSummaryView";
 export { default as EmailDetailsView } from "./components/EmailDetailsView";

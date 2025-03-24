@@ -1,4 +1,5 @@
 import initAccountModels from '../feature/account/Account.model';
+import initChatModels from '../feature/chat/chat.model';
 import initAuthModels from '../feature/oauth/Auth.model';
 import initWorkspaceModels from '../feature/workspace/workspace.model'; // Import Workspace models
 import dbConfig from './db.config';
@@ -6,12 +7,14 @@ import dbConfig from './db.config';
 // Define model types for type safety
 export type AccountModels = Awaited<ReturnType<typeof initAccountModels>>;
 export type AuthModels = Awaited<ReturnType<typeof initAuthModels>>;
+export type ChatModels = Awaited<ReturnType<typeof initChatModels>>;
 export type WorkspaceModels = Awaited<ReturnType<typeof initWorkspaceModels>>; // Add workspace models type
 
 // Database models container with proper typing
 interface DatabaseModels {
     accounts: AccountModels;
     auth: AuthModels;
+    chat: ChatModels;
     workspace: WorkspaceModels; // Add workspace models to the interface
 }
 
@@ -29,9 +32,10 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         await dbConfig.connectAllDatabases();
 
         // Initialize models for all databases
-        const [accountModels, authModels, workspaceModels] = await Promise.all([
+        const [accountModels, authModels, chatModels, workspaceModels] = await Promise.all([
             initAccountModels(),
             initAuthModels(),
+            initChatModels(),
             initWorkspaceModels() // Initialize workspace models
         ]);
 
@@ -39,6 +43,7 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         models = {
             accounts: accountModels,
             auth: authModels,
+            chat: chatModels,
             workspace: workspaceModels // Add workspace models
         };
 

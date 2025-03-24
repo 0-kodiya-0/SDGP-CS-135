@@ -1,5 +1,5 @@
-export { default as DetailsView } from "./components/DetailView";
-export { default as SummaryView } from "./components/SummaryView";
+export { default as DetailsView } from "./components/FilesDetailView";
+export { default as SummaryView } from "./components/FilesSummaryView";
 
 export * from "./hooks/useDriveFiles.google"
 export * from "./hooks/useDrivePermissions.google"

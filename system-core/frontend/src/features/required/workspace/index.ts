@@ -1,5 +1,5 @@
-export { default as SummaryView } from './components/SummaryView';
-export { default as ExpandView } from './components/ExpandView';
+export { default as SummaryView } from './components/WorkspaceSummaryView';
+export { default as ExpandView } from './components/WorkspaceExpandView';
 
 export { default as WorkspaceList } from './components/WorkspaceList';
 

@@ -150,7 +150,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
 
     // Get relative time for email
     const getRelativeTime = (date: Date | undefined): string => {
-        if (!date) return '';
+        if (!date || !(date instanceof Date)) return '';
         
         const now = new Date();
         const diff = now.getTime() - date.getTime();

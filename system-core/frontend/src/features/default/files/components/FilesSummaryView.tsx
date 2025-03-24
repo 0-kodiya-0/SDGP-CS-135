@@ -13,11 +13,11 @@ import {
 import { LucideIcon } from "lucide-react";
 import SearchBar from "./SearchBar";
 import { useFileHandling, UploadedFile } from "../hooks/useFileHandling";
-import DetailView from "./DetailView";
-import UploadComponent from "./UploadComponent";
-import CreateFile from "./CreateFile";
-import { useTabs } from "../../../required/tab_view";
+import { useTabStore } from "../../../required/tab_view";
+import { ComponentTypes } from "../../../required/tab_view/types/types.views";
 import { Environment } from "../../environment";
+import CreateFile from "./CreateFile";
+import UploadComponent from "./UploadComponent";
 
 // Ensuring SummaryView only has allowed parameters
 interface SummaryViewProps {
@@ -35,7 +35,7 @@ export default function SummaryView({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { addTab, updateTab, closeTab, tabs, activeTabId, setActiveTab } = useTabs();
+  const { addTab, closeTab, activeTabId, setActiveTab } = useTabStore();
 
   // Using a Record<string, string> is more efficient for simple key-value storage than Map
   const [tabIdFileNameAssociations, setTabIdFileNameAssociations] = useState<Record<string, string>>({});
@@ -72,8 +72,11 @@ export default function SummaryView({
       if (selectedFileName === fileName) {
         setSelectedFileName(null);
         // Close the tab if it exists
-        const tabId = `file-${fileName}`;
-        closeTab(tabId);
+        const tabId = Object.entries(tabIdFileNameAssociations)
+          .find(([_, name]) => name === fileName)?.[0];
+        if (tabId) {
+          closeTab(tabId);
+        }
       }
       handleFileChange();
     }
@@ -131,12 +134,15 @@ export default function SummaryView({
     setSelectedFileName(fileName);
 
     // Add the file to a tab
-    const tabId = addTab(fileName, (
-      <DetailView
-        selectedFile={fileName}
-        onFileUploaded={handleFileChange}
-      />
-    ));
+    const tabId = addTab(
+      fileName,
+      null,
+      ComponentTypes.FILES_DETAIL_VIEW,
+      {
+        selectedFile: fileName,
+        onFileUploaded: handleFileChange
+      }
+    );
 
     // Update the associations
     setTabIdFileNameAssociations(prev => ({

@@ -2,13 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, SquarePlus, Loader2, Check, Filter, RefreshCcw, CalendarPlus } from 'lucide-react';
 import Calendar from '@toast-ui/react-calendar';
 import '@toast-ui/calendar/dist/toastui-calendar.min.css';
-import CreateEventView from './CreateEventView';
-import CalendarEventView from './CalendarEventView';
-import { useTabs } from '../../../required/tab_view';
+import { useTabStore } from '../../../required/tab_view';
 import { useCalendarList } from '../hooks/useCalendarList.google';
 import { useEnhancedCalendarEvents } from '../hooks/useEnhancedCalendarEvents';
-import CreateCalendarView from './CreateCalendarView';
-
+import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
 interface CalendarViewProps {
     accountId: string;
@@ -23,7 +20,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
 
     const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
     const { events, loading: loadingEvents, error: eventsError, fetchEventsFromCalendars } = useEnhancedCalendarEvents(accountId);
-    const { addTab } = useTabs();
+    const { addTab } = useTabStore();
 
     // Format the date for display in the header
     const formatDate = (date: Date) => {
@@ -126,13 +123,27 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
 
     // Handle event creation
     const handleAddEvent = () => {
-        addTab("New Event", <CreateEventView accountId={accountId} />);
+        addTab(
+            "New Event", 
+            null, 
+            ComponentTypes.CREATE_EVENT_VIEW, 
+            { accountId }
+        );
     };
 
     // Handle event click
     const handleEventClick = (event: any) => {
         const eventDetails = event.event;
-        addTab(`Event: ${event.title || 'Untitled'}`, <CalendarEventView accountId={accountId} eventId={eventDetails.id} calendarId={eventDetails.calendarId}/>);
+        addTab(
+            `Event: ${event.title || 'Untitled'}`, 
+            null,
+            ComponentTypes.CALENDAR_EVENT_VIEW, 
+            { 
+                accountId, 
+                eventId: eventDetails.id, 
+                calendarId: eventDetails.calendarId
+            }
+        );
     };
 
     // Toggle all calendars
@@ -350,7 +361,12 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                     </button>
 
                     <button
-                        onClick={() => addTab("Create Calendar", <CreateCalendarView accountId={accountId} />)}
+                        onClick={() => addTab(
+                            "Create Calendar", 
+                            null,
+                            ComponentTypes.CREATE_CALENDAR_VIEW, 
+                            { accountId }
+                        )}
                         className="flex items-center px-3 py-1 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded"
                     >
                         <CalendarPlus className="w-4 h-4 mr-1" />

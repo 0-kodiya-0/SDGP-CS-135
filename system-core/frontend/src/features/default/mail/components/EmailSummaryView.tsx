@@ -7,10 +7,9 @@ import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Pl
 
 // Components import
 import EmailListItem from './EmailListItem';
-import CreateEmailView from './CreateEmailView';
 import EmailDetailsView from './EmailDetailsView';
 import LabelManager from './LabelManager';
-import { useTabs } from '../../../required/tab_view';
+import { ComponentTypes, useTabStore } from '../../../required/tab_view';
 
 interface GmailSummaryViewProps {
     accountId: string;
@@ -25,7 +24,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     const [showLabels, setShowLabels] = useState(false);
 
     // Hooks
-    const { addTab } = useTabs();
+    const { addTab } = useTabStore();
     const {
         messages,
         loading: messagesLoading,
@@ -190,14 +189,17 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openComposeInTab = () => {
-        addTab("Compose Email",
-            <CreateEmailView
-                accountId={accountId}
-                onSend={(params) => {
+        addTab(
+            "Compose Email",
+            null,
+            ComponentTypes.EMAIL_CREATE_EMAIL_VIEW,
+            {
+                accountId,
+                onSend: (params: any) => {
                     sendMessage(params);
                     handleRefresh();
-                }}
-            />
+                }
+            }
         );
     };
 
@@ -214,33 +216,41 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         if (fullMessage) {
             const parsedEmail = parseGmailMessage(fullMessage);
 
-            addTab(parsedEmail.subject || 'No Subject', <EmailDetailsView
-                email={parsedEmail}
-                onReply={(params) => {
-                    sendMessage(params);
-                    handleRefresh();
-                }}
-                onDelete={() => handleTrashEmail(emailId)}
-                onToggleStarred={(starred) => handleToggleStarred(emailId, starred)}
-                onToggleImportant={(important) => handleToggleImportant(emailId, important)}
-                availableLabels={labels}
-                onLabelChange={(addLabelIds, removeLabelIds) => {
-                    modifyLabels(emailId, addLabelIds, removeLabelIds);
-                    handleRefresh();
-                }}
-            />
+            addTab(
+                parsedEmail.subject || 'No Subject',
+                null,
+                ComponentTypes.EMAIL_DETAILS_VIEW,
+                {
+                    email: parsedEmail,
+                    onReply: (params: any) => {
+                        sendMessage(params);
+                        handleRefresh();
+                    },
+                    onDelete: () => handleTrashEmail(emailId),
+                    onToggleStarred: (starred: boolean) => handleToggleStarred(emailId, starred),
+                    onToggleImportant: (important: boolean) => handleToggleImportant(emailId, important),
+                    availableLabels: labels,
+                    onLabelChange: (addLabelIds: string[], removeLabelIds: string[]) => {
+                        modifyLabels(emailId, addLabelIds, removeLabelIds);
+                        handleRefresh();
+                    }
+                }
             );
         }
     };
 
     const openLabelManagerInTab = () => {
-        addTab("Manage Labels", <LabelManager
-            labels={labels}
-            loading={labelsLoading}
-            onCreateLabel={createLabel}
-            onUpdateLabel={updateLabel}
-            onDeleteLabel={deleteLabel}
-        />
+        addTab(
+            "Manage Labels",
+            null,
+            ComponentTypes.EMAIL_LABEL_MANAGER,
+            {
+                labels,
+                loading: labelsLoading,
+                onCreateLabel: createLabel,
+                onUpdateLabel: updateLabel,
+                onDeleteLabel: deleteLabel
+            }
         );
     };
 

@@ -6,10 +6,18 @@ import { useEnvironment } from "./features/default/environment/contexts/Environm
 import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 import { useAccount } from "./features/default/user_account";
 import { WorkspaceProvider } from "./features/required/workspace";
+import { registerAllComponents } from "./features/required/tab_view";
 
 const App: React.FC = () => {
     const { accountDetails, isLoading, error, fetchAccountDetails } = useAccount();
     const { currentEnvironment, isLoading: envLoading } = useEnvironment();
+
+    // Initialize component registry on app startup
+    useEffect(() => {
+        // Register all components for dynamic loading
+        registerAllComponents();
+        console.log('Component registry initialized for dynamic tab loading');
+    }, []);
 
     // Retry fetch account details if there was an error
     useEffect(() => {

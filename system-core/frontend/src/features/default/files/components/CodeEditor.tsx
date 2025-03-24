@@ -4,7 +4,7 @@ import { FiSave, FiCheck } from 'react-icons/fi';
 import { UploadedFile, useFileHandling } from '../hooks/useFileHandling';
 import UnsavedChangesDialog from './UnsavedChangesDialog';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
-import { useTabs } from '../../../required/tab_view';
+import { useTabStore } from '../../../required/tab_view';
 
 interface CodeEditorProps {
   file: UploadedFile;
@@ -20,7 +20,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onFileUpdated, onS
   const [targetFileName, setTargetFileName] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState<string>(file.name);
   const [isSaveAsMode, setIsSaveAsMode] = useState<boolean>(false);
-  const { updateTab, closeTab, addTab, activeTabId } = useTabs();
+  const { updateTab, closeTab, addTab, activeTabId } = useTabStore();
 
   const {
     hasUnsavedChanges,

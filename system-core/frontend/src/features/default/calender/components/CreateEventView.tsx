@@ -1,108 +1,116 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Video, Save, X } from 'lucide-react';
-import { useTabs } from '../../../required/tab_view';
-import { COMMON_TIMEZONES } from '../../chat';
+import { useEffect, useState } from 'react';
+import { Edit, Trash2, ArrowLeft, Clock, MapPin, Users, Video, Loader2 } from 'lucide-react';
+import { useTabStore } from '../../../required/tab_view';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
-import { useCalendarList } from '../hooks/useCalendarList.google';
-import { EventFormData } from '../types/types.google.api';
-import { formToEventParams } from '../utils/utils.google.api';
+import { CalendarEvent } from '../types/types.google.api';
+import { formatDateRange, getAttendeeStatusInfo } from '../utils/utils.google.api';
+import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
-interface CreateEventViewProps {
+interface CalendarEventViewProps {
     accountId: string;
+    eventId: string;
+    calendarId?: string;
 }
 
-export default function CreateEventView({ accountId }: CreateEventViewProps) {
-    const [formData, setFormData] = useState<EventFormData>({
-        calendarId: '',
-        summary: '',
-        description: '',
-        location: '',
-        allDay: false,
-        startDate: new Date().toISOString().split('T')[0],
-        startTime: new Date().toTimeString().slice(0, 5),
-        endDate: new Date().toISOString().split('T')[0],
-        endTime: new Date(new Date().getTime() + 60 * 60 * 1000).toTimeString().slice(0, 5),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        attendees: '',
-        addConference: false,
-        reminderMethod: 'popup',
-        reminderMinutes: 30,
-        useDefaultReminders: true,
-    });
+export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
+    const [event, setEvent] = useState<CalendarEvent | null>(null);
+    const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
+    const { updateTab, addTab, closeTab } = useTabStore();
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleteSuccess, setDeleteSuccess] = useState(false);
 
-    const [saving, setSaving] = useState(false);
-    const [saveSuccess, setSaveSuccess] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
-
-    const { calendars, loading: loadingCalendars, listCalendars } = useCalendarList(accountId);
-    const { createEvent, loading: loadingEvent } = useCalendarEvents(accountId);
-    const { closeTab } = useTabs();
-
-    // Load calendars on component mount
+    // Fetch event data on component mount
     useEffect(() => {
-        if (accountId) {
-            listCalendars();
+        if (accountId && eventId) {
+            const fetchEvent = async () => {
+                // Pass calendarId to your hook:
+                const eventData = await getEvent(eventId, calendarId);
+                if (eventData) {
+                    setEvent(eventData);
+                }
+            };
+            fetchEvent();
         }
-    }, [accountId, listCalendars]);
+    }, [accountId, eventId, calendarId, getEvent]);
 
-    // Set primary calendar as default when calendars load
-    useEffect(() => {
-        if (calendars.length > 0 && !formData.calendarId) {
-            const primaryCalendar = calendars.find(cal => cal.primary);
-            if (primaryCalendar && primaryCalendar.id) {
-                setFormData(prev => ({ ...prev, calendarId: primaryCalendar.id }));
-            } else if (calendars[0].id) {
-                setFormData(prev => ({ ...prev, calendarId: calendars[0].id }));
-            }
+    // Handle edit event
+    const handleEditEvent = () => {
+        if (event) {
+            addTab(
+                `Edit: ${event.summary || 'Untitled'}`, 
+                null,
+                ComponentTypes.EDIT_EVENT_VIEW, 
+                { 
+                    accountId, 
+                    event 
+                }
+            );
         }
-    }, [calendars, formData.calendarId]);
-
-    // Handle input change
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Handle checkbox change
-    const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: checked }));
-    };
-
-    // Handle form submission
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSaving(true);
-        setSaveError(null);
-
-        try {
-            // Convert form data to API parameters
-            const eventParams = formToEventParams(formData);
-
-            // Create the event
-            const createdEvent = await createEvent(eventParams);
-
-            if (createdEvent) {
-                setSaveSuccess(true);
+    // Handle delete event
+    const handleDeleteEvent = async () => {
+        if (confirmDelete && event?.id) {
+            const success = await deleteEvent(event.id);
+            if (success) {
+                setDeleteSuccess(true);
                 // Close the tab after a short delay
                 setTimeout(() => {
-                    closeTab("current");
+                    closeTab("current"); // Assuming closeTab can take "current" to close the active tab
                 }, 2000);
-            } else {
-                setSaveError('Failed to create event');
             }
-        } catch (error) {
-            setSaveError(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSaving(false);
+        } else {
+            setConfirmDelete(true);
         }
     };
 
-    if (saveSuccess) {
+    // Reset delete confirmation if canceled
+    const handleCancelDelete = () => {
+        setConfirmDelete(false);
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-500 mr-2" />
+                <span className="text-gray-600">Loading event details...</span>
+            </div>
+        );
+    }
+
+    if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-4">
-                <div className="text-green-500 text-lg mb-4">Event successfully created!</div>
+                <div className="text-red-500 mb-4">Error: {error}</div>
+                <button
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+                    onClick={() => closeTab("current")}
+                >
+                    Close
+                </button>
+            </div>
+        );
+    }
+
+    if (deleteSuccess) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-4">
+                <div className="text-green-500 mb-4">Event successfully deleted</div>
                 <div className="text-gray-500">Closing this tab...</div>
+            </div>
+        );
+    }
+
+    if (!event) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-4">
+                <div className="text-gray-500 mb-4">Event not found</div>
+                <button
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+                    onClick={() => closeTab("current")}
+                >
+                    Close
+                </button>
             </div>
         );
     }
@@ -115,323 +123,164 @@ export default function CreateEventView({ accountId }: CreateEventViewProps) {
                     <button
                         onClick={() => closeTab("current")}
                         className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded mr-2"
-                        title="Cancel"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h2 className="text-xl font-medium">Create New Event</h2>
+                    <h2 className="text-xl font-medium">Event Details</h2>
                 </div>
                 <div className="flex space-x-2">
                     <button
-                        onClick={() => closeTab("current")}
+                        onClick={handleEditEvent}
                         className="flex items-center px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-300"
                     >
-                        <X className="w-4 h-4 mr-1" />
-                        Cancel
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={saving || loadingEvent}
-                        className={`flex items-center px-3 py-1 text-sm text-white rounded ${saving || loadingEvent
-                                ? 'bg-blue-400 cursor-not-allowed'
-                                : 'bg-blue-500 hover:bg-blue-600'
-                            }`}
-                    >
-                        <Save className="w-4 h-4 mr-1" />
-                        {saving || loadingEvent ? 'Saving...' : 'Save Event'}
-                    </button>
+                    {confirmDelete ? (
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleCancelDelete}
+                                className="px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteEvent}
+                                className="flex items-center px-3 py-1 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
+                            >
+                                Confirm Delete
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleDeleteEvent}
+                            className="flex items-center px-3 py-1 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
+                        >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Form content */}
+            {/* Event content */}
             <div className="flex-grow p-6 overflow-y-auto">
                 <div className="max-w-3xl mx-auto">
-                    {saveError && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
-                            {saveError}
+                    {/* Event title */}
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                        {event.summary || 'Untitled Event'}
+                    </h1>
+
+                    {/* Status indicator */}
+                    {event.status === 'cancelled' && (
+                        <div className="inline-block px-2 py-1 bg-red-100 text-red-700 text-sm rounded mb-4">
+                            Cancelled
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit}>
-                        {/* Event title */}
-                        <div className="mb-6">
-                            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-1">
-                                Event Title*
-                            </label>
-                            <input
-                                type="text"
-                                id="summary"
-                                name="summary"
-                                value={formData.summary}
-                                onChange={handleInputChange}
-                                required
-                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Add title"
-                            />
-                        </div>
-
-                        {/* Calendar selection */}
-                        <div className="mb-6">
-                            <label htmlFor="calendarId" className="block text-sm font-medium text-gray-700 mb-1">
-                                Calendar
-                            </label>
-                            <select
-                                id="calendarId"
-                                name="calendarId"
-                                value={formData.calendarId}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {loadingCalendars ? (
-                                    <option>Loading calendars...</option>
-                                ) : (
-                                    calendars.map(calendar => (
-                                        <option key={calendar.id} value={calendar.id}>
-                                            {calendar.summary} {calendar.primary && '(Primary)'}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                        </div>
-
-                        {/* Date and time section */}
-                        <div className="mb-6 p-4 border border-gray-200 rounded-md">
-                            <div className="flex items-start mb-4">
-                                <Calendar className="w-5 h-5 text-gray-500 mr-3 mt-1" />
-                                <div className="flex-grow">
-                                    <h3 className="text-sm font-medium text-gray-700 mb-3">Date & Time</h3>
-
-                                    {/* All-day toggle */}
-                                    <div className="mb-4 flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="allDay"
-                                            name="allDay"
-                                            checked={formData.allDay}
-                                            onChange={handleCheckboxChange}
-                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="allDay" className="ml-2 text-sm text-gray-700">
-                                            All-day event
-                                        </label>
-                                    </div>
-
-                                    {/* Start date/time */}
-                                    <div className="mb-4">
-                                        <label htmlFor="startDate" className="block text-sm text-gray-700 mb-1">
-                                            Start
-                                        </label>
-                                        <div className="flex space-x-2">
-                                            <input
-                                                type="date"
-                                                id="startDate"
-                                                name="startDate"
-                                                value={formData.startDate}
-                                                onChange={handleInputChange}
-                                                required
-                                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                            {!formData.allDay && (
-                                                <input
-                                                    type="time"
-                                                    id="startTime"
-                                                    name="startTime"
-                                                    value={formData.startTime}
-                                                    onChange={handleInputChange}
-                                                    required
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* End date/time */}
-                                    <div className="mb-4">
-                                        <label htmlFor="endDate" className="block text-sm text-gray-700 mb-1">
-                                            End
-                                        </label>
-                                        <div className="flex space-x-2">
-                                            <input
-                                                type="date"
-                                                id="endDate"
-                                                name="endDate"
-                                                value={formData.endDate}
-                                                onChange={handleInputChange}
-                                                required
-                                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                            {!formData.allDay && (
-                                                <input
-                                                    type="time"
-                                                    id="endTime"
-                                                    name="endTime"
-                                                    value={formData.endTime}
-                                                    onChange={handleInputChange}
-                                                    required
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Time zone */}
-                                    {!formData.allDay && (
-                                        <div>
-                                            <label htmlFor="timeZone" className="block text-sm text-gray-700 mb-1">
-                                                Time Zone
-                                            </label>
-                                            <select
-                                                id="timeZone"
-                                                name="timeZone"
-                                                value={formData.timeZone}
-                                                onChange={handleInputChange}
-                                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                {COMMON_TIMEZONES.map(tz => (
-                                                    <option key={tz.value} value={tz.value}>
-                                                        {tz.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Location */}
-                        <div className="mb-6">
-                            <div className="flex items-start">
-                                <MapPin className="w-5 h-5 text-gray-500 mr-3 mt-1" />
-                                <div className="flex-grow">
-                                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Location
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="location"
-                                        name="location"
-                                        value={formData.location}
-                                        onChange={handleInputChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Add location"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Video conference */}
-                        <div className="mb-6">
-                            <div className="flex items-start">
-                                <Video className="w-5 h-5 text-gray-500 mr-3 mt-0.5" />
-                                <div className="flex-grow">
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="addConference"
-                                            name="addConference"
-                                            checked={formData.addConference}
-                                            onChange={handleCheckboxChange}
-                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="addConference" className="ml-2 text-sm text-gray-700">
-                                            Add Google Meet video conferencing
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Attendees */}
-                        <div className="mb-6">
-                            <div className="flex items-start">
-                                <Users className="w-5 h-5 text-gray-500 mr-3 mt-1" />
-                                <div className="flex-grow">
-                                    <label htmlFor="attendees" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Attendees
-                                    </label>
-                                    <textarea
-                                        id="attendees"
-                                        name="attendees"
-                                        value={formData.attendees}
-                                        onChange={handleInputChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Add guests (comma separated email addresses)"
-                                        rows={3}
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Separate multiple email addresses with commas
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Description */}
-                        <div className="mb-6">
-                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                                Description
-                            </label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                value={formData.description}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Add description"
-                                rows={5}
-                            />
-                        </div>
-
-                        {/* Reminders */}
-                        <div className="mb-6">
-                            <h3 className="text-sm font-medium text-gray-700 mb-2">Reminders</h3>
-                            <div className="flex items-center mb-2">
-                                <input
-                                    type="checkbox"
-                                    id="useDefaultReminders"
-                                    name="useDefaultReminders"
-                                    checked={formData.useDefaultReminders}
-                                    onChange={handleCheckboxChange}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="useDefaultReminders" className="ml-2 text-sm text-gray-700">
-                                    Use default reminders
-                                </label>
-                            </div>
-
-                            {!formData.useDefaultReminders && (
-                                <div className="flex items-center space-x-2 pl-6">
-                                    <select
-                                        id="reminderMinutes"
-                                        name="reminderMinutes"
-                                        value={formData.reminderMinutes}
-                                        onChange={handleInputChange}
-                                        className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="0">0 minutes</option>
-                                        <option value="5">5 minutes</option>
-                                        <option value="10">10 minutes</option>
-                                        <option value="15">15 minutes</option>
-                                        <option value="30">30 minutes</option>
-                                        <option value="60">1 hour</option>
-                                        <option value="120">2 hours</option>
-                                        <option value="1440">1 day</option>
-                                    </select>
-
-                                    <select
-                                        id="reminderMethod"
-                                        name="reminderMethod"
-                                        value={formData.reminderMethod}
-                                        onChange={handleInputChange}
-                                        className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="popup">Notification</option>
-                                        <option value="email">Email</option>
-                                    </select>
-                                </div>
+                    {/* Date and time */}
+                    <div className="flex items-start mt-4 mb-6">
+                        <Clock className="w-5 h-5 text-gray-500 mr-3 mt-0.5" />
+                        <div>
+                            <p className="text-gray-900">
+                                {event.start && event.end
+                                    ? formatDateRange(event.start, event.end, event.start.timeZone)
+                                    : 'Date and time not specified'}
+                            </p>
+                            {event.start?.timeZone && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Timezone: {event.start.timeZone}
+                                </p>
                             )}
                         </div>
-                    </form>
+                    </div>
+
+                    {/* Location */}
+                    {event.location && (
+                        <div className="flex items-start mb-6">
+                            <MapPin className="w-5 h-5 text-gray-500 mr-3 mt-0.5" />
+                            <div>
+                                <p className="text-gray-900">{event.location}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Video conference */}
+                    {event.hangoutLink && (
+                        <div className="flex items-start mb-6">
+                            <Video className="w-5 h-5 text-gray-500 mr-3 mt-0.5" />
+                            <div>
+                                <p className="text-gray-900">Google Meet</p>
+                                <a
+                                    href={event.hangoutLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:underline"
+                                >
+                                    {event.hangoutLink}
+                                </a>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Attendees */}
+                    {event.attendees && event.attendees.length > 0 && (
+                        <div className="flex items-start mb-6">
+                            <Users className="w-5 h-5 text-gray-500 mr-3 mt-0.5" />
+                            <div className="flex-grow">
+                                <p className="text-gray-900 mb-2">Attendees</p>
+                                <ul className="space-y-2">
+                                    {event.attendees.map((attendee, index) => {
+                                        const statusInfo = getAttendeeStatusInfo(attendee.responseStatus);
+                                        return (
+                                            <li key={index} className="flex items-center justify-between">
+                                                <div className="flex-grow">
+                                                    <p className="text-gray-900">
+                                                        {attendee.displayName || attendee.email}
+                                                        {attendee.organizer && <span className="text-xs ml-2">(Organizer)</span>}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">{attendee.email}</p>
+                                                </div>
+                                                <div
+                                                    className="px-2 py-1 text-xs rounded"
+                                                    style={{
+                                                        backgroundColor: `${statusInfo.color}20`,
+                                                        color: statusInfo.color
+                                                    }}
+                                                >
+                                                    {statusInfo.text}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Description */}
+                    {event.description && (
+                        <div className="mt-6 border-t border-gray-200 pt-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Description</h3>
+                            <div
+                                className="prose max-w-none text-gray-700"
+                                dangerouslySetInnerHTML={{ __html: event.description }}
+                            />
+                        </div>
+                    )}
+
+                    {/* Created and updated info */}
+                    <div className="mt-8 pt-6 border-t border-gray-200 text-xs text-gray-500">
+                        {event.creator && (
+                            <p>Created by: {event.creator.displayName || event.creator.email}</p>
+                        )}
+                        {event.created && (
+                            <p>Created: {new Date(event.created).toLocaleString()}</p>
+                        )}
+                        {event.updated && (
+                            <p>Last updated: {new Date(event.updated).toLocaleString()}</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

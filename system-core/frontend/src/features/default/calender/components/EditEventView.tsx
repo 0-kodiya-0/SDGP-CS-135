@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Video, Save, X } from 'lucide-react';
-import { useTabs } from '../../../required/tab_view';
+import { ArrowLeft, Calendar, MapPin, Users, Video, Save, X } from 'lucide-react';
+import { useTabStore } from '../../../required/tab_view';
 import { COMMON_TIMEZONES } from '../../chat';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
 import { useCalendarList } from '../hooks/useCalendarList.google';
@@ -20,7 +20,7 @@ export default function EditEventView({ accountId, event }: EditEventViewProps) 
 
     const { calendars, loading: loadingCalendars, listCalendars } = useCalendarList(accountId);
     const { updateEvent, loading: loadingEvent } = useCalendarEvents(accountId);
-    const { closeTab } = useTabs();
+    const { closeTab } = useTabStore();
 
     // Load calendars on component mount
     useEffect(() => {

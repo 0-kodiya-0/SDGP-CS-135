@@ -3,7 +3,7 @@ import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Navigation } from "../../features/required/left_navigation";
 import { Loader2 } from "lucide-react";
 import { Environment } from "../../features/default/environment/types/types.data";
-import { TabProvider, TabView } from "../../features/required/tab_view";
+import { TabView } from "../../features/required/tab_view";
 
 
 interface HeaderProps {
@@ -75,7 +75,6 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
     return (
 
         <div className="w-full h-full overflow-hidden">
-            <TabProvider>
                 <PanelGroup direction="horizontal" className="w-full h-full">
                     {/* Navigation Panel - Fixed Width */}
                     <Navigation
@@ -93,7 +92,6 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
                         <TabView />
                     </Panel>
                 </PanelGroup>
-            </TabProvider>
         </div>
 
     );

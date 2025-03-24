@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { Plus, Settings, Users, Calendar, File, Mail, UserCheck } from 'lucide-react';
 import { WorkspaceFeatureType } from '../types/workspace.types';
-import { useTabs } from '../../tab_view';
+import { useTabStore } from '../../tab_view';
 import WorkspaceCalendar from './WorkspaceCalendar';
 import WorkspaceContacts from './WorkspaceContacts';
 import WorkspaceEmails from './WorkspaceEmails';
@@ -25,7 +25,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ accountId }) => {
         fetchContents
     } = useWorkspace();
 
-    const { addTab } = useTabs();
+    const { addTab } = useTabStore();
 
     // When component mounts, fetch content if a workspace is selected
     useEffect(() => {

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, ChevronRight, Check, X } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { CreateWorkspaceRequest, WorkspaceFeatureType } from '../types/workspace.types';
-import SummaryView from './SummaryView';
-import { useTabs } from '../../tab_view';
+import SummaryView from './WorkspaceSummaryView';
+import { useTabStore } from '../../tab_view';
 
 interface WorkspaceListProps {
   accountId: string;
@@ -18,7 +18,7 @@ export const WorkspaceList: React.FC<WorkspaceListProps> = ({ accountId, createM
   const [enabledFeatures, setEnabledFeatures] = useState<WorkspaceFeatureType[]>(
     Object.values(WorkspaceFeatureType)
   );
-  const { addTab } = useTabs();
+  const { addTab } = useTabStore();
 
   // Fetch workspaces when component mounts
   useEffect(() => {

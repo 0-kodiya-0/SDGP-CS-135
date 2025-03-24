@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Edit, Trash2, ArrowLeft, Clock, MapPin, Users, Video, Loader2 } from 'lucide-react';
-import { useTabs } from '../../../required/tab_view';
+import { useTabStore } from '../../../required/tab_view';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
 import { CalendarEvent } from '../types/types.google.api';
 import { formatDateRange, getAttendeeStatusInfo } from '../utils/utils.google.api';
-import EditEventView from './EditEventView';
+import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
 interface CalendarEventViewProps {
     accountId: string;
@@ -15,7 +15,7 @@ interface CalendarEventViewProps {
 export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
     const [event, setEvent] = useState<CalendarEvent | null>(null);
     const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
-    const { updateTab, addTab, closeTab } = useTabs();
+    const { addTab, closeTab } = useTabStore();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
 
@@ -36,7 +36,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
     // Handle edit event
     const handleEditEvent = () => {
         if (event) {
-            addTab(`Edit: ${event.summary || 'Untitled'}`, <EditEventView accountId={accountId} event={event} />);
+            addTab(`Edit: ${event.summary || 'Untitled'}`, null, ComponentTypes.CALENDAR_EDIT_EVENT_VIEW, { accountId, event });
         }
     };
 

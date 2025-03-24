@@ -1,11 +1,12 @@
 import { ReactNode } from 'react';
+import { FeatureType } from '../store/useFeatureStore';
 
 interface SummarySectionProps {
   icon?: ReactNode;
   title: string;
   featureComponent: ReactNode;
-  featureType: string;
-  onSelect: (featureType: string) => void;
+  featureType: FeatureType;
+  onSelect: (featureType: FeatureType) => void;
   badgeCount?: number;
   isActive?: boolean;
 }

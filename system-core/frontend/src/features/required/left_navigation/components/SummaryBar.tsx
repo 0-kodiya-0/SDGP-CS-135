@@ -1,6 +1,6 @@
-import { Calendar, File, Layout, Mail, Users } from 'lucide-react';
+import { Calendar, File, Layout, Mail, MessageCircle, Users } from 'lucide-react';
 import { SummarySection } from './SummarySection';
-import { useFeature, FeatureType } from '../context/FeatureContext';
+import { useFeatureStore, FeatureType } from '../store/useFeatureStore';
 
 interface SummaryBarProps {
   className?: string;
@@ -8,7 +8,7 @@ interface SummaryBarProps {
 }
 
 export function SummaryBar({ className, accountId }: SummaryBarProps) {
-  const { selectFeature, currentFeature } = useFeature();
+  const { selectFeature, currentFeature } = useFeatureStore();
 
   // Extract the accountId from props or use a default
   const effectiveAccountId = accountId || 'default';
@@ -19,7 +19,7 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
       return;
     }
 
-    // Select the feature using the context function
+    // Select the feature using the Zustand store
     selectFeature(feature);
   };
 
@@ -53,6 +53,14 @@ export function SummaryBar({ className, accountId }: SummaryBarProps) {
           featureType="mail"
           onSelect={() => handleFeatureSelect('mail')}
           isActive={isActive('mail')}
+        />
+        <SummarySection
+          icon={<MessageCircle className="w-6 h-6" />}
+          title="Chat"
+          featureComponent={null}
+          featureType="chat"
+          onSelect={() => handleFeatureSelect('chat')}
+          isActive={isActive('chat')}
         />
         <SummarySection
           icon={<File className="w-6 h-6" />}

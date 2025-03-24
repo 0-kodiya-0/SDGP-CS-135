@@ -1,13 +1,14 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Environment } from '../../../default/environment/types/types.data';
 import { Loader2 } from 'lucide-react';
-import { useFeature } from '../context/FeatureContext';
+import { useFeatureStore } from '../store/useFeatureStore';
 
-const ContactsFeature = lazy(() => import('../../../default/contacts/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
-const FilesFeature = lazy(() => import('../../../default/files/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
-const CalendarFeature = lazy(() => import('../../../default/calender/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
-const MailFeature = lazy(() => import('../../../default/mail/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
-const WorkspaceFeature = lazy(() => import('../../../required/workspace/components/SummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const ContactsFeature = lazy(() => import('../../../default/contacts/components/ContactSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const FilesFeature = lazy(() => import('../../../default/files/components/FilesSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const CalendarFeature = lazy(() => import('../../../default/calender/components/CalenderSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const MailFeature = lazy(() => import('../../../default/mail/components/EmailSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const WorkspaceFeature = lazy(() => import('../../workspace/components/WorkspaceSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
+const ChatFeature = lazy(() => import('../../../default/chat/components/ChatSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
 export interface DetailPaneProps {
@@ -17,7 +18,7 @@ export interface DetailPaneProps {
 }
 
 export function DetailPane({ environment, className, accountId }: DetailPaneProps) {
-  const { currentFeature } = useFeature();
+  const { currentFeature } = useFeatureStore();
 
   useEffect(() => {
     console.log(`[DetailPane] Loading feature: ${currentFeature}`);
@@ -36,6 +37,8 @@ export function DetailPane({ environment, className, accountId }: DetailPaneProp
         return <MailFeature accountId={accountId} />;
       case 'workspace':
         return <WorkspaceFeature accountId={accountId} />
+      case 'chat':
+        return <ChatFeature accountId={accountId} />;
       default:
         return <DefaultFeature accountId={accountId} />;
     }

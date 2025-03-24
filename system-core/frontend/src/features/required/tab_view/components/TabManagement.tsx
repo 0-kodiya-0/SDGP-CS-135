@@ -1,14 +1,17 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { ScrollingText } from '../../../shared/scrolling_text';
-import { useTabs } from '../context/TabContext';
+import { useTabStore } from '../store/useTabStore';
 
 interface TabManagementProps {
   className?: string;
 }
 
 export const TabManagement: React.FC<TabManagementProps> = ({ className = '' }) => {
-  const { tabs, activeTabId, closeTab, setActiveTab } = useTabs();
+  const tabs = useTabStore((state) => state.tabs);
+  const activeTabId = useTabStore((state) => state.activeTabId);
+  const closeTab = useTabStore((state) => state.closeTab);
+  const setActiveTab = useTabStore((state) => state.setActiveTab);
 
   // Handle tab close
   const handleCloseTab = (tabId: string, e: React.MouseEvent<HTMLButtonElement>) => {

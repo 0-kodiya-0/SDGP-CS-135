@@ -1,26 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, SquarePlus, Search, X, RefreshCcw, Loader2, CalendarPlus } from 'lucide-react';
-import CalendarView from './CalendarView';
-import CalendarEventView from './CalendarEventView';
-import CreateEventView from './CreateEventView';
-import { useTabs } from '../../../required/tab_view';
+import { useTabStore } from '../../../required/tab_view';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
 import { useCalendarList } from '../hooks/useCalendarList.google';
 import { CalendarEvent } from '../types/types.google.api';
 import { getEventStatusColor, formatEventTime } from '../utils/utils.google.api';
-import CreateCalendarView from './CreateCalendarView';
+import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
 interface SummaryViewProps {
   accountId: string;
 }
 
-export default function SummaryView({ accountId }: SummaryViewProps) {
+export default function CalendarSummaryView({ accountId }: SummaryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
   const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
   const { events, loading: loadingEvents, error: eventsError, listEvents } = useCalendarEvents(accountId);
-  const { addTab, updateTab, activeTabId } = useTabs();
+  const addTab = useTabStore(state => state.addTab);
 
   // Initialize data on component mount
   useEffect(() => {
@@ -79,17 +75,36 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
 
   // Open the full calendar view in a tab
   const handleOpenCalendarView = () => {
-    addTab("Calendar", <CalendarView accountId={accountId} />);
+    addTab(
+      "Calendar",
+      null,
+      ComponentTypes.CALENDAR_VIEW,
+      { accountId }
+    );
   };
 
   // Open an event detail view in a tab
   const handleViewEvent = (event: CalendarEvent) => {
-    addTab(`Event: ${event.summary || 'Untitled'}`, <CalendarEventView accountId={accountId} eventId={event.id || ''} />);
+    addTab(
+      `Event: ${event.summary || 'Untitled'}`,
+      null,
+      ComponentTypes.CALENDAR_EVENT_VIEW,
+      {
+        accountId,
+        eventId: event.id || '',
+        calendarId: event.organizer?.email || ''
+      }
+    );
   };
 
   // Open create event view in a tab
   const handleAddEvent = () => {
-    addTab("New Event", <CreateEventView accountId={accountId} />);
+    addTab(
+      "New Event",
+      null,
+      ComponentTypes.CALENDAR_CREATE_EVENT_VIEW,
+      { accountId }
+    );
   };
 
   // Handle search
@@ -104,7 +119,7 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
 
   const refreshData = () => {
     listCalendars();
-  
+
     // If the user has any selected calendars, refresh upcoming events
     if (accountId && selectedCalendarIds.length > 0) {
       const today = new Date();
@@ -112,7 +127,7 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
       const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
       const timeMin = today.toISOString();
       const timeMax = endOfMonth.toISOString();
-  
+
       listEvents({
         timeMin,
         timeMax,
@@ -121,10 +136,20 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
       });
     }
   };
-  
+
   const myCalendars = calendars.filter(
     (calendar) => calendar.primary || calendar.accessRole === "owner"
   );
+
+  // Handle opening the create calendar view
+  const handleOpenCreateCalendarView = () => {
+    addTab(
+      "Create Calendar",
+      null,
+      ComponentTypes.CALENDAR_CREATE_CALENDAR_VIEW,
+      { accountId }
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -135,34 +160,34 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
           <h2 className="text-lg font-medium">Calendar</h2>
         </div>
         <div className="flex space-x-2">
-        <button
-          onClick={handleOpenCalendarView}
-          className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
-          title="Open full calendar"
-        >
-          <Calendar className="w-4 h-4" />
+          <button
+            onClick={handleOpenCalendarView}
+            className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
+            title="Open full calendar"
+          >
+            <Calendar className="w-4 h-4" />
           </button>
           <button
             onClick={handleAddEvent}
             className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
             title="Create new event"
-            >
-              <SquarePlus className="w-4 h-4" />
-            </button>
-            {/* Refresh button */}
-            <button
-              onClick={refreshData}
-              className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
-              title="Refresh"
-            >
-              <RefreshCcw className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => addTab("Create Calendar", <CreateCalendarView accountId={accountId} />)}
-              className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
-              title="Create new calendar"
-            >
-              <CalendarPlus className="w-4 h-4" />
+          >
+            <SquarePlus className="w-4 h-4" />
+          </button>
+          {/* Refresh button */}
+          <button
+            onClick={refreshData}
+            className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
+            title="Refresh"
+          >
+            <RefreshCcw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleOpenCreateCalendarView}
+            className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded"
+            title="Create new calendar"
+          >
+            <CalendarPlus className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -203,40 +228,40 @@ export default function SummaryView({ accountId }: SummaryViewProps) {
           <div className="text-sm text-red-500 p-2">{calendarError}</div>
         ) : (
           <ul className="space-y-2">
-  {myCalendars.map((calendar) => {
-    const calendarStateId = `calendar-${calendar.id}`;
-    const calendarId = calendar.id || '';
-    const isSelected = selectedCalendarIds.includes(calendarId);
+            {myCalendars.map((calendar) => {
+              const calendarStateId = `calendar-${calendar.id}`;
+              const calendarId = calendar.id || '';
+              const isSelected = selectedCalendarIds.includes(calendarId);
 
-    return (
-      <li key={calendar.id} className="flex items-center text-sm">
-        <input
-          type="checkbox"
-          id={calendarStateId}
-          className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          checked={isSelected}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setSelectedCalendarIds(prev => [...prev, calendarId]);
-            } else {
-              setSelectedCalendarIds(prev => prev.filter(id => id !== calendarId));
-            }
-          }}
-        />
-        <div
-          className="w-3 h-3 rounded-full mr-2"
-          style={{ backgroundColor: calendar.backgroundColor || '#4285F4' }}
-        />
-        <label htmlFor={calendarStateId} className="cursor-pointer flex-grow truncate">
-          {calendar.summary}
-          {calendar.primary && (
-            <span className="ml-1 text-xs text-gray-500">(Primary)</span>
-          )}
-        </label>
-      </li>
-    );
-  })}
-</ul>
+              return (
+                <li key={calendar.id} className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    id={calendarStateId}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCalendarIds(prev => [...prev, calendarId]);
+                      } else {
+                        setSelectedCalendarIds(prev => prev.filter(id => id !== calendarId));
+                      }
+                    }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: calendar.backgroundColor || '#4285F4' }}
+                  />
+                  <label htmlFor={calendarStateId} className="cursor-pointer flex-grow truncate">
+                    {calendar.summary}
+                    {calendar.primary && (
+                      <span className="ml-1 text-xs text-gray-500">(Primary)</span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 

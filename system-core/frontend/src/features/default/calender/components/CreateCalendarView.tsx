@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { useCalendarList } from '../hooks/useCalendarList.google';
-import { useTabs } from '../../../required/tab_view';
+import { useTabStore } from '../../../required/tab_view';
 import { COMMON_TIMEZONES } from '../../chat';
 import { CreateCalendarParams } from '../types/types.google.api';
 
@@ -24,7 +24,7 @@ const CreateCalendarView: React.FC<CreateCalendarViewProps> = ({ accountId }) =>
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { createCalendar, loading: loadingCalendars } = useCalendarList(accountId);
-  const { closeTab } = useTabs();
+  const { closeTab } = useTabStore();
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
