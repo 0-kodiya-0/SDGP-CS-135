@@ -4,6 +4,7 @@ import { MenuButton } from './MenuButton';
 import { EnvironmentButton } from '../../features/default/environment';
 import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
 import { NavbarSearch } from '../../features/shared/search';
+import { NotificationBell } from '../../features/shared/notifications';
 
 export function Navbar() {
   const accountPopup = usePopup();
@@ -47,6 +48,10 @@ export function Navbar() {
           >
             <Settings className="w-5 h-5" />
           </button>
+
+          {/* Notification Bell */}
+          <NotificationBell />
+
           <button
             className="p-1.5 hover:bg-gray-100 rounded relative"
             onClick={handleUserCircleClick}
@@ -73,3 +78,5 @@ export function Navbar() {
     </>
   );
 }
+
+export default Navbar;

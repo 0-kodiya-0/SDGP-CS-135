@@ -3,7 +3,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
-import { PopupDisplay, PopupProvider } from "./features/shared/popup";
 import { useAccount } from "./features/default/user_account";
 import { WorkspaceProvider } from "./features/required/workspace";
 import { registerAllComponents } from "./features/required/tab_view";
@@ -62,7 +61,6 @@ const App: React.FC = () => {
     return (
         <div className="flex flex-col h-screen bg-white">
             <QueryClientProvider client={queryClient}>
-                <PopupProvider>
                     <Navbar />
                     <WorkspaceProvider>
                         <Header
@@ -73,8 +71,6 @@ const App: React.FC = () => {
                         />
                     </WorkspaceProvider>
                     <Footer />
-                    <PopupDisplay />
-                </PopupProvider>
             </QueryClientProvider>
         </div>
     );

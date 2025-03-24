@@ -9,15 +9,15 @@ import { TabView } from "../../features/required/tab_view";
 interface HeaderProps {
     environment: Environment | null;
     isLoading?: boolean;
-    accountId: string; // Added accountId prop
+    accountId: string;
 }
 
 export const Header = ({ environment, isLoading = false, accountId }: HeaderProps) => {
-
     // Add an effect to log when Header re-renders with a new environment
     useEffect(() => {
         console.log('[Header] Rendering with environment:', environment ? `${environment.id} (${environment.name})` : 'None');
-    }, [environment]);
+        console.log('[Header] Using account ID:', accountId);
+    }, [environment, accountId]);
 
     if (isLoading) {
         return (
@@ -38,61 +38,25 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
         );
     }
 
-    // return (
-    //     <div className="w-full h-full overflow-hidden">
-    //         <PanelGroup direction="horizontal" className="w-full h-full">
-    //             {/* Left Navigation Panel */}
-    //             <Navigation
-    //                 environment={environment}
-    //                 summaryBarClassName="w-[65px] h-full"
-    //                 detailPaneClassName="min-w-64 h-full overflow-hidden"
-    //             />
-
-    //             <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
-
-    //             <Panel defaultSize={20} minSize={10} className="h-full">
-    //                 <DetailPane
-    //                     environment={environment}
-    //                     refreshTrigger={refreshTrigger}
-    //                     onFileChange={handleRefresh}
-    //                     onFileSelect={handleFileSelect}
-    //                 />
-    //             </Panel>
-
-    //             <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
-
-    //             <Panel defaultSize={70} minSize={30} className="h-full">
-    //                 <DetailView
-    //                     selectedFile={selectedFile}
-    //                     onFileUploaded={handleRefresh}
-    //                     onBack={() => setSelectedFile(null)}
-    //                 />
-    //             </Panel>
-    //         </PanelGroup>
-    //     </div>
-    // );
-
     return (
-
         <div className="w-full h-full overflow-hidden">
-                <PanelGroup direction="horizontal" className="w-full h-full">
-                    {/* Navigation Panel - Fixed Width */}
-                    <Navigation
-                        environment={environment}
-                        summaryBarClassName="w-[65px] h-full"
-                        detailPaneClassName="min-w-64 h-full overflow-hidden" accountId={accountId} />
+            <PanelGroup direction="horizontal" className="w-full h-full">
+                {/* Navigation Panel - Fixed Width */}
+                <Navigation
+                    environment={environment}
+                    summaryBarClassName="w-[65px] h-full"
+                    detailPaneClassName="min-w-64 h-full overflow-hidden" 
+                    accountId={accountId} 
+                />
 
-                    {/* Resize Handle */}
-                    <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
+                {/* Resize Handle */}
+                <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
 
-                    {/* Detail Pane - Expand/Collapse with Limits */}
-                    <Panel defaultSize={80} minSize={10} className="h-full">
-                        {/* {selectedContact ? <ExpandView accountId={accountId}
-                        selectedContact={selectedContact} /> : <></>} */}
-                        <TabView />
-                    </Panel>
-                </PanelGroup>
+                {/* Detail Pane - Expand/Collapse with Limits */}
+                <Panel defaultSize={80} minSize={10} className="h-full">
+                    <TabView accountId={accountId} />
+                </Panel>
+            </PanelGroup>
         </div>
-
     );
 };
