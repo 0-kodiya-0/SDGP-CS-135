@@ -24,32 +24,34 @@ const apiProxy = createProxyMiddleware({
     pathRewrite: {
         '^/socket.io': '/socket.io', // No rewrite needed, just explicit declaration
     },
-    onProxyReq: (proxyReq, req, res) => {
-        // Preserve the original host in X-Forwarded-Host
-        if (req.headers.host) {
-            proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
-        }
-        
-        // Add X-Forwarded-Proto header if not present
-        if (!req.headers['x-forwarded-proto']) {
-            proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
-        }
-    },
-    onProxyReqWs: (proxyReq, req, socket, options, head) => {
-        // Add headers for WebSocket requests too
-        if (req.headers.host) {
-            proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
-        }
-        
-        // You can add more WebSocket-specific headers here if needed
-        console.log('[PROXY] WebSocket connection proxied');
-    },
-    onError: (err, req, res) => {
-        console.error('[PROXY] Error:', err);
-        if (res.writeHead && !res.headersSent) {
-            res.writeHead(500);
-            res.end('Proxy error: ' + err.message);
-        }
+    on : {
+        proxyReq: (proxyReq, req, res) => {
+            // Preserve the original host in X-Forwarded-Host
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+            
+            // Add X-Forwarded-Proto header if not present
+            if (!req.headers['x-forwarded-proto']) {
+                proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
+            }
+        },
+        proxyReqWs: (proxyReq, req, socket, options, head) => {
+            // Add headers for WebSocket requests too
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+            
+            // You can add more WebSocket-specific headers here if needed
+            console.log('[PROXY] WebSocket connection proxied');
+        },
+        error: (err, req, res) => {
+            console.error('[PROXY] Error:', err);
+            if (res.writeHead && !res.headersSent) {
+                res.writeHead(500);
+                res.end('Proxy error: ' + err.message);
+            }
+        }   
     }
 });
 
@@ -58,22 +60,24 @@ const frontendProxy = createProxyMiddleware({
     target: FRONTEND_URL,
     changeOrigin: true,
     logLevel: 'debug',
-    onProxyReq: (proxyReq, req, res) => {
-        // Preserve the original host in X-Forwarded-Host
-        if (req.headers.host) {
-            proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
-        }
-        
-        // Add X-Forwarded-Proto header if not present
-        if (!req.headers['x-forwarded-proto']) {
-            proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
-        }
-    },
-    onError: (err, req, res) => {
-        console.error('[PROXY] Frontend Error:', err);
-        if (res.writeHead && !res.headersSent) {
-            res.writeHead(500);
-            res.end('Frontend proxy error: ' + err.message);
+    on: {
+        proxyReq: (proxyReq, req, res) => {
+            // Preserve the original host in X-Forwarded-Host
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+            
+            // Add X-Forwarded-Proto header if not present
+            if (!req.headers['x-forwarded-proto']) {
+                proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
+            }
+        },
+        error: (err, req, res) => {
+            console.error('[PROXY] Frontend Error:', err);
+            if (res.writeHead && !res.headersSent) {
+                res.writeHead(500);
+                res.end('Frontend proxy error: ' + err.message);
+            }
         }
     }
 });

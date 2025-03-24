@@ -4,22 +4,14 @@ import { useFeatureStore, FeatureType } from '../store/useFeatureStore';
 
 interface SummaryBarProps {
   className?: string;
-  accountId?: string;
 }
 
-export function SummaryBar({ className, accountId }: SummaryBarProps) {
-  const { selectFeature, currentFeature } = useFeatureStore();
-
-  // Extract the accountId from props or use a default
-  const effectiveAccountId = accountId || 'default';
+export function SummaryBar({ className }: SummaryBarProps) {
+  // Use the integrated feature store hook
+  const { currentFeature, selectFeature } = useFeatureStore();
 
   const handleFeatureSelect = (feature: FeatureType) => {
-    if (!effectiveAccountId) {
-      console.error('No accountId available for navigation');
-      return;
-    }
-
-    // Select the feature using the Zustand store
+    // Select the feature for the current account
     selectFeature(feature);
   };
 

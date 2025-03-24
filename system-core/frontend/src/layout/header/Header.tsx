@@ -1,23 +1,20 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Navigation } from "../../features/required/left_navigation";
 import { Loader2 } from "lucide-react";
 import { Environment } from "../../features/default/environment/types/types.data";
 import { TabView } from "../../features/required/tab_view";
 
-
 interface HeaderProps {
     environment: Environment | null;
     isLoading?: boolean;
-    accountId: string;
 }
 
-export const Header = ({ environment, isLoading = false, accountId }: HeaderProps) => {
+export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     // Add an effect to log when Header re-renders with a new environment
     useEffect(() => {
         console.log('[Header] Rendering with environment:', environment ? `${environment.id} (${environment.name})` : 'None');
-        console.log('[Header] Using account ID:', accountId);
-    }, [environment, accountId]);
+    }, [environment]);
 
     if (isLoading) {
         return (
@@ -46,7 +43,6 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
                     environment={environment}
                     summaryBarClassName="w-[65px] h-full"
                     detailPaneClassName="min-w-64 h-full overflow-hidden" 
-                    accountId={accountId} 
                 />
 
                 {/* Resize Handle */}
@@ -54,7 +50,7 @@ export const Header = ({ environment, isLoading = false, accountId }: HeaderProp
 
                 {/* Detail Pane - Expand/Collapse with Limits */}
                 <Panel defaultSize={80} minSize={10} className="h-full">
-                    <TabView accountId={accountId} />
+                    <TabView />
                 </Panel>
             </PanelGroup>
         </div>

@@ -7,21 +7,14 @@ interface TabContentProps {
 }
 
 export const TabContent: React.FC<TabContentProps> = ({ className = '' }) => {
-    const tabs = useTabStore((state) => state.tabs);
-    const activeTabId = useTabStore((state) => state.activeTabId);
+    // The useTabStore hook now automatically uses the current account
+    const { tabs, activeTabId } = useTabStore();
     
     const activeTab = tabs.find(tab => tab.id === activeTabId);
 
     // Render the appropriate content
     const renderContent = () => {
         if (!activeTab) return null;
-        
-        // If the content is already a React Node (not restored from storage), use it directly
-        if (activeTab.content) {
-            return activeTab.content;
-        }
-
-        console.log(activeTab)
         
         // If we have componentType, use the ComponentLoader
         if (activeTab.componentType) {

@@ -13,16 +13,16 @@ const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
 export interface DetailPaneProps {
   environment: Environment;
-  accountId: string;
   className?: string;
 }
 
-export function DetailPane({ environment, className, accountId }: DetailPaneProps) {
-  const { currentFeature } = useFeatureStore();
+export function DetailPane({ environment, className }: DetailPaneProps) {
+  // Use the feature store hook that automatically uses the current account
+  const { currentFeature, accountId } = useFeatureStore();
 
   useEffect(() => {
-    console.log(`[DetailPane] Loading feature: ${currentFeature}`);
-  }, [currentFeature]);
+    console.log(`[DetailPane] Loading feature: ${currentFeature} for account: ${accountId}`);
+  }, [currentFeature, accountId]);
 
   // Determine which component to render based on the selected feature
   const renderFeatureComponent = () => {

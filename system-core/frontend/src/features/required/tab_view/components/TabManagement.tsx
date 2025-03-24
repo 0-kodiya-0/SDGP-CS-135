@@ -8,10 +8,8 @@ interface TabManagementProps {
 }
 
 export const TabManagement: React.FC<TabManagementProps> = ({ className = '' }) => {
-  const tabs = useTabStore((state) => state.tabs);
-  const activeTabId = useTabStore((state) => state.activeTabId);
-  const closeTab = useTabStore((state) => state.closeTab);
-  const setActiveTab = useTabStore((state) => state.setActiveTab);
+  // The useTabStore hook now automatically uses the current account
+  const { tabs, activeTabId, closeTab, setActiveTab } = useTabStore();
 
   // Handle tab close
   const handleCloseTab = (tabId: string, e: React.MouseEvent<HTMLButtonElement>) => {

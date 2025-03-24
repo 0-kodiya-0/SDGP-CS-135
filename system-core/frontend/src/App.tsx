@@ -3,12 +3,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
-import { useAccount } from "./features/default/user_account";
+import { useAccount as useAccountDetails } from "./features/default/user_account";
 import { WorkspaceProvider } from "./features/required/workspace";
 import { registerAllComponents } from "./features/required/tab_view";
 
 const App: React.FC = () => {
-    const { accountDetails, isLoading, error, fetchAccountDetails } = useAccount();
+    const { accountDetails, isLoading, error, fetchAccountDetails } = useAccountDetails();
     const { currentEnvironment, isLoading: envLoading } = useEnvironment();
 
     // Initialize component registry on app startup
@@ -67,7 +67,6 @@ const App: React.FC = () => {
                             key={`env-${currentEnvironment?.id || 'none'}`}
                             environment={currentEnvironment}
                             isLoading={envLoading}
-                            accountId={accountDetails?.id}
                         />
                     </WorkspaceProvider>
                     <Footer />

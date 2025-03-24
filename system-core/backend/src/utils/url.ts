@@ -13,8 +13,6 @@ export function getAbsoluteUrl(req: Request, path: string): string {
     // Get host, properly respecting X-Forwarded-Host header if present
     const host = req.get('X-Forwarded-Host') || req.get('host');
 
-    console.log(host,  req.get('X-Forwarded-Host'))
-
     // Combine to get full URL
     return `${protocol}://${host}/api/v1${path}`;
 }

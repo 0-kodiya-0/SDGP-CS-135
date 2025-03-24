@@ -16,7 +16,7 @@ export default function CalendarSummaryView({ accountId }: SummaryViewProps) {
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
   const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
   const { events, loading: loadingEvents, error: eventsError, listEvents } = useCalendarEvents(accountId);
-  const addTab = useTabStore(state => state.addTab);
+  const { addTab } = useTabStore()
 
   // Initialize data on component mount
   useEffect(() => {
