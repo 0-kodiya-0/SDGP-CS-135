@@ -1,120 +1,99 @@
 // feature/default/user_account/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
-import { Session } from '../types/types.data';
+import axios from 'axios';
+import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
 
 interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
-    session: Session | null;
+    accountIds: string[];
     error: string | null;
     logout: (accountId?: string) => Promise<void>;
     logoutAll: () => Promise<void>;
-    readSessionToken: () => void;
-    switchAccount: (accountId: string) => Promise<boolean>;
+    refreshAccounts: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Function to read and decode the session token cookie
-const readSessionTokenFromCookie = (): Session | null => {
+interface AccountsResponse {
+    accounts: string[];
+}
+
+// Function to fetch account IDs from the API
+const fetchAccountIds = async (): Promise<string[] | null> => {
     try {
-        const sessionCookie = Cookies.get('session_token');
+        const response = await axios.get<AccountsResponse>(
+            `${API_BASE_URL}/account`,
+            { withCredentials: true }
+        );
 
-        if (!sessionCookie) {
-            console.log("No session_token cookie found");
-            return null;
-        }
-
-        try {
-            // Decode the JWT token
-            const decodedSession = jwtDecode<Session>(sessionCookie);
-            console.log("Successfully decoded session:", decodedSession);
-
-            return {
-                sessionId: decodedSession.sessionId,
-                accounts: decodedSession.accounts || [],
-                selectedAccountId: decodedSession.selectedAccountId, // Add selected account support
-                createdAt: decodedSession.createdAt,
-                expiresAt: decodedSession.expiresAt,
-                iat: decodedSession.iat
-            };
-        } catch (decodeError) {
-            console.error('Failed to decode session cookie:', decodeError);
+        if (response.data.accounts) {
+            console.log("Successfully fetched accounts");
+            return response.data.accounts;
+        } else {
+            console.error('Failed to fetch accounts');
             return null;
         }
     } catch (err) {
-        console.error('Session retrieval failed:', err);
+        console.error('Account retrieval failed:', err);
         return null;
     }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Read the session token immediately during component initialization
-    const initialSession = readSessionTokenFromCookie();
-    console.log("Initial session on load:", initialSession);
-
-    const [isLoading, setIsLoading] = useState(false);
-    const [session, setSession] = useState<Session | null>(initialSession);
+    const [isLoading, setIsLoading] = useState(true);
+    const [accountIds, setAccountIds] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
 
-    // Set up periodic session check
+    // Initial accounts fetch
     useEffect(() => {
-        const checkSession = () => {
-            const updatedSession = readSessionTokenFromCookie();
-            if (JSON.stringify(updatedSession) !== JSON.stringify(session)) {
-                setSession(updatedSession);
+        const initializeAccounts = async () => {
+            try {
+                const accounts = await fetchAccountIds();
+                console.log(accounts)
+                setAccountIds(accounts || []);
+            } catch (err) {
+                console.error('Error initializing accounts:', err);
+                setError('Failed to initialize accounts');
+            } finally {
+                setIsLoading(false);
             }
         };
 
-        // Check session every minute
-        const intervalId = setInterval(checkSession, 60000);
+        initializeAccounts();
+    }, []);
 
-        return () => clearInterval(intervalId);
-    }, [session]);
+    // Set up periodic account check
+    // useEffect(() => {
+    //     const checkAccounts = async () => {
+    //         try {
+    //             const updatedAccounts = await fetchAccountIds();
+                
+    //             // Only update state if the accounts have changed
+    //             if (updatedAccounts && JSON.stringify(updatedAccounts) !== JSON.stringify(accountIds)) {
+    //                 setAccountIds(updatedAccounts);
+    //             }
+    //         } catch (err) {
+    //             console.error('Error checking accounts:', err);
+    //         }
+    //     };
 
-    // Manual function to read the session token
-    const readSessionToken = () => {
-        setIsLoading(true);
-        const sessionData = readSessionTokenFromCookie();
-        setSession(sessionData);
-        setIsLoading(false);
-        console.log("Session token manually read:", sessionData);
-    };
+    //     // Check accounts every minute
+    //     const intervalId = setInterval(checkAccounts, 60000);
 
-    // Switch to a different account in the same session
-    const switchAccount = async (accountId: string): Promise<boolean> => {
+    //     return () => clearInterval(intervalId);
+    // }, [accountIds]);
+
+    // Manual function to refresh the accounts data
+    const refreshAccounts = async () => {
         try {
             setIsLoading(true);
-            
-            if (!session) {
-                setError('No active session');
-                return false;
-            }
-            
-            // Make a request to the backend to switch accounts
-            const response = await fetch(`/api/v1/account/${accountId}/switch`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                // Read the updated session token with new selected account
-                readSessionToken();
-                return true;
-            } else {
-                const errorData = await response.json();
-                setError(errorData.error?.message || 'Failed to switch account');
-                return false;
-            }
-        } catch (error) {
-            console.error('Account switch failed:', error);
-            setError('Failed to switch account');
-            return false;
+            setError(null);
+            const accounts = await fetchAccountIds();
+            setAccountIds(accounts || []);
+        } catch (err) {
+            console.error('Accounts refresh failed:', err);
+            setError('Failed to refresh accounts');
         } finally {
             setIsLoading(false);
         }
@@ -149,14 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const value = {
-        isAuthenticated: session !== null,
+        isAuthenticated: accountIds.length > 0,
         isLoading,
-        session,
+        accountIds,
         error,
         logout,
         logoutAll,
-        readSessionToken,
-        switchAccount
+        refreshAccounts
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

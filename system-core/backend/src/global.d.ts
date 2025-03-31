@@ -1,3 +1,4 @@
+import { OAuthAccountDocument } from "./feature/account/Account.model";
 import { SessionPayload } from "./types/session.types";
 
 declare global {
@@ -34,6 +35,7 @@ declare global {
     namespace Express {
         interface Request {
             session?: SessionPayload;
+            oauthAccount?: OAuthAccountDocument;
             googleAuth?: Auth.OAuth2Client;
             googlePermissionRedirectUrl?: string;
             workspaceId?: string;

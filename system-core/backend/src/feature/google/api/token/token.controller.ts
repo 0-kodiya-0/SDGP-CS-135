@@ -7,7 +7,7 @@ import { GoogleApiRequest } from '../../types';
 import { isValidGoogleService } from '../../utils';
 import db from '../../../../config/db';
 import { GoogleTokenService } from '../../services/token';
-import { SessionManager } from '../../../../services/session';
+import { updateUserTokens, createSessionToken } from '../../../../services/session';
 
 /**
  * Get token information for the current user
@@ -119,25 +119,25 @@ export const checkServiceAccess = async (req: GoogleApiRequest, res: Response) =
 export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
     try {
         const accountId = req.params.accountId;
-
-        if (!accountId) {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
-        }
-
-        const sessionManager = SessionManager.getInstance();
-        const session = sessionManager.extractSession(req);
+        const session = req.session;
 
         if (!session) {
             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
         }
 
-        try {
-            // Force refresh the token
-            const account = session.accounts.find(acc => acc.accountId === accountId);
+        if (!accountId) {
+            return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
+        }
 
-            if (!account) {
-                return sendError(res, 403, ApiErrorCode.AUTH_FAILED, "Account not in session");
-            }
+        // const session = extractSession(req);
+
+        try {
+            // // Force refresh the token
+            // const account = session.accounts.find(acc => acc === accountId);
+
+            // if (!account) {
+            //     return sendError(res, 403, ApiErrorCode.AUTH_FAILED, "Account not in session");
+            // }
 
             // Get the account from the database to access the refresh token
             const models = await db.getModels();
@@ -152,21 +152,21 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
             const newTokenInfo = await googleTokenService.refreshAccessToken(dbAccount.tokenDetails.refreshToken);
 
             // Update the token in the database
-            await sessionManager.updateUserTokens(accountId, {
+            await updateUserTokens(accountId, {
                 accessToken: newTokenInfo.accessToken,
                 refreshToken: newTokenInfo.refreshToken || dbAccount.tokenDetails.refreshToken,
                 tokenCreatedAt: new Date().toISOString()
             });
 
             // Update the token in the session
-            account.tokenInfo = {
-                accessToken: newTokenInfo.accessToken,
-                expiresAt: newTokenInfo.expiresAt,
-                scope: newTokenInfo.scope
-            };
+            // account.tokenInfo = {
+            //     accessToken: newTokenInfo.accessToken,
+            //     expiresAt: newTokenInfo.expiresAt,
+            //     scope: newTokenInfo.scope
+            // };
 
             // Update the session cookie
-            sessionManager.createSessionToken(res, session);
+            createSessionToken(res, session);
 
             return sendSuccess(res, 200, {
                 success: true,
@@ -182,124 +182,124 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
     }
 };
 
-/**
- * Get a list of active sessions for the current user
- */
-export const getSessions = async (req: GoogleApiRequest, res: Response) => {
-    try {
-        const accountId = req.params.accountId;
+// /**
+//  * Get a list of active sessions for the current user
+//  */
+// export const getSessions = async (req: GoogleApiRequest, res: Response) => {
+//     try {
+//         const accountId = req.params.accountId;
 
-        if (!accountId) {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
-        }
+//         if (!accountId) {
+//             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
+//         }
 
-        const sessionManager = SessionManager.getInstance();
-        const session = sessionManager.extractSession(req);
+//         
+//         const session = extractSession(req);
 
-        if (!session) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
-        }
+//         if (!session) {
+//             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
+//         }
 
-        try {
-            // Get all active sessions for this user
-            const activeSessions = await sessionManager.getUserActiveSessions(accountId);
+//         try {
+//             // Get all active sessions for this user
+//             const activeSessions = await getUserActiveSessions(accountId);
 
-            // Remove sensitive data and format the response
-            const formattedSessions = activeSessions.map(s => ({
-                sessionId: s.sessionId,
-                createdAt: s.createdAt,
-                lastActivity: s.lastActivity,
-                userAgent: s.userAgent,
-                isCurrent: s.sessionId === session.sessionId
-            }));
+//             // Remove sensitive data and format the response
+//             const formattedSessions = activeSessions.map(s => ({
+//                 sessionId: s.sessionId,
+//                 createdAt: s.createdAt,
+//                 lastActivity: s.lastActivity,
+//                 userAgent: s.userAgent,
+//                 isCurrent: s.sessionId === session.sessionId
+//             }));
 
-            return sendSuccess(res, 200, {
-                sessions: formattedSessions,
-                currentSessionId: session.sessionId
-            });
-        } catch (error) {
-            console.error('Error retrieving sessions:', error);
-            return sendError(res, 500, ApiErrorCode.SERVER_ERROR, "Failed to retrieve sessions");
-        }
-    } catch (error) {
-        return handleGoogleApiError(req, res, error);
-    }
-};
+//             return sendSuccess(res, 200, {
+//                 sessions: formattedSessions,
+//                 currentSessionId: session.sessionId
+//             });
+//         } catch (error) {
+//             console.error('Error retrieving sessions:', error);
+//             return sendError(res, 500, ApiErrorCode.SERVER_ERROR, "Failed to retrieve sessions");
+//         }
+//     } catch (error) {
+//         return handleGoogleApiError(req, res, error);
+//     }
+// };
 
-/**
- * Terminate all other sessions for this user
- */
-export const terminateOtherSessions = async (req: GoogleApiRequest, res: Response) => {
-    try {
-        const accountId = req.params.accountId;
+// /**
+//  * Terminate all other sessions for this user
+//  */
+// export const terminateOtherSessions = async (req: GoogleApiRequest, res: Response) => {
+//     try {
+//         const accountId = req.params.accountId;
 
-        if (!accountId) {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
-        }
+//         if (!accountId) {
+//             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
+//         }
 
-        const sessionManager = SessionManager.getInstance();
-        const session = sessionManager.extractSession(req);
+//         
+//         const session = extractSession(req);
 
-        if (!session) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
-        }
+//         if (!session) {
+//             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
+//         }
 
-        try {
-            // Deactivate all other sessions
-            const deactivatedCount = await sessionManager.deactivateOtherSessions(
-                accountId,
-                session.sessionId
-            );
+//         try {
+//             // Deactivate all other sessions
+//             const deactivatedCount = await deactivateOtherSessions(
+//                 accountId,
+//                 session.sessionId
+//             );
 
-            return sendSuccess(res, 200, {
-                success: true,
-                terminatedSessionsCount: deactivatedCount
-            });
-        } catch (error) {
-            console.error('Error terminating sessions:', error);
-            return sendError(res, 500, ApiErrorCode.SERVER_ERROR, "Failed to terminate sessions");
-        }
-    } catch (error) {
-        return handleGoogleApiError(req, res, error);
-    }
-};
+//             return sendSuccess(res, 200, {
+//                 success: true,
+//                 terminatedSessionsCount: deactivatedCount
+//             });
+//         } catch (error) {
+//             console.error('Error terminating sessions:', error);
+//             return sendError(res, 500, ApiErrorCode.SERVER_ERROR, "Failed to terminate sessions");
+//         }
+//     } catch (error) {
+//         return handleGoogleApiError(req, res, error);
+//     }
+// };
 
-/**
- * Switch the active account in the current session
- */
-export const switchAccount = async (req: GoogleApiRequest, res: Response) => {
-    try {
-        const { targetAccountId } = req.body;
+// /**
+//  * Switch the active account in the current session
+//  */
+// export const switchAccount = async (req: GoogleApiRequest, res: Response) => {
+//     try {
+//         const { targetAccountId } = req.body;
 
-        if (!targetAccountId) {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Target account ID is required");
-        }
+//         if (!targetAccountId) {
+//             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Target account ID is required");
+//         }
 
-        const sessionManager = SessionManager.getInstance();
-        const session = sessionManager.extractSession(req);
+//         
+//         const session = extractSession(req);
 
-        if (!session) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
-        }
+//         if (!session) {
+//             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, "No active session");
+//         }
 
-        // Check if the target account is in the session
-        const targetAccount = session.accounts.find(acc => acc.accountId === targetAccountId);
+//         // Check if the target account is in the session
+//         const targetAccount = session.accounts.find(acc => acc.accountId === targetAccountId);
 
-        if (!targetAccount) {
-            return sendError(res, 403, ApiErrorCode.AUTH_FAILED, "Target account not found in session");
-        }
+//         if (!targetAccount) {
+//             return sendError(res, 403, ApiErrorCode.AUTH_FAILED, "Target account not found in session");
+//         }
 
-        // Update the selected account
-        session.selectedAccountId = targetAccountId;
+//         // Update the selected account
+//         session.selectedAccountId = targetAccountId;
 
-        // Update the session cookie
-        sessionManager.createSessionToken(res, session);
+//         // Update the session cookie
+//         createSessionToken(res, session);
 
-        return sendSuccess(res, 200, {
-            success: true,
-            selectedAccountId: targetAccountId
-        });
-    } catch (error) {
-        return handleGoogleApiError(req, res, error);
-    }
-};
+//         return sendSuccess(res, 200, {
+//             success: true,
+//             selectedAccountId: targetAccountId
+//         });
+//     } catch (error) {
+//         return handleGoogleApiError(req, res, error);
+//     }
+// };

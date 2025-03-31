@@ -34,7 +34,7 @@ export const UserSearch: React.FC<UserSearchProps> = ({ open, onClose, onConvers
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { currentAccount } = useAccount();
-  const { session } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { contacts, loading, searchContacts } = useContacts(currentAccount?.accountId || '');
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export const UserSearch: React.FC<UserSearchProps> = ({ open, onClose, onConvers
       const email = contact.emailAddresses?.[0]?.value;
       if (!email) return;
 
-      if (!session) {
+      if (!isAuthenticated) {
         setError('You must be logged in to start a conversation');
         return;
       }
@@ -137,7 +137,7 @@ export const UserSearch: React.FC<UserSearchProps> = ({ open, onClose, onConvers
                       <IconButton 
                         edge="end" 
                         onClick={() => handleAddUser(contact)}
-                        disabled={isCreating || !session}
+                        disabled={isCreating || !isAuthenticated}
                       >
                         {isCreating ? <CircularProgress size={24} /> : <PersonAddIcon />}
                       </IconButton>

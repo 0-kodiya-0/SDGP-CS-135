@@ -95,12 +95,12 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const { session, logout, logoutAll } = useAuth();
-  const { currentAccount, accountDetails } = useAccount();
+  const { accountIds, isAuthenticated, logout, logoutAll } = useAuth();
+  const { currentAccount } = useAccount();
   const navigate = useNavigate();
 
   // Check if there are any accounts
-  const hasAccounts = (session?.accounts.length || 0) > 0;
+  const hasAccounts = (accountIds.length || 0) > 0;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -137,7 +137,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   const handleLogout = async () => {
     if (currentAccount) {
       setLoading(true);
-      await logout(currentAccount.accountId);
+      await logout(currentAccount?.id);
       setLoading(false);
       onClose();
     }
@@ -157,7 +157,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   };
 
   const renderAccountInfo = () => {
-    if (!hasAccounts || !accountDetails) {
+    if (!hasAccounts || !currentAccount) {
       return (
         <div className="text-center py-4">
           <div className="bg-gray-100 mx-auto rounded-full w-12 h-12 flex items-center justify-center mb-3">
@@ -182,36 +182,36 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
         <div className="flex items-start">
           <UserAvatar
             account={{
-              id: accountDetails.id,
-              name: accountDetails.name,
-              email: accountDetails.email,
+              id: currentAccount?.id,
+              name: currentAccount?.userDetails.name,
+              email: currentAccount?.userDetails.email,
               // Don't use the imageUrl from the API to avoid rate limiting issues
               // Only use it if it's a data URL or internal URL
-              imageUrl: accountDetails.imageUrl,
-              provider: accountDetails.provider || currentAccount?.provider || ''
+              imageUrl: currentAccount?.userDetails.imageUrl,
+              provider: currentAccount?.provider || (currentAccount?.provider || '')
             }}
             size="md"
           />
           <div className="flex-1 ml-3">
-            <h2 className="text-lg font-medium">Hi, {accountDetails.name?.split(' ')[0] || 'User'}!</h2>
-            <p className="text-sm text-gray-600 truncate">{accountDetails.email}</p>
+            <h2 className="text-lg font-medium">Hi, {currentAccount?.userDetails.name?.split(' ')[0] || 'User'}!</h2>
+            <p className="text-sm text-gray-600 truncate">{currentAccount?.userDetails.email}</p>
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
           <span>
-            {accountDetails.security?.sessionTimeout ?
-              `Session: ${accountDetails.security.sessionTimeout}m` :
+            {currentAccount?.security?.sessionTimeout ?
+              `Session: ${currentAccount?.security.sessionTimeout}m` :
               'No session timeout'}
           </span>
           <span className="flex items-center">
-            <span className={`w-2 h-2 rounded-full mr-1 ${accountDetails.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-            {accountDetails.status === 'active' ? 'Active' : 'Inactive'}
+            <span className={`w-2 h-2 rounded-full mr-1 ${currentAccount?.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            {currentAccount?.status === 'active' ? 'Active' : 'Inactive'}
           </span>
         </div>
         <button
           className="mt-3 w-full py-2 px-4 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
           disabled={loading}
-          onClick={() => navigate(`/app/${currentAccount!.accountId}/settings`)}
+          onClick={() => navigate(`/app/${currentAccount!.id}/settings`)}
         >
           {loading ? (
             <span className="flex items-center">
@@ -230,7 +230,12 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   };
 
   const renderOtherAccounts = () => {
-    if (!session || session.accounts.length <= 1) return null;
+    if (!accountIds || accountIds.length <= 1) return null;
+    
+    // Filter out the current account ID
+    const otherAccountIds = accountIds.filter(id => id !== currentAccount?.id);
+    
+    if (otherAccountIds.length === 0) return null;
 
     return (
       <>
@@ -239,22 +244,20 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
           className="flex items-center justify-between w-full py-1 text-sm text-gray-700 hover:bg-gray-50 px-2 rounded"
         >
           <span>
-            {showAllAccounts ? 'Hide' : 'Show'} more accounts ({session.accounts.length - 1})
+            {showAllAccounts ? 'Hide' : 'Show'} more accounts ({otherAccountIds.length})
           </span>
           {showAllAccounts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
         {showAllAccounts && (
           <div className="mt-2 space-y-1">
-            {session.accounts
-              .filter(acc => acc.accountId !== currentAccount?.accountId)
-              .map((account) => (
-                <AccountListItem
-                  key={account.accountId}
-                  accountId={account.accountId}
-                  onSelect={handleSwitchAccount}
-                />
-              ))}
+            {otherAccountIds.map((accountId) => (
+              <AccountListItem
+                key={accountId}
+                accountId={accountId}
+                onSelect={handleSwitchAccount}
+              />
+            ))}
           </div>
         )}
       </>
@@ -286,7 +289,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
         {hasAccounts && (
           <div className="mt-3 pt-3 border-t">
-            {session && session.accounts.length > 1 ? (
+            {accountIds && accountIds.length > 1 ? (
               <>
                 <button
                   className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"

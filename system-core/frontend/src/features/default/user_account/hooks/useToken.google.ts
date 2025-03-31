@@ -125,74 +125,74 @@ export const useTokenApi = (): UseTokenApiReturn => {
         }
     }, []);
 
-    /**
-     * Get all active sessions for the current user
-     */
-    const getSessions = useCallback(async (
-        accountId: string
-    ): Promise<any[] | null> => {
-        try {
-            setLoading(true);
-            setError(null);
+    // /**
+    //  * Get all active sessions for the current user
+    //  */
+    // const getSessions = useCallback(async (
+    //     accountId: string
+    // ): Promise<any[] | null> => {
+    //     try {
+    //         setLoading(true);
+    //         setError(null);
 
-            const response = await axios.get<ApiResponse<{ sessions: any[]; currentSessionId: string }>>(
-                `${API_BASE_URL}/google/${accountId}/sessions`,
-                { withCredentials: true }
-            );
+    //         const response = await axios.get<ApiResponse<{ sessions: any[]; currentSessionId: string }>>(
+    //             `${API_BASE_URL}/google/${accountId}/sessions`,
+    //             { withCredentials: true }
+    //         );
 
-            if (response.data.success && response.data.data) {
-                return response.data.data.sessions;
-            } else {
-                setError(response.data.error?.message || 'Failed to fetch sessions');
-                return null;
-            }
-        } catch (err) {
-            const axiosError = err as AxiosError<ApiResponse<any>>;
-            setError(
-                axiosError.response?.data?.error?.message ||
-                axiosError.message ||
-                'An error occurred while fetching sessions'
-            );
-            return null;
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    //         if (response.data.success && response.data.data) {
+    //             return response.data.data.sessions;
+    //         } else {
+    //             setError(response.data.error?.message || 'Failed to fetch sessions');
+    //             return null;
+    //         }
+    //     } catch (err) {
+    //         const axiosError = err as AxiosError<ApiResponse<any>>;
+    //         setError(
+    //             axiosError.response?.data?.error?.message ||
+    //             axiosError.message ||
+    //             'An error occurred while fetching sessions'
+    //         );
+    //         return null;
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // }, []);
 
-    /**
-     * Terminate all other sessions except the current one
-     */
-    const terminateOtherSessions = useCallback(async (
-        accountId: string
-    ): Promise<boolean> => {
-        try {
-            setLoading(true);
-            setError(null);
+    // /**
+    //  * Terminate all other sessions except the current one
+    //  */
+    // const terminateOtherSessions = useCallback(async (
+    //     accountId: string
+    // ): Promise<boolean> => {
+    //     try {
+    //         setLoading(true);
+    //         setError(null);
 
-            const response = await axios.post<ApiResponse<{ success: boolean; terminatedSessionsCount: number }>>(
-                `${API_BASE_URL}/google/${accountId}/sessions/terminate-others`,
-                {},
-                { withCredentials: true }
-            );
+    //         const response = await axios.post<ApiResponse<{ success: boolean; terminatedSessionsCount: number }>>(
+    //             `${API_BASE_URL}/google/${accountId}/sessions/terminate-others`,
+    //             {},
+    //             { withCredentials: true }
+    //         );
 
-            if (response.data.success) {
-                return true;
-            } else {
-                setError(response.data.error?.message || 'Failed to terminate sessions');
-                return false;
-            }
-        } catch (err) {
-            const axiosError = err as AxiosError<ApiResponse<any>>;
-            setError(
-                axiosError.response?.data?.error?.message ||
-                axiosError.message ||
-                'An error occurred while terminating sessions'
-            );
-            return false;
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    //         if (response.data.success) {
+    //             return true;
+    //         } else {
+    //             setError(response.data.error?.message || 'Failed to terminate sessions');
+    //             return false;
+    //         }
+    //     } catch (err) {
+    //         const axiosError = err as AxiosError<ApiResponse<any>>;
+    //         setError(
+    //             axiosError.response?.data?.error?.message ||
+    //             axiosError.message ||
+    //             'An error occurred while terminating sessions'
+    //         );
+    //         return false;
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // }, []);
 
     return {
         tokenInfo,
@@ -202,7 +202,7 @@ export const useTokenApi = (): UseTokenApiReturn => {
         getTokenInfo,
         checkServiceAccess,
         refreshToken,
-        getSessions,
-        terminateOtherSessions
+        // getSessions,
+        // terminateOtherSessions
     };
 };

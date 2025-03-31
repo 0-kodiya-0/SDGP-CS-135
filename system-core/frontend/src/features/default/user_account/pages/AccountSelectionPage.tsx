@@ -15,7 +15,7 @@ interface AccountDisplayInfo {
 }
 
 const AccountSelectionPage: React.FC = () => {
-    const { session, isLoading, logoutAll } = useAuth();
+    const { accountIds, isLoading, logoutAll } = useAuth();
     const [accounts, setAccounts] = useState<AccountDisplayInfo[]>([]);
     const [loadingAccounts, setLoadingAccounts] = useState(true);
     const [preferredAccountId, setPreferredAccountId] = useState<string | null>(
@@ -23,38 +23,38 @@ const AccountSelectionPage: React.FC = () => {
     );
     const navigate = useNavigate();
 
-    // Fetch details for all accounts in the session
+    // Fetch details for all accounts from the account IDs
     useEffect(() => {
         const fetchAllAccountDetails = async () => {
-            if (!session?.accounts) return;
+            if (!accountIds || accountIds.length === 0) return;
 
             try {
                 setLoadingAccounts(true);
-                const accountPromises = session.accounts.map(async (account) => {
+                const accountPromises = accountIds.map(async (accountId) => {
                     try {
-                        const response = await fetchAccountDetails(account.accountId);
+                        const response = await fetchAccountDetails(accountId);
                         if (response.success) {
                             return {
-                                id: account.accountId,
+                                id: accountId,
                                 name: response.data.userDetails?.name || 'User',
                                 email: response.data.userDetails?.email || '',
                                 imageUrl: response.data.userDetails?.imageUrl,
-                                provider: response.data.provider || account.provider,
+                                provider: response.data.provider || 'unknown',
                                 status: response.data.status
                             };
                         }
                         return {
-                            id: account.accountId,
-                            name: `Account ${account.accountId.slice(0, 6)}...`,
+                            id: accountId,
+                            name: `Account ${accountId.slice(0, 6)}...`,
                             email: 'Details unavailable',
-                            provider: account.provider || 'unknown'
+                            provider: 'unknown'
                         };
                     } catch {
                         return {
-                            id: account.accountId,
-                            name: `Account ${account.accountId.slice(0, 6)}...`,
+                            id: accountId,
+                            name: `Account ${accountId.slice(0, 6)}...`,
                             email: 'Details unavailable',
-                            provider: account.provider || 'unknown'
+                            provider: 'unknown'
                         };
                     }
                 });
@@ -69,7 +69,7 @@ const AccountSelectionPage: React.FC = () => {
         };
 
         fetchAllAccountDetails();
-    }, [session]);
+    }, [accountIds]);
 
     const handleSelectAccount = (accountId: string) => {
         navigate(`/app/${accountId}`);

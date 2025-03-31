@@ -8,7 +8,7 @@ import { useAuth } from "../features/default/user_account";
  */
 const AuthCallback: React.FC = () => {
     const navigate = useNavigate();
-    const { isLoading, isAuthenticated, session } = useAuth();
+    const { isLoading, isAuthenticated} = useAuth();
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState<string>('');
@@ -16,7 +16,7 @@ const AuthCallback: React.FC = () => {
 
     // Process authentication result only once on component mount
     useEffect(() => {
-        if (!(!isLoading && isAuthenticated && session)) {
+        if (!(!isLoading && isAuthenticated)) {
             return;
         }
         try {
@@ -70,7 +70,7 @@ const AuthCallback: React.FC = () => {
             setStatus('error');
             setMessage('An unexpected error occurred while processing authentication.');
         }
-    }, [isLoading, isAuthenticated, session]); // Only depend on isProcessing flag
+    }, [isLoading, isAuthenticated]); // Only depend on isProcessing flag
 
     const handleGoBack = () => {
         navigate(-1);

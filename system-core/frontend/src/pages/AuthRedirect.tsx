@@ -7,17 +7,17 @@ import { useAuth } from '../features/default/user_account';
  * This should be used for the root route (/)
  */
 const AuthRedirect: React.FC = () => {
-    const { session, isAuthenticated, isLoading } = useAuth();
+    const { accountIds, isAuthenticated, isLoading } = useAuth();
     const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!isLoading && isAuthenticated && session) {
+        if (!isLoading && isAuthenticated && accountIds.length > 0) {
             // Check if there's a preferred account
             const preferredAccountId = localStorage.getItem('preferredAccountId');
 
             if (preferredAccountId) {
                 // Check if this account exists in the current session
-                const accountExists = session.accounts.some(account => account.accountId === preferredAccountId);
+                const accountExists = accountIds.includes(preferredAccountId);
 
                 if (accountExists) {
                     setRedirectPath(`/app/${preferredAccountId}`);
@@ -31,7 +31,7 @@ const AuthRedirect: React.FC = () => {
             // If not authenticated, redirect to login
             setRedirectPath('/login');
         }
-    }, [isLoading, isAuthenticated, session]);
+    }, [isLoading, isAuthenticated, accountIds]);
 
     if (isLoading) {
         return (

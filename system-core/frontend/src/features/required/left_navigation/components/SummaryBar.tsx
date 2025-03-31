@@ -22,14 +22,14 @@ export function SummaryBar({ className }: SummaryBarProps) {
   return (
     <div className={`bg-white border-r border-gray-200 py-4 flex-shrink-0 ${className}`}>
       <div className="flex flex-col space-y-4 items-center">
-        <SummarySection
+        {/* <SummarySection
           icon={<Layout className="w-6 h-6" />}
           title="Workspace"
           featureComponent={null}
           featureType="workspace"
           onSelect={() => handleFeatureSelect('workspace')}
           isActive={isActive('workspace')}
-        />
+        /> */}
         <SummarySection
           icon={<Users className="w-6 h-6" />}
           title="Contacts"

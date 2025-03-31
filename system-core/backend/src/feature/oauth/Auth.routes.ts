@@ -15,8 +15,8 @@ import { findUser } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 import { getRedirectUrl, redirectWithError, redirectWithSuccess } from '../../utils/redirect';
-import { SessionManager } from '../../services/session';
 import { GoogleTokenService } from '../google/services/token';
+import { createOrUpdateSession, updateUserTokens } from '../../services/session';
 
 export const router = express.Router();
 
@@ -164,8 +164,7 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
             await models.accounts.OAuthAccount.create(newAccount);
 
             // Create session with the new account using SessionManager
-            const sessionManager = SessionManager.getInstance();
-            const sessionResponse = await sessionManager.createOrUpdateSession(res, newAccount, req);
+            const sessionResponse = await createOrUpdateSession(res, newAccount, req);
 
             if ('error' in sessionResponse && sessionResponse.error) {
                 redirectWithError(res, frontendRedirectUrl, 
@@ -254,8 +253,7 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
             await clearSignInState(stateDetails.state);
 
             // Create or update session with the signed-in account using SessionManager
-            const sessionManager = SessionManager.getInstance();
-            const sessionResponse = await sessionManager.createOrUpdateSession(res, dbUser, req);
+            const sessionResponse = await createOrUpdateSession(res, dbUser, req);
 
             if ('error' in sessionResponse && sessionResponse.error) {
                 redirectWithError(res, frontendRedirectUrl, 
@@ -436,8 +434,8 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                 }
 
                 // Use SessionManager to update the token
-                const sessionManager = SessionManager.getInstance();
-                await sessionManager.updateUserTokens(accountId, {
+
+                await updateUserTokens(accountId, {
                     accessToken: result.tokenDetails.accessToken,
                     tokenCreatedAt: new Date().toISOString()
                 });
@@ -455,7 +453,7 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                 dbUser.updated = new Date().toISOString();
                 await dbUser.save();
                 
-                await sessionManager.createOrUpdateSession(res, dbUser, req);
+                await createOrUpdateSession(res, dbUser, req);
 
                 console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirect}`);
 

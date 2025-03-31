@@ -1,11 +1,11 @@
 import { NextFunction, Response, Request } from "express";
-import { SessionManager } from "../../../services/session";
 import { ApiErrorCode } from "../../../types/response.types";
 import { sendError } from "../../../utils/response";
 import { getAbsoluteUrl } from "../../../utils/url";
 import { createOAuth2Client, GoogleServiceName, getGoogleScope } from "../config";
 import { GoogleTokenService } from "../services/token";
 import { GoogleApiRequest } from "../types";
+import { getValidAccessToken } from "../../../services/session";
 
 /**
  * Core middleware for Google API authentication
@@ -21,25 +21,24 @@ export const authenticateGoogleApi = async (
     next: NextFunction
 ) => {
     const accountId = req.params.accountId;
+    const session = req.session;
 
     if (!accountId) {
         return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Account ID is required');
     }
+    
+    if (!session) {
+        return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
+    }
 
     try {
-        const sessionManager = SessionManager.getInstance();
-        const session = sessionManager.extractSession(req);
-
-        if (!session) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
-        }
 
         // Track activity for analytics
-        sessionManager.updateSessionActivity(session.sessionId)
-            .catch(err => console.error('Failed to update session activity:', err));
+        // updateSessionActivity(session.sessionId)
+        //     .catch(err => console.error('Failed to update session activity:', err));
 
         // Get a valid access token
-        const accessToken = await sessionManager.getValidAccessToken(session, accountId);
+        const accessToken = await getValidAccessToken(session, accountId);
 
         // Create OAuth2 client with the valid token
         const oauth2Client = createOAuth2Client(accessToken);

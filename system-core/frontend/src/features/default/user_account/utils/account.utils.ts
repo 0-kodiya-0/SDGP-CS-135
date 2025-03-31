@@ -141,6 +141,7 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
 
         return response.data;
     } catch (error: any) {
+        console.log(error)
         // Handle specific API error responses
         if (error.response) {
             // The request was made and the server responded with an error status

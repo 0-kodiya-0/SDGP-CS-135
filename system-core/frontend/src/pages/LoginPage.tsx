@@ -1,10 +1,10 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/default/user_account';
 
 const LoginPage: React.FC = () => {
-    const { isAuthenticated, session, isLoading } = useAuth();
-    const location = useLocation();
+    const { isAuthenticated, accountIds, isLoading } = useAuth();
+    const navigate = useNavigate();
 
     // Get current path to return to after auth
     const returnPath = encodeURIComponent(location.pathname);
@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
     }
 
     // Check if user is already authenticated (for UI messaging)
-    const isAddingAccount = isAuthenticated && session?.accounts.length > 0;
+    const isAddingAccount = isAuthenticated && accountIds.length > 0;
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center">
@@ -33,7 +33,7 @@ const LoginPage: React.FC = () => {
                 </h2>
                 {isAddingAccount && (
                     <p className="mt-2 text-center text-sm text-gray-600">
-                        You're currently signed in with {session?.accounts.length} {session?.accounts.length === 1 ? 'account' : 'accounts'}.
+                        You're currently signed in with {accountIds.length} {accountIds.length === 1 ? 'account' : 'accounts'}.
                     </p>
                 )}
             </div>

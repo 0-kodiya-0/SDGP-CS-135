@@ -85,25 +85,26 @@ export interface AccountDetails {
     tokenDetails?: TokenDetails; // Optional token details for the account
 }
 
+export interface UserDetails {
+    name: string;
+    email: string;
+    imageUrl?: string;
+}
+
 export interface Account {
-    accountId: string;
+    id: string;
     accountType: string;
     provider: string;
-    name?: string;
-    email?: string;
-    imageUrl?: string;
+    status: string;
+    userDetails : UserDetails;
+    security?: {
+        twoFactorEnabled?: boolean;
+        sessionTimeout?: number;
+        autoLock?: boolean;
+    };
     tokenInfo?: {  // Add token info to the account interface
         accessToken: string;
         expiresAt: number;
         scope?: string;
     };
-}
-
-export interface Session {
-    sessionId: string;
-    accounts: Account[];
-    selectedAccountId?: string; // Add selectedAccountId to track active account
-    createdAt?: number;
-    expiresAt?: number;
-    iat?: number;
 }

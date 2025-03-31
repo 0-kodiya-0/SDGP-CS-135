@@ -21,7 +21,12 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [error, setError] = useState<string | null>(null);
 
     // Store-managed state
-    const accountId = currentAccount?.accountId || '';
+    const [accountId, setAccountId] = useState<string | undefined>(currentAccount?.accountId);
+
+    useEffect(() => {
+        setAccountId(currentAccount?.id);
+        console.log("Current", currentAccount)
+    }, [currentAccount]);
 
     // Get environment store methods
     const getEnvironment = useEnvironmentStore(state => state.getEnvironment);

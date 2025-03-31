@@ -30,7 +30,7 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     if (!environment) {
         return (
             <div className="w-full h-full flex justify-center items-center overflow-hidden">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-gray-900" />
             </div>
         );
     }

@@ -44,7 +44,7 @@ export const GroupChat: React.FC<GroupChatProps> = ({ open, onClose, onGroupCrea
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { currentAccount } = useAccount();
-  const { session } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { loading, searchContacts } = useContacts(currentAccount?.accountId || '');
   const [filteredContacts, setFilteredContacts] = useState<PersonType[]>([]);
 
@@ -86,7 +86,7 @@ export const GroupChat: React.FC<GroupChatProps> = ({ open, onClose, onGroupCrea
   };
 
   const handleCreateGroup = async () => {
-    if (!groupName || selectedUsers.length === 0 || !session) {
+    if (!groupName || selectedUsers.length === 0 || !isAuthenticated) {
       setError('Please provide a group name and select at least one user');
       return;
     }

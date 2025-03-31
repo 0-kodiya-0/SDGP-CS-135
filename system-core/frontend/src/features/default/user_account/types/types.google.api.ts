@@ -71,9 +71,9 @@ export interface UseTokenApiReturn {
     // New token management functions
     refreshToken: (accountId: string) => Promise<boolean>;
     
-    // Session management
-    getSessions: (accountId: string) => Promise<SessionInfo[] | null>;
-    terminateOtherSessions: (accountId: string) => Promise<boolean>;
+    // // Session management
+    // getSessions: (accountId: string) => Promise<SessionInfo[] | null>;
+    // terminateOtherSessions: (accountId: string) => Promise<boolean>;
 }
 
 export interface PermissionInfo {

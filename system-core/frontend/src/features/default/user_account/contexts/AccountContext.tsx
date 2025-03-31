@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { fetchAccountDetails } from '../utils/account.utils';
+// import { fetchAccountDetails } from '../utils/account.utils';
 import { Account, AccountDetails } from '../types/types.data';
 import { useTokenApi } from '../hooks/useToken.google';
+import axios from 'axios';
+import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
 
 interface TokenData {
     expiresAt?: string;
@@ -13,7 +15,7 @@ interface TokenData {
 
 interface AccountContextType {
     currentAccount: Account | null;
-    accountDetails: AccountDetails | null;
+    // accountDetails: AccountDetails | null;
     tokenData: TokenData | null;
     isLoading: boolean;
     error: string | null;
@@ -23,39 +25,67 @@ interface AccountContextType {
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
+// Function to fetch a single account's data
+// const fetchSingleAccount = async (accountId: string): Promise<Account | null> => {
+//     try {
+//         const response = await axios.get<ApiResponse<Account>>(
+//             `${API_BASE_URL}/account/${accountId}`,
+//             { withCredentials: true }
+//         );
+
+//         if (response.data.success && response.data.data) {
+//             return response.data.data;
+//         } else {
+//             console.error('Failed to fetch account data:', response.data.error);
+//             return null;
+//         }
+//     } catch (err) {
+//         console.error('Account data retrieval failed:', err);
+//         return null;
+//     }
+// };
+
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { accountId } = useParams<{ accountId: string }>();
     const navigate = useNavigate();
-    const { session, isAuthenticated, isLoading: authLoading } = useAuth();
+    const { accountIds, isAuthenticated, isLoading: authLoading } = useAuth();
     const { getTokenInfo, refreshToken: refreshTokenApi } = useTokenApi();
 
-    const [accountDetails, setAccountDetails] = useState<AccountDetails | null>(null);
+    const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+    // const [accountDetails, setAccountDetails] = useState<AccountDetails | null>(null);
     const [tokenData, setTokenData] = useState<TokenData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Find the current account from the session
-    const currentAccount: Account | null = session?.accounts?.find(
-        account => account.accountId === accountId
-    ) || null;
-
-    // Fetch account details when the account ID changes
+    // Fetch the current account when accountId changes
     useEffect(() => {
-        if (accountId && isAuthenticated && !authLoading) {
-            console.log("AccountContext: Fetching account details for:", accountId);
-            fetchAccountDetailsFromAPI();
-        } else {
-            setIsLoading(false);
-            setAccountDetails(null);
-        }
-    }, [accountId, isAuthenticated, authLoading]);
+        const loadAccountData = async () => {
+            if (!accountId || !isAuthenticated || authLoading) {
+                setCurrentAccount(null);
+                return;
+            }
 
-    // Fetch token information when account is loaded
-    useEffect(() => {
-        const fetchTokenInfo = async () => {
-            if (!accountId || !accountDetails) return;
-            
+            setIsLoading(true);
+
             try {
+                // Check if this accountId is in the available accounts
+                // if (!accountIds.includes(accountId)) {
+                //     console.log("AccountContext: Account not found in available accounts, redirecting...");
+                //     setError('You do not have access to this account');
+
+                //     if (accountIds.length > 0) {
+                //         navigate(`/app/${accountIds[0]}`);
+                //     } else {
+                //         navigate('/login');
+                //     }
+                //     return;
+                // }
+
+                // Fetch the account data
+
+
+                await fetchAccountDetails();
+
                 const tokenInfo = await getTokenInfo(accountId);
                 if (tokenInfo) {
                     setTokenData({
@@ -64,65 +94,49 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
                         scope: tokenInfo.scopes.granted.map(g => g.scope).join(' ')
                     });
                 }
-            } catch (error) {
-                console.error('Error fetching token info:', error);
+            } catch (err) {
+                console.error('Error loading account data:', err);
+                setError('Failed to load account data');
+            } finally {
+                setIsLoading(false);
             }
         };
 
-        fetchTokenInfo();
-    }, [accountId, accountDetails]);
+        loadAccountData();
+    }, [accountId, isAuthenticated, authLoading]);
 
-    // Redirect if the account doesn't exist in the session
-    useEffect(() => {
-        if (!authLoading && isAuthenticated && !currentAccount && accountId) {
-            console.log("AccountContext: Account not found in session, redirecting...");
-            setError('You do not have access to this account');
+    // Fetch token information when account is loaded
+    // useEffect(() => {
+    //     const fetchTokenInfo = async () => {
+    //         if (!accountId || !accountDetails) return;
 
-            if (session?.accounts?.length) {
-                // If there's a selected account, use that
-                if (session.selectedAccountId) {
-                    navigate(`/app/${session.selectedAccountId}`);
-                } else {
-                    // Otherwise use the first account
-                    navigate(`/app/${session.accounts[0].accountId}`);
-                }
-            } else {
-                navigate('/login');
-            }
-        }
-    }, [currentAccount, accountId, isAuthenticated, authLoading, session, navigate]);
+    //         try {
 
-    const fetchAccountDetailsFromAPI = async () => {
+    //         } catch (error) {
+    //             console.error('Error fetching token info:', error);
+    //         }
+    //     };
+
+    //     fetchTokenInfo();
+    // }, [accountId, accountDetails]);
+
+    const fetchAccountDetails = async () => {
         if (!accountId) return;
 
         try {
             setIsLoading(true);
             setError(null);
 
-            const response = await fetchAccountDetails(accountId);
+            const response = await axios.get<ApiResponse<Account>>(
+                `${API_BASE_URL}/account/${accountId}`,
+                { withCredentials: true }
+            );
 
-            if (response.success) {
-                const details = response.data;
-
-                // Format the account details with proper typing
-                setAccountDetails({
-                    id: details.id,
-                    name: details.userDetails?.name || 'User',
-                    email: details.userDetails?.email || '',
-                    imageUrl: details.userDetails?.imageUrl || '',
-                    provider: details.provider,
-                    status: details.status,
-                    created: details.created,
-                    updated: details.updated,
-                    security: details.security || {
-                        twoFactorEnabled: false,
-                        sessionTimeout: 30,
-                        autoLock: false
-                    },
-                    tokenDetails: details.tokenDetails
-                });
+            if (response.data.success && response.data.data) {
+                const account = response.data.data;
+                setCurrentAccount(account);
             } else {
-                console.error("API returned success: false", response);
+                console.error("API returned success: false");
                 setError('Failed to load account details');
             }
         } catch (error) {
@@ -136,11 +150,11 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Wrapper for token refresh API
     const refreshTokenHandler = async (): Promise<boolean> => {
         if (!accountId) return false;
-        
+
         try {
             setIsLoading(true);
             const success = await refreshTokenApi(accountId);
-            
+
             if (success) {
                 // Re-fetch token info to update the UI
                 const tokenInfo = await getTokenInfo(accountId);
@@ -152,7 +166,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     });
                 }
             }
-            
+
             return success;
         } catch (error) {
             console.error('Error refreshing token:', error);
@@ -164,11 +178,11 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const value = {
         currentAccount,
-        accountDetails,
+        // accountDetails,
         tokenData,
         isLoading,
         error,
-        fetchAccountDetails: fetchAccountDetailsFromAPI,
+        fetchAccountDetails,
         refreshToken: refreshTokenHandler
     };
 

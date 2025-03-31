@@ -13,8 +13,7 @@ export interface AccountSession {
 
 export interface SessionPayload {
     sessionId: string;
-    accounts: AccountSession[];
-    selectedAccountId?: string; // Track the currently selected account
+    accounts: string[];
     createdAt: number;
     expiresAt: number; // We'll set this to a far future date
 }
