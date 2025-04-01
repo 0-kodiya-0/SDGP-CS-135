@@ -973,8 +973,8 @@ const GoogleMeetApi: React.FC = () => {
                 </div>
             </header>
             <main className="container mx-auto p-4">
-                {isAuthenticated && currentAccount?.accountId ? (
-                    <MeetingsApp accountId={currentAccount.accountId} />
+                {isAuthenticated && currentAccount?.id ? (
+                    <MeetingsApp accountId={currentAccount.id} />
                 ) : (
                     <div className="bg-white rounded-lg shadow-md p-8 text-center">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Authentication Required</h2>

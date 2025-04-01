@@ -1,15 +1,15 @@
 import { Router, Request, Response } from 'express';
 import * as chatService from './chat.service';
+import { validateAccountAccess } from '../../services/session';
 
 const router = Router();
 
+router.use("/:accountId", validateAccountAccess);
+
 // Get user's conversations
-router.get('/conversations', async (req: Request, res: Response) => {
+router.get('/:accountId/conversations', async (req: Request, res: Response) => {
     try {
-        const userId = req.session?.accounts?.[0]?.accountId;
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        const userId = req.oauthAccount?.id as string;
 
         const conversations = await chatService.getUserConversations(userId);
         res.json(conversations);
@@ -20,7 +20,7 @@ router.get('/conversations', async (req: Request, res: Response) => {
 });
 
 // Get messages for a conversation
-router.get('/conversations/:conversationId/messages', async (req: Request<{ conversationId: string }>, res: Response) => {
+router.get('/:accountId/conversations/:conversationId/messages', async (req: Request<{ conversationId: string }>, res: Response) => {
     try {
         const { conversationId } = req.params;
         const before = req.query.before ? new Date(req.query.before as string) : undefined;
@@ -35,14 +35,10 @@ router.get('/conversations/:conversationId/messages', async (req: Request<{ conv
 });
 
 // Create private conversation
-router.post('/conversations/private', async (req: Request, res: Response) => {
+router.post('/:accountId/conversations/private', async (req: Request, res: Response) => {
     try {
-        const userId = req.session?.accounts?.[0]?.accountId;
+        const userId = req.oauthAccount?.id as string;
         const { otherUserId } = req.body;
-
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
 
         const conversation = await chatService.getOrCreatePrivateConversation(userId, otherUserId);
         res.json(conversation);
@@ -53,14 +49,10 @@ router.post('/conversations/private', async (req: Request, res: Response) => {
 });
 
 // Create group conversation
-router.post('/conversations/group', async (req: Request, res: Response) => {
+router.post('/:accountId/conversations/group', async (req: Request, res: Response) => {
     try {
-        const userId = req.session?.accounts?.[0]?.accountId;
+        const userId = req.oauthAccount?.id as string;;
         const { name, participants } = req.body;
-
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
 
         // Add the creator to the participants list if not already included
         const allParticipants = participants.includes(userId)
@@ -76,14 +68,15 @@ router.post('/conversations/group', async (req: Request, res: Response) => {
 });
 
 // Add user to group
-router.post('/conversations/:conversationId/participants', async (req: Request<{ conversationId: string }>, res: Response) => {
+router.post('/:accountId/conversations/:conversationId/participants', async (req: Request<{ conversationId: string }>, res: Response) => {
     try {
         const { conversationId } = req.params;
         const { userId } = req.body;
 
         const conversation = await chatService.addUserToGroup(conversationId, userId);
         if (!conversation) {
-            return res.status(404).json({ error: 'Conversation not found' });
+            res.status(404).json({ error: 'Conversation not found' });
+            return
         }
 
         res.json(conversation);
@@ -94,13 +87,14 @@ router.post('/conversations/:conversationId/participants', async (req: Request<{
 });
 
 // Remove user from group
-router.delete('/conversations/:conversationId/participants/:userId', async (req: Request<{ conversationId: string; userId: string }>, res: Response) => {
+router.delete('/:accountId/conversations/:conversationId/participants/:userId', async (req: Request<{ conversationId: string; userId: string }>, res: Response) => {
     try {
         const { conversationId, userId } = req.params;
 
         const conversation = await chatService.removeUserFromGroup(conversationId, userId);
         if (!conversation) {
-            return res.status(404).json({ error: 'Conversation not found' });
+            res.status(404).json({ error: 'Conversation not found' });
+            return
         }
 
         res.json(conversation);
@@ -111,12 +105,9 @@ router.delete('/conversations/:conversationId/participants/:userId', async (req:
 });
 
 // Get unread message count
-router.get('/messages/unread/count', async (req: Request, res: Response) => {
+router.get('/:accountId/messages/unread/count', async (req: Request, res: Response) => {
     try {
-        const userId = req.session?.accounts?.[0]?.accountId;
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        const userId = req.oauthAccount?.id as string;
 
         const count = await chatService.getUnreadCount(userId);
         res.json({ count });

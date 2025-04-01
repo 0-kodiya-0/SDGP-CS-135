@@ -21,7 +21,7 @@ interface Conversation {
   };
 }
 
-export default function ChatSummaryView({ }: { accountId: string }) {
+export default function ChatSummaryView() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [showGroupChat, setShowGroupChat] = useState(false);
@@ -43,7 +43,7 @@ export default function ChatSummaryView({ }: { accountId: string }) {
       const uniqueParticipants = new Set<string>();
       conversations.forEach(conv => {
         conv.participants.forEach(p => {
-          if (p !== currentAccount?.accountId) {
+          if (p !== currentAccount?.id) {
             uniqueParticipants.add(p);
           }
         });
@@ -66,10 +66,10 @@ export default function ChatSummaryView({ }: { accountId: string }) {
       setParticipantEmails(Object.fromEntries(emails));
     };
 
-    if (conversations.length > 0 && currentAccount?.accountId) {
+    if (conversations.length > 0 && currentAccount?.id) {
       fetchEmails();
     }
-  }, [conversations, currentAccount?.accountId]);
+  }, [conversations, currentAccount?.id]);
 
   const loadConversations = async () => {
     try {
@@ -88,9 +88,9 @@ export default function ChatSummaryView({ }: { accountId: string }) {
   };
 
   const handleConversationClick = (conversation: Conversation) => {
-    if (!currentAccount?.accountId) return;
+    if (!currentAccount?.id) return;
 
-    const otherParticipant = conversation.participants.find(p => p !== currentAccount.accountId);
+    const otherParticipant = conversation.participants.find(p => p !== currentAccount.id);
     const title = conversation.type === 'group'
       ? conversation.name || 'Group Chat'
       : (otherParticipant && participantEmails[otherParticipant]) || 'Chat';
@@ -106,7 +106,7 @@ export default function ChatSummaryView({ }: { accountId: string }) {
 
   const getOtherParticipantName = (conversation: Conversation) => {
     if (conversation.type === 'group') return conversation.name;
-    const otherParticipant = conversation.participants.find(p => p !== currentAccount?.accountId);
+    const otherParticipant = conversation.participants.find(p => p !== currentAccount?.id);
     return otherParticipant ? participantEmails[otherParticipant] || otherParticipant : 'Unknown';
   };
 

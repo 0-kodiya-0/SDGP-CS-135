@@ -5,6 +5,7 @@ import { fetchAccountDetails } from '../utils/account.utils';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from './UserAvatar';
+import { Account } from '../types/types.data';
 
 interface AccountPopupProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ const AccountListItem: React.FC<{ accountId: string; onSelect: (accountId: strin
   accountId,
   onSelect
 }) => {
-  const [account, setAccount] = useState<any>(null);
+  const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -41,14 +42,6 @@ const AccountListItem: React.FC<{ accountId: string; onSelect: (accountId: strin
     getAccountDetails();
   }, [accountId]);
 
-  const displayAccount = {
-    id: accountId,
-    name: account?.userDetails?.name || 'User',
-    email: account?.userDetails?.email || accountId,
-    provider: account?.provider || 'unknown',
-    imageUrl: account?.userDetails?.imageUrl || null
-  };
-
   return (
     <button
       className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-left"
@@ -66,7 +59,7 @@ const AccountListItem: React.FC<{ accountId: string; onSelect: (accountId: strin
       ) : error ? (
         <>
           <UserAvatar
-            account={{ id: accountId, provider: 'unknown' }}
+            account={account}
             size="sm"
           />
           <div className="flex-1 min-w-0 ml-3">
@@ -77,12 +70,12 @@ const AccountListItem: React.FC<{ accountId: string; onSelect: (accountId: strin
       ) : (
         <>
           <UserAvatar
-            account={displayAccount}
+            account={account}
             size="sm"
           />
           <div className="flex-1 min-w-0 ml-3">
-            <p className="text-sm font-medium">{displayAccount.name}</p>
-            <p className="text-xs text-gray-500 truncate">{displayAccount.email}</p>
+            <p className="text-sm font-medium">{account?.userDetails.name}</p>
+            <p className="text-xs text-gray-500 truncate">{account?.userDetails.email}</p>
           </div>
         </>
       )}
@@ -98,9 +91,6 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   const { accountIds, isAuthenticated, logout, logoutAll } = useAuth();
   const { currentAccount } = useAccount();
   const navigate = useNavigate();
-
-  // Check if there are any accounts
-  const hasAccounts = (accountIds.length || 0) > 0;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -157,7 +147,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   };
 
   const renderAccountInfo = () => {
-    if (!hasAccounts || !currentAccount) {
+    if (!isAuthenticated || !currentAccount) {
       return (
         <div className="text-center py-4">
           <div className="bg-gray-100 mx-auto rounded-full w-12 h-12 flex items-center justify-center mb-3">
@@ -181,15 +171,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
       <>
         <div className="flex items-start">
           <UserAvatar
-            account={{
-              id: currentAccount?.id,
-              name: currentAccount?.userDetails.name,
-              email: currentAccount?.userDetails.email,
-              // Don't use the imageUrl from the API to avoid rate limiting issues
-              // Only use it if it's a data URL or internal URL
-              imageUrl: currentAccount?.userDetails.imageUrl,
-              provider: currentAccount?.provider || (currentAccount?.provider || '')
-            }}
+            account={currentAccount}
             size="md"
           />
           <div className="flex-1 ml-3">
@@ -284,10 +266,10 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
           onClick={handleAddAccount}
         >
           <PlusCircle size={16} className="mr-3" />
-          {hasAccounts ? 'Add another account' : 'Add an account'}
+          {isAuthenticated ? 'Add another account' : 'Add an account'}
         </button>
 
-        {hasAccounts && (
+        {isAuthenticated && (
           <div className="mt-3 pt-3 border-t">
             {accountIds && accountIds.length > 1 ? (
               <>

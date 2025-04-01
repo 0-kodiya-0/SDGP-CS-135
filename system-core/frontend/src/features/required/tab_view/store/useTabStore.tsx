@@ -177,10 +177,10 @@ export const useTabStoreBase = create<TabStateBase>()(
  */
 export const useTabStore = () => {
   // Get the current account from your existing AccountContext
-  const { accountDetails } = useAccount();
+  const { currentAccount } = useAccount();
   
   // Get the account ID
-  const accountId = accountDetails?.id || 'default';
+  const accountId = currentAccount?.id || 'default';
   
   // Get the base store methods
   const {

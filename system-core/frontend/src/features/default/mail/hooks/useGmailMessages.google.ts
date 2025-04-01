@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { ApiResponse, API_BASE_URL } from '../../../../conf/axios';
 import { UseGmailMessagesReturn, GmailMessage, SendMessageParams } from '../types/types.google.api';
-import { useTokenApi } from '../../user_account';
-import { createPermissionError, requestPermission, handleApiError } from '../../user_account/utils/utils.google';
+import { handleApiError } from '../../user_account/utils/utils.google';
+import { useGooglePermissions } from '../../user_account/hooks/usePermissions.google';
 
 /**
  * Hook for managing Gmail Messages
@@ -15,32 +15,8 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
     const [error, setError] = useState<string | null>(null);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>();
 
-    // Use token API to check for scopes
-    const { checkServiceAccess } = useTokenApi();
-
-    /**
-     * Verify the user has appropriate access for operation
-     */
-    const verifyAccess = useCallback(async (
-        scopeLevel: "readonly" | "send" | "compose" | "full" = "readonly"
-    ): Promise<boolean> => {
-        try {
-            const accessCheck = await checkServiceAccess(accountId, "gmail", scopeLevel);
-
-            if (!accessCheck || !accessCheck.hasAccess) {
-                // Create and handle permission error
-                const permissionError = createPermissionError("gmail", scopeLevel, accountId);
-                requestPermission(permissionError);
-                setError(`You need additional permissions to access Gmail messages`);
-                return false;
-            }
-
-            return true;
-        } catch (err) {
-            console.error("Error checking gmail access:", err);
-            return false;
-        }
-    }, [accountId, checkServiceAccess]);
+    // Use Google Permissions hook
+    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
 
     /**
      * List messages in the user's Gmail account
@@ -58,9 +34,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("You need additional permissions to access Gmail messages");
                 setLoading(false);
                 return;
             }
@@ -94,17 +71,18 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 setError(response.data.error?.message || 'Failed to list messages');
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing messages');
             }
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Get a specific message by ID
@@ -117,9 +95,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("You need additional permissions to access Gmail messages");
                 setLoading(false);
                 return null;
             }
@@ -141,10 +120,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the message');
             }
@@ -152,7 +132,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Send a new email
@@ -164,9 +144,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first - sending emails requires 'send' scope level
-            const hasAccess = await verifyAccess("send");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "send");
             if (!hasAccess) {
+                setError("You need additional permissions to send Gmail messages");
                 setLoading(false);
                 return null;
             }
@@ -184,10 +165,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "send");
+                setError("Permission error: You need additional permissions to send Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while sending the message');
             }
@@ -195,7 +177,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Trash a message
@@ -207,9 +189,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first - modifying messages requires 'full' scope level
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail messages");
                 setLoading(false);
                 return false;
             }
@@ -229,10 +212,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 return false;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while trashing the message');
             }
@@ -240,7 +224,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Permanently delete a message
@@ -252,9 +236,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first - deleting messages requires 'full' scope level
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail messages");
                 setLoading(false);
                 return false;
             }
@@ -273,10 +258,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 return false;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the message');
             }
@@ -284,7 +270,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Modify labels for a message (add/remove)
@@ -298,9 +284,10 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         setError(null);
 
         try {
-            // Verify access first - modifying messages requires 'full' scope level
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail messages");
                 setLoading(false);
                 return null;
             }
@@ -328,10 +315,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail messages");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while modifying message labels');
             }
@@ -339,7 +327,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, message, verifyAccess]);
+    }, [accountId, message, verifyServiceAccess, invalidatePermission]);
 
     return {
         messages,

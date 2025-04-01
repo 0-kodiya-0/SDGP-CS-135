@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Menu, FileText, Settings, History, Trash2 } from 'lucide-react';
 
 interface MenuButtonProps {

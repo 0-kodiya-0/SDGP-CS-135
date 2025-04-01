@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 // import { fetchAccountDetails } from '../utils/account.utils';
-import { Account, AccountDetails } from '../types/types.data';
+import { Account } from '../types/types.data';
 import { useTokenApi } from '../hooks/useToken.google';
 import axios from 'axios';
 import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
@@ -47,8 +47,7 @@ const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { accountId } = useParams<{ accountId: string }>();
-    const navigate = useNavigate();
-    const { accountIds, isAuthenticated, isLoading: authLoading } = useAuth();
+    const {isAuthenticated, isLoading: authLoading } = useAuth();
     const { getTokenInfo, refreshToken: refreshTokenApi } = useTokenApi();
 
     const [currentAccount, setCurrentAccount] = useState<Account | null>(null);

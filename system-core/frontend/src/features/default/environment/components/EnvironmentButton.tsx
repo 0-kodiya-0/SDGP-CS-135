@@ -55,7 +55,7 @@ export const EnvironmentButton: React.FC<EnvironmentButtonProps> = ({ className 
     );
   }
 
-  const accountId = currentAccount.accountId;
+  const accountId = currentAccount.id;
 
   return (
     <>

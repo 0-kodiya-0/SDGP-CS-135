@@ -40,11 +40,8 @@ import {
  * Create a new workspace
  */
 export const createWorkspaceController = async (req: Request, res: Response) => {
-  if (!req.session) {
-    return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
-  }
 
-  const ownerId = req.session.selectedAccountId;
+  const { accountId: ownerId } = req.params;
   const request = req.body;
 
   // Validate request
@@ -65,11 +62,8 @@ export const createWorkspaceController = async (req: Request, res: Response) => 
  * Get all workspaces for the current user
  */
 export const getUserWorkspacesController = async (req: Request, res: Response) => {
-  if (!req.session) {
-    return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
-  }
 
-  const accountId = req.session.selectedAccountId;
+  const { accountId } = req.params;
 
   try {
     // Get workspaces the user owns
@@ -253,12 +247,8 @@ export const removeWorkspaceMemberController = async (req: Request, res: Respons
  * Updated to use feature-specific service implementation
  */
 export const shareContentController = async (req: Request, res: Response) => {
-  if (!req.session) {
-    return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
-  }
 
-  const { workspaceId } = req.params;
-  const accountId = req.session.selectedAccountId;
+  const { workspaceId ,accountId } = req.params;
   const request = req.body;
   
   // Get content type from the URL or request body

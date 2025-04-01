@@ -11,7 +11,7 @@ export function NotificationIcon() {
   const { currentAccount } = useAccount();
 
   useEffect(() => {
-    if (!currentAccount?.accountId) return;
+    if (!currentAccount?.id) return;
 
     // Fetch initial unread count
     const fetchUnreadCount = async () => {
@@ -41,7 +41,7 @@ export function NotificationIcon() {
     newSocket.on('connect', () => {
       console.log('Connected to notification socket');
       setError(false);
-      newSocket.emit('authenticate', currentAccount.accountId);
+      newSocket.emit('authenticate', currentAccount.id);
     });
 
     newSocket.on('connect_error', (err) => {
@@ -64,7 +64,7 @@ export function NotificationIcon() {
     return () => {
       newSocket.close();
     };
-  }, [currentAccount?.accountId]);
+  }, [currentAccount?.id]);
 
   return (
     <button

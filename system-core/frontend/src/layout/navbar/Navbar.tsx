@@ -8,7 +8,7 @@ import { NotificationBell } from '../../features/shared/notifications';
 
 export function Navbar() {
   const accountPopup = usePopup();
-  const { currentAccount, accountDetails, isLoading } = useAccount();
+  const { currentAccount, isLoading } = useAccount();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     accountPopup.toggle(e.currentTarget);
@@ -18,15 +18,6 @@ export function Navbar() {
     // You can add additional logic when menu is toggled
     console.log('Menu is now', isOpen ? 'open' : 'closed');
   };
-
-  // Create account display object for avatar
-  const accountDisplay = accountDetails ? {
-    id: accountDetails.id,
-    name: accountDetails.name,
-    email: accountDetails.email,
-    imageUrl: accountDetails.imageUrl,
-    provider: currentAccount?.provider || accountDetails.provider
-  } : null;
 
   return (
     <>
@@ -61,7 +52,7 @@ export function Navbar() {
               <div className="w-5 h-5 animate-pulse bg-gray-200 rounded-full"></div>
             ) : (
               <UserAvatar
-                account={accountDisplay}
+                account={currentAccount}
                 size="sm"
                 showProviderIcon={true}
               />

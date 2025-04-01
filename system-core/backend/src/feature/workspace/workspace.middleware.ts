@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { 
-  isWorkspaceMember, 
-  isWorkspaceOwner, 
-  getWorkspaceMember 
+import {
+  isWorkspaceMember,
+  isWorkspaceOwner,
+  getWorkspaceMember
 } from './workspace.service';
-import { 
-  WorkspaceFeatureType, 
-  WorkspacePermissionOperation, 
-  WorkspaceRole 
+import {
+  WorkspaceFeatureType,
+  WorkspacePermissionOperation,
+  WorkspaceRole
 } from './workspace.types';
 import { hasPermission } from './workspace.utils';
 import { sendError } from '../../utils/response';
@@ -18,27 +18,26 @@ import { ApiErrorCode } from '../../types/response.types';
  * Ensures the user is a member of the workspace
  */
 export const validateWorkspaceAccess = async (
-  req: Request, 
-  res: Response, 
+  req: Request,
+  res: Response,
   next: NextFunction
 ) => {
   if (!req.session) {
     return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
   }
 
-  const { workspaceId } = req.params;
-  const accountId = req.session.selectedAccountId;
+  const { workspaceId , accountId } = req.params;
 
   try {
     const isMember = await isWorkspaceMember(workspaceId, accountId);
-    
+
     if (!isMember) {
       return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, 'You do not have access to this workspace');
     }
-    
+
     // Add workspace ID to request for easier access in route handlers
     req.workspaceId = workspaceId;
-    
+
     next();
   } catch (error) {
     console.error('Workspace access validation error:', error);
@@ -51,33 +50,32 @@ export const validateWorkspaceAccess = async (
  * Ensures the user is an owner or admin of the workspace
  */
 export const validateWorkspaceAdminAccess = async (
-  req: Request, 
-  res: Response, 
+  req: Request,
+  res: Response,
   next: NextFunction
 ) => {
   if (!req.session) {
     return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
   }
 
-  const { workspaceId } = req.params;
-  const accountId = req.session.selectedAccountId;
+  const { workspaceId , accountId } = req.params;
 
   try {
     // Check if user is the owner
     const isOwner = await isWorkspaceOwner(workspaceId, accountId);
-    
+
     if (isOwner) {
       req.workspaceId = workspaceId;
       return next();
     }
-    
+
     // Get member details to check role
     const member = await getWorkspaceMember(workspaceId, accountId);
-    
+
     if (!member || (member.role !== WorkspaceRole.Admin && member.role !== WorkspaceRole.Owner)) {
       return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, 'Admin privileges required');
     }
-    
+
     req.workspaceId = workspaceId;
     next();
   } catch (error) {
@@ -98,30 +96,29 @@ export const validateFeaturePermission = (
       return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
     }
 
-    const { workspaceId } = req.params;
-    const accountId = req.session.selectedAccountId;
+    const { workspaceId , accountId } = req.params;
 
     try {
       // Check if user is the owner (owners always have all permissions)
       const isOwner = await isWorkspaceOwner(workspaceId, accountId);
-      
+
       if (isOwner) {
         req.workspaceId = workspaceId;
         return next();
       }
-      
+
       // Get member details to check permissions
       const member = await getWorkspaceMember(workspaceId, accountId);
-      
+
       if (!member) {
         return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, 'You do not have access to this workspace');
       }
-      
+
       // Check feature-specific permission
       if (!hasPermission(member, feature, operation)) {
         return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, `You don't have ${operation} permission for ${feature}`);
       }
-      
+
       req.workspaceId = workspaceId;
       next();
     } catch (error) {
@@ -142,27 +139,26 @@ export const validateContentOwnership = (
       return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Not authenticated');
     }
 
-    const { workspaceId, contentId } = req.params;
-    const accountId = req.session.selectedAccountId;
+    const { workspaceId, accountId } = req.params;
 
     try {
       // First, check if user is owner or admin (they can modify any content)
       const member = await getWorkspaceMember(workspaceId, accountId);
-      
+
       if (!member) {
         return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, 'You do not have access to this workspace');
       }
-      
+
       if (member.role === WorkspaceRole.Owner || member.role === WorkspaceRole.Admin) {
         req.workspaceId = workspaceId;
         return next();
       }
-      
+
       // For non-admin users, check if they have write permission
       if (!hasPermission(member, feature, WorkspacePermissionOperation.Write)) {
         return sendError(res, 403, ApiErrorCode.PERMISSION_DENIED, `You don't have write permission for ${feature}`);
       }
-      
+
       req.workspaceId = workspaceId;
       next();
     } catch (error) {

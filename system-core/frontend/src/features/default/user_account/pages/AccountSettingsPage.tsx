@@ -6,7 +6,7 @@ import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const AccountSettingsPage: React.FC = () => {
-    const { accountDetails, currentAccount, isLoading, error, fetchAccountDetails } = useAccount();
+    const { currentAccount, isLoading, error , fetchAccountDetails} = useAccount();
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -14,12 +14,12 @@ const AccountSettingsPage: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
 
     const handleGoBack = () => {
-        navigate(`/app/${currentAccount?.accountId}`);
+        navigate(`/app/${currentAccount?.id}`);
     };
 
     const handleLogout = async () => {
         if (currentAccount) {
-            await logout(currentAccount.accountId);
+            await logout(currentAccount.id);
         }
     };
 
@@ -31,7 +31,7 @@ const AccountSettingsPage: React.FC = () => {
         );
     }
 
-    if (error || !accountDetails) {
+    if (error || !currentAccount) {
         return (
             <div className="w-full h-screen flex flex-col justify-center items-center">
                 <div className="text-red-500 mb-4">
@@ -90,19 +90,13 @@ const AccountSettingsPage: React.FC = () => {
                     <div className="w-full md:w-64 bg-white shadow rounded-lg p-4">
                         <div className="flex items-center mb-6">
                             <UserAvatar
-                                account={{
-                                    id: accountDetails.id,
-                                    name: accountDetails.name,
-                                    email: accountDetails.email,
-                                    imageUrl: accountDetails.imageUrl,
-                                    provider: accountDetails.provider || currentAccount?.provider
-                                }}
+                                account={currentAccount}
                                 size="md"
                                 showProviderIcon={true}
                             />
                             <div className="ml-3">
-                                <p className="font-medium">{accountDetails.name}</p>
-                                <p className="text-sm text-gray-500">{accountDetails.email}</p>
+                                <p className="font-medium">{currentAccount.userDetails.name}</p>
+                                <p className="text-sm text-gray-500">{currentAccount.userDetails.email}</p>
                             </div>
                         </div>
 
@@ -153,12 +147,12 @@ const AccountSettingsPage: React.FC = () => {
                                         <input
                                             type="text"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                            defaultValue={accountDetails.name}
-                                            disabled={accountDetails.provider !== 'local'} // Only editable for local accounts
+                                            defaultValue={currentAccount.userDetails.name}
+                                            disabled={currentAccount.provider !== 'local'} // Only editable for local accounts
                                         />
-                                        {accountDetails.provider !== 'local' && (
+                                        {currentAccount.provider !== 'local' && (
                                             <p className="mt-1 text-xs text-gray-500">
-                                                Name is managed by your {accountDetails.provider} account
+                                                Name is managed by your {currentAccount.provider} account
                                             </p>
                                         )}
                                     </div>
@@ -170,12 +164,12 @@ const AccountSettingsPage: React.FC = () => {
                                         <input
                                             type="email"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                            defaultValue={accountDetails.email}
-                                            disabled={accountDetails.provider !== 'local'} // Only editable for local accounts
+                                            defaultValue={currentAccount.userDetails.email}
+                                            disabled={currentAccount.provider !== 'local'} // Only editable for local accounts
                                         />
-                                        {accountDetails.provider !== 'local' && (
+                                        {currentAccount.provider !== 'local' && (
                                             <p className="mt-1 text-xs text-gray-500">
-                                                Email is managed by your {accountDetails.provider} account
+                                                Email is managed by your {currentAccount.provider} account
                                             </p>
                                         )}
                                     </div>
@@ -186,19 +180,12 @@ const AccountSettingsPage: React.FC = () => {
                                         </label>
                                         <div className="flex items-center">
                                             <UserAvatar
-                                                account={{
-                                                    id: accountDetails.id,
-                                                    provider: accountDetails.provider || currentAccount?.provider,
-                                                    imageUrl: accountDetails.imageUrl
-                                                }}
+                                                account={currentAccount}
                                                 size="sm"
                                                 showProviderIcon={true}
                                             />
-                                            <span className="ml-2 capitalize">{accountDetails.provider || 'Standard'} Account</span>
+                                            <span className="ml-2 capitalize">{currentAccount.provider || 'Standard'} Account</span>
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Connected on {new Date(accountDetails.created).toLocaleDateString()}
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -221,7 +208,7 @@ const AccountSettingsPage: React.FC = () => {
                                                 name="toggle"
                                                 id="2fa-toggle"
                                                 className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                                defaultChecked={accountDetails.security?.twoFactorEnabled}
+                                                defaultChecked={currentAccount.security?.twoFactorEnabled}
                                             />
                                             <label
                                                 htmlFor="2fa-toggle"
@@ -237,7 +224,7 @@ const AccountSettingsPage: React.FC = () => {
                                         </p>
                                         <select
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                            defaultValue={accountDetails.security?.sessionTimeout || 30}
+                                            defaultValue={currentAccount.security?.sessionTimeout || 30}
                                         >
                                             <option value={15}>15 minutes</option>
                                             <option value={30}>30 minutes</option>
@@ -261,7 +248,7 @@ const AccountSettingsPage: React.FC = () => {
                                                 name="toggle"
                                                 id="autolock-toggle"
                                                 className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                                defaultChecked={accountDetails.security?.autoLock}
+                                                defaultChecked={currentAccount.security?.autoLock}
                                             />
                                             <label
                                                 htmlFor="autolock-toggle"

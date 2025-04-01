@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import db from '../../config/db';
 import { MessageDocument, ConversationDocument } from './chat.model';
 

@@ -35,7 +35,7 @@ export const UserSearch: React.FC<UserSearchProps> = ({ open, onClose, onConvers
   const [error, setError] = useState<string | null>(null);
   const { currentAccount } = useAccount();
   const { isAuthenticated } = useAuth();
-  const { contacts, loading, searchContacts } = useContacts(currentAccount?.accountId || '');
+  const { contacts, loading, searchContacts } = useContacts(currentAccount?.id || '');
 
   useEffect(() => {
     const searchUsers = async () => {

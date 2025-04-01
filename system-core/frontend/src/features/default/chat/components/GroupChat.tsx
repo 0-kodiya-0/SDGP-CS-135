@@ -45,7 +45,7 @@ export const GroupChat: React.FC<GroupChatProps> = ({ open, onClose, onGroupCrea
   const [error, setError] = useState<string | null>(null);
   const { currentAccount } = useAccount();
   const { isAuthenticated } = useAuth();
-  const { loading, searchContacts } = useContacts(currentAccount?.accountId || '');
+  const { loading, searchContacts } = useContacts(currentAccount?.id || '');
   const [filteredContacts, setFilteredContacts] = useState<PersonType[]>([]);
 
   useEffect(() => {

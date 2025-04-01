@@ -1,18 +1,9 @@
 import React from 'react';
 import { KeyRound, UserCircle } from 'lucide-react';
-import { AccountType } from '../types/types.data';
-
-interface BaseAccount {
-  id?: string;
-  name?: string;
-  email?: string;
-  imageUrl?: string;
-  accountType?: string;
-  provider?: string;
-}
+import { Account, AccountType } from '../types/types.data';
 
 interface UserAvatarProps {
-  account: BaseAccount | null;
+  account: Account | null;
   size?: 'sm' | 'md' | 'lg';
   showProviderIcon?: boolean;
 }
@@ -21,7 +12,7 @@ const getInitial = (name: string = '') => {
   return name.trim() ? name.charAt(0).toUpperCase() : '?';
 };
 
-const getProviderColor = (account: BaseAccount | null) => {
+const getProviderColor = (account: Account | null) => {
   if (!account) return 'bg-gray-200';
   
   if (account.accountType === AccountType.Local) {
@@ -126,17 +117,17 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   }
 
   // Check for image URL and ensure it's valid
-  const hasValidImage = Boolean(account.imageUrl && 
-    (account.imageUrl.startsWith('data:') || 
-     account.imageUrl.startsWith('/') || 
-     account.imageUrl.startsWith('http')));
+  const hasValidImage = Boolean(account.userDetails.imageUrl && 
+    (account.userDetails.imageUrl.startsWith('data:') || 
+     account.userDetails.imageUrl.startsWith('/') || 
+     account.userDetails.imageUrl.startsWith('http')));
 
   return (
     <div className={`${getProviderColor(account)} text-white rounded-full flex items-center justify-center flex-shrink-0 ${getSizeClass(size)} relative`}>
       {hasValidImage ? (
         <img
-          src={account.imageUrl}
-          alt={account.name || 'User'}
+          src={account.userDetails.imageUrl}
+          alt={account.userDetails.name || 'User'}
           className="w-full h-full rounded-full object-cover"
           onError={(e) => {
             // If image fails to load, remove the src to show the fallback
@@ -145,7 +136,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
           }}
         />
       ) : (
-        <span>{getInitial(account.name || '')}</span>
+        <span>{getInitial(account.userDetails.name || '')}</span>
       )}
       {getProviderIcon()}
     </div>

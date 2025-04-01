@@ -33,7 +33,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!currentAccount?.accountId) return;
+    if (!currentAccount?.id) return;
 
     // Updated Socket.IO connection URL with correct path
     const newSocket = io('http://localhost:8080', {
@@ -44,7 +44,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
 
     newSocket.on('connect', () => {
       console.log('Connected to chat server');
-      newSocket.emit('authenticate', currentAccount.accountId);
+      newSocket.emit('authenticate', currentAccount);
       newSocket.emit('join_conversation', conversationId);
     });
 
@@ -71,7 +71,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
       newSocket.emit('leave_conversation', conversationId);
       newSocket.close();
     };
-  }, [currentAccount?.accountId, conversationId]);
+  }, [currentAccount?.id, conversationId]);
 
   useEffect(() => {
     loadMessages();
@@ -127,7 +127,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
       _id: tempId,
       conversationId,
       content: newMessage.trim(),
-      sender: currentAccount.accountId,
+      sender: currentAccount.id,
       timestamp: new Date(),
       read: false
     };
@@ -170,7 +170,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
     <Box className="h-full flex flex-col bg-gray-50">
       <Box className="flex-1 overflow-y-auto p-4">
         {messages.map((message, index) => {
-          const isCurrentUser = message.sender === currentAccount?.accountId;
+          const isCurrentUser = message.sender === currentAccount?.id;
           const info = participantInfo[message.sender] || { email: message.sender };
           const avatarUrl = info.imageUrl || getGoogleAvatarUrl(info.email);
 

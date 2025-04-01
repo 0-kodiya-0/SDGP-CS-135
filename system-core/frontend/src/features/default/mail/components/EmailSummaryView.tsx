@@ -23,6 +23,10 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     const [parsedEmails, setParsedEmails] = useState<ParsedEmail[]>([]);
     const [showLabels, setShowLabels] = useState(false);
 
+    useEffect(() => {
+        console.log(accountId)
+    }, [accountId])
+
     // Hooks
     const { addTab } = useTabStore();
     const {

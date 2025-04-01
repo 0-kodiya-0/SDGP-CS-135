@@ -62,7 +62,7 @@ export const useFeatureStoreBase = create<FeatureState>()(
  */
 export const useFeatureStore = () => {
   // Get the current account from your existing AccountContext
-  const { accountDetails } = useAccount();
+  const { currentAccount } = useAccount();
   
   // Get the base store methods
   const { 
@@ -72,7 +72,7 @@ export const useFeatureStore = () => {
   } = useFeatureStoreBase();
 
   // Get the current account ID
-  const accountId = accountDetails?.id || 'default';
+  const accountId = currentAccount?.id || 'default';
   
   // Get current feature for this account
   const currentFeature = getFeatureForAccount(accountId);

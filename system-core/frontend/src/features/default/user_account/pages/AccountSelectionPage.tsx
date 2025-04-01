@@ -4,19 +4,12 @@ import { PlusCircle, LogOut, Check } from 'lucide-react';
 import { fetchAccountDetails } from '../utils/account.utils';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from '../components/UserAvatar';
+import { Account } from '../types/types.data';
 
-interface AccountDisplayInfo {
-    id: string;
-    name: string;
-    email: string;
-    imageUrl?: string;
-    provider: string;
-    status?: string;
-}
 
 const AccountSelectionPage: React.FC = () => {
     const { accountIds, isLoading, logoutAll } = useAuth();
-    const [accounts, setAccounts] = useState<AccountDisplayInfo[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
     const [loadingAccounts, setLoadingAccounts] = useState(true);
     const [preferredAccountId, setPreferredAccountId] = useState<string | null>(
         localStorage.getItem('preferredAccountId')
@@ -34,33 +27,16 @@ const AccountSelectionPage: React.FC = () => {
                     try {
                         const response = await fetchAccountDetails(accountId);
                         if (response.success) {
-                            return {
-                                id: accountId,
-                                name: response.data.userDetails?.name || 'User',
-                                email: response.data.userDetails?.email || '',
-                                imageUrl: response.data.userDetails?.imageUrl,
-                                provider: response.data.provider || 'unknown',
-                                status: response.data.status
-                            };
+                            return response.data;
                         }
-                        return {
-                            id: accountId,
-                            name: `Account ${accountId.slice(0, 6)}...`,
-                            email: 'Details unavailable',
-                            provider: 'unknown'
-                        };
+                        return null
                     } catch {
-                        return {
-                            id: accountId,
-                            name: `Account ${accountId.slice(0, 6)}...`,
-                            email: 'Details unavailable',
-                            provider: 'unknown'
-                        };
+                        return null
                     }
                 });
 
                 const accountDetails = await Promise.all(accountPromises);
-                setAccounts(accountDetails);
+                setAccounts(accountDetails.filter((data) => data !== null));
             } catch (error) {
                 console.error('Error fetching account details:', error);
             } finally {
@@ -123,7 +99,7 @@ const AccountSelectionPage: React.FC = () => {
                                     <div className="ml-4 flex-1">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                                                {account.name}
+                                                {account.userDetails.name}
                                                 {account.status === 'inactive' && (
                                                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                                         Inactive
@@ -136,7 +112,7 @@ const AccountSelectionPage: React.FC = () => {
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-sm text-gray-500">{account.email}</p>
+                                        <p className="text-sm text-gray-500">{account.userDetails.email}</p>
                                         <p className="text-xs text-gray-500 mt-1 capitalize flex items-center">
                                             <span className={`inline-block w-2 h-2 rounded-full mr-1 ${account.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
                                                 }`}></span>

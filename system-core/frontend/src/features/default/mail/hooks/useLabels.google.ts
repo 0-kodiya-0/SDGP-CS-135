@@ -2,8 +2,8 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseGmailLabelsReturn, GmailLabel, CreateLabelParams, UpdateLabelParams } from "../types/types.google.api";
-import { useTokenApi } from "../../user_account";
-import { createPermissionError, requestPermission, handleApiError } from "../../user_account/utils/utils.google";
+import { handleApiError } from "../../user_account/utils/utils.google";
+import { useGooglePermissions } from "../../user_account/hooks/usePermissions.google";
 
 /**
  * Hook for managing Gmail Labels
@@ -13,45 +13,21 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Use token API to check for scopes
-    const { checkServiceAccess } = useTokenApi();
-
-    /**
-     * Verify the user has appropriate access for operation
-     */
-    const verifyAccess = useCallback(async (
-        scopeLevel: "readonly" | "full" = "readonly"
-    ): Promise<boolean> => {
-        try {
-            const accessCheck = await checkServiceAccess(accountId, "gmail", scopeLevel);
-
-            if (!accessCheck || !accessCheck.hasAccess) {
-                // Create and handle permission error
-                const permissionError = createPermissionError("gmail", scopeLevel, accountId);
-                requestPermission(permissionError);
-                setError(`You need additional permissions to access Gmail labels`);
-                return false;
-            }
-
-            return true;
-        } catch (err) {
-            console.error("Error checking gmail access:", err);
-            return false;
-        }
-    }, [accountId, checkServiceAccess]);
+    // Use Google Permissions hook
+    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
 
     /**
      * List all labels in the user's Gmail account
      */
-    const listLabels = useCallback(async (
-    ): Promise<void> => {
+    const listLabels = useCallback(async (): Promise<void> => {
         setLoading(true);
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("You need additional permissions to access Gmail labels");
                 setLoading(false);
                 return;
             }
@@ -67,17 +43,18 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 setError(response.data.error?.message || 'Failed to list labels');
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing labels');
             }
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Create a new Gmail label
@@ -89,9 +66,10 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         try {
-            // Verify access first - creating labels requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail labels");
                 setLoading(false);
                 return null;
             }
@@ -111,10 +89,11 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the label');
             }
@@ -122,7 +101,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Update an existing Gmail label
@@ -135,9 +114,10 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         try {
-            // Verify access first - updating labels requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail labels");
                 setLoading(false);
                 return null;
             }
@@ -159,10 +139,11 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the label');
             }
@@ -170,7 +151,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Delete a Gmail label
@@ -182,9 +163,10 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         try {
-            // Verify access first - deleting labels requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("You need additional permissions to manage Gmail labels");
                 setLoading(false);
                 return false;
             }
@@ -202,10 +184,11 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return false;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the label');
             }
@@ -213,7 +196,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Get a specific label by ID
@@ -225,9 +208,10 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("You need additional permissions to access Gmail labels");
                 setLoading(false);
                 return null;
             }
@@ -244,10 +228,11 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the label');
             }
@@ -255,7 +240,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     return {
         labels,
