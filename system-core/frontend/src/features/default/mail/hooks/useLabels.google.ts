@@ -3,18 +3,33 @@ import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseGmailLabelsReturn, GmailLabel, CreateLabelParams, UpdateLabelParams } from "../types/types.google.api";
 import { handleApiError } from "../../user_account/utils/utils.google";
-import { useGooglePermissions } from "../../user_account/hooks/usePermissions.google";
+import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
 
 /**
- * Hook for managing Gmail Labels
+ * Hook for managing Gmail Labels with centralized permission management
  */
 export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
     const [labels, setLabels] = useState<GmailLabel[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Use Google Permissions hook
-    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
+    // Use Gmail Permissions hook via the generic service permissions hook
+    const {
+        permissions,
+        permissionsLoading,
+        permissionError,
+        checkAllServicePermissions,
+        hasRequiredPermission,
+        invalidateServicePermission,
+        availableScopes
+    } = useServicePermissions(accountId, 'gmail');
+
+    // Check permissions when the hook is first used
+    // useEffect(() => {
+    //     if (!permissionsLoaded && !permissionsLoading) {
+    //         checkAllServicePermissions();
+    //     }
+    // }, [permissionsLoaded, permissionsLoading, checkAllServicePermissions]);
 
     /**
      * List all labels in the user's Gmail account
@@ -23,15 +38,14 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setLoading(true);
         setError(null);
 
-        try {
-            // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
-            if (!hasAccess) {
-                setError("You need additional permissions to access Gmail labels");
-                setLoading(false);
-                return;
-            }
+        // Check if we have readonly permission
+        if (!hasRequiredPermission('readonly')) {
+            setError("You need additional permissions to access Gmail labels");
+            setLoading(false);
+            return;
+        }
 
+        try {
             const response = await axios.get<ApiResponse<{ labels: GmailLabel[] }>>(
                 `${API_BASE_URL}/google/${accountId}/gmail/labels`,
                 { withCredentials: true }
@@ -43,10 +57,9 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 setError(response.data.error?.message || 'Failed to list labels');
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "gmail", "readonly");
+                invalidateServicePermission("readonly");
                 setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing labels');
@@ -54,7 +67,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Create a new Gmail label
@@ -65,15 +78,14 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setLoading(true);
         setError(null);
 
-        try {
-            // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
-            if (!hasAccess) {
-                setError("You need additional permissions to manage Gmail labels");
-                setLoading(false);
-                return null;
-            }
+        // Check if we have full permission
+        if (!hasRequiredPermission('full')) {
+            setError("You need additional permissions to manage Gmail labels");
+            setLoading(false);
+            return null;
+        }
 
+        try {
             const response = await axios.post<ApiResponse<{ label: GmailLabel }>>(
                 `${API_BASE_URL}/google/${accountId}/gmail/labels`,
                 params,
@@ -89,10 +101,9 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "gmail", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the label');
@@ -101,7 +112,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Update an existing Gmail label
@@ -113,15 +124,14 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setLoading(true);
         setError(null);
 
-        try {
-            // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
-            if (!hasAccess) {
-                setError("You need additional permissions to manage Gmail labels");
-                setLoading(false);
-                return null;
-            }
+        // Check if we have full permission
+        if (!hasRequiredPermission('full')) {
+            setError("You need additional permissions to manage Gmail labels");
+            setLoading(false);
+            return null;
+        }
 
+        try {
             const response = await axios.put<ApiResponse<{ label: GmailLabel }>>(
                 `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
                 params,
@@ -139,10 +149,9 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "gmail", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the label');
@@ -151,7 +160,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Delete a Gmail label
@@ -162,15 +171,14 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setLoading(true);
         setError(null);
 
-        try {
-            // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
-            if (!hasAccess) {
-                setError("You need additional permissions to manage Gmail labels");
-                setLoading(false);
-                return false;
-            }
+        // Check if we have full permission
+        if (!hasRequiredPermission('full')) {
+            setError("You need additional permissions to manage Gmail labels");
+            setLoading(false);
+            return false;
+        }
 
+        try {
             const response = await axios.delete<ApiResponse<{ message: string }>>(
                 `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
                 { withCredentials: true }
@@ -184,10 +192,9 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return false;
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "gmail", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the label');
@@ -196,7 +203,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Get a specific label by ID
@@ -207,15 +214,14 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setLoading(true);
         setError(null);
 
-        try {
-            // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
-            if (!hasAccess) {
-                setError("You need additional permissions to access Gmail labels");
-                setLoading(false);
-                return null;
-            }
+        // Check if we have readonly permission
+        if (!hasRequiredPermission('readonly')) {
+            setError("You need additional permissions to access Gmail labels");
+            setLoading(false);
+            return null;
+        }
 
+        try {
             const response = await axios.get<ApiResponse<{ label: GmailLabel }>>(
                 `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
                 { withCredentials: true }
@@ -228,10 +234,9 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "gmail", "readonly");
+                invalidateServicePermission("readonly");
                 setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the label');
@@ -240,12 +245,20 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     return {
         labels,
         loading,
         error,
+        // Add permission-related states for UI feedback
+        permissionsLoading,
+        permissionError,
+        permissions,
+        // Add the permission check function for direct use
+        checkAllGmailPermissions: checkAllServicePermissions,
+        // Regular label functions
+        availableScopes,
         listLabels,
         createLabel,
         updateLabel,
