@@ -2,8 +2,8 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseCalendarListReturn, CalendarResource, CreateCalendarParams, UpdateCalendarParams } from "../types/types.google.api";
-import { useTokenApi } from "../../user_account";
-import { createPermissionError, requestPermission, handleApiError } from "../../user_account/utils/utils.google";
+import { handleApiError } from "../../user_account/utils/utils.google";
+import { useGooglePermissions } from "../../user_account/hooks/usePermissions.google";
 
 /**
  * Hook for managing Google Calendar List
@@ -14,32 +14,8 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
   const [error, setError] = useState<string | null>(null);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
 
-  // Use token API to check for scopes
-  const { checkServiceAccess } = useTokenApi();
-
-  /**
-   * Verify the user has appropriate access for operation
-   */
-  const verifyAccess = useCallback(async (
-    scopeLevel: "readonly" | "events" | "full" = "readonly"
-  ): Promise<boolean> => {
-    try {
-      const accessCheck = await checkServiceAccess(accountId, "calendar", scopeLevel);
-
-      if (!accessCheck || !accessCheck.hasAccess) {
-        // Create and handle permission error
-        const permissionError = createPermissionError("calendar", scopeLevel, accountId);
-        requestPermission(permissionError);
-        setError(`You need additional permissions to access calendars`);
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.error("Error checking calendar access:", err);
-      return false;
-    }
-  }, [accountId, checkServiceAccess]);
+  // Use Google Permissions hook
+  const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
 
   /**
    * List available calendars
@@ -54,9 +30,10 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     setError(null);
 
     try {
-      // Verify access first
-      const hasAccess = await verifyAccess("readonly");
+      // Verify access using the updated permission hook
+      const hasAccess = await verifyServiceAccess(accountId, "calendar", "readonly");
       if (!hasAccess) {
+        setError("You need additional permissions to access calendars");
         setLoading(false);
         return;
       }
@@ -87,17 +64,18 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
         setError(response.data.error?.message || 'Failed to list calendars');
       }
     } catch (err) {
-      // Handle permission errors
+      // Handle API errors and invalidate permissions if needed
       const permissionError = handleApiError(err);
       if (permissionError) {
-        requestPermission(permissionError);
+        invalidatePermission(accountId, "calendar", "readonly");
+        setError("Permission error: You need additional permissions to access calendars");
       } else {
         setError(err instanceof Error ? err.message : 'An error occurred while listing calendars');
       }
     } finally {
       setLoading(false);
     }
-  }, [accountId, verifyAccess]);
+  }, [accountId, verifyServiceAccess, invalidatePermission]);
 
   /**
    * Create a new calendar
@@ -109,9 +87,10 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     setError(null);
 
     try {
-      // Verify access first - creating calendars requires 'full' access
-      const hasAccess = await verifyAccess("full");
+      // Verify access using the updated permission hook - creating calendars requires 'full' access
+      const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
       if (!hasAccess) {
+        setError("You need additional permissions to create calendars");
         setLoading(false);
         return null;
       }
@@ -131,10 +110,11 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
         return null;
       }
     } catch (err) {
-      // Handle permission errors
+      // Handle API errors and invalidate permissions if needed
       const permissionError = handleApiError(err);
       if (permissionError) {
-        requestPermission(permissionError);
+        invalidatePermission(accountId, "calendar", "full");
+        setError("Permission error: You need additional permissions to create calendars");
       } else {
         setError(err instanceof Error ? err.message : 'An error occurred while creating the calendar');
       }
@@ -142,7 +122,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     } finally {
       setLoading(false);
     }
-  }, [verifyAccess, accountId]);
+  }, [accountId, verifyServiceAccess, invalidatePermission]);
 
   /**
    * Update an existing calendar
@@ -155,9 +135,10 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     setError(null);
 
     try {
-      // Verify access first - updating calendars requires 'full' access
-      const hasAccess = await verifyAccess("full");
+      // Verify access using the updated permission hook - updating calendars requires 'full' access
+      const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
       if (!hasAccess) {
+        setError("You need additional permissions to update calendars");
         setLoading(false);
         return null;
       }
@@ -177,10 +158,11 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
         return null;
       }
     } catch (err) {
-      // Handle permission errors
+      // Handle API errors and invalidate permissions if needed
       const permissionError = handleApiError(err);
       if (permissionError) {
-        requestPermission(permissionError);
+        invalidatePermission(accountId, "calendar", "full");
+        setError("Permission error: You need additional permissions to update calendars");
       } else {
         setError(err instanceof Error ? err.message : 'An error occurred while updating the calendar');
       }
@@ -188,7 +170,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     } finally {
       setLoading(false);
     }
-  }, [verifyAccess, accountId]);
+  }, [accountId, verifyServiceAccess, invalidatePermission]);
 
   /**
    * Delete a calendar
@@ -200,9 +182,10 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     setError(null);
 
     try {
-      // Verify access first - deleting calendars requires 'full' access
-      const hasAccess = await verifyAccess("full");
+      // Verify access using the updated permission hook - deleting calendars requires 'full' access
+      const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
       if (!hasAccess) {
+        setError("You need additional permissions to delete calendars");
         setLoading(false);
         return false;
       }
@@ -221,10 +204,11 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
         return false;
       }
     } catch (err) {
-      // Handle permission errors
+      // Handle API errors and invalidate permissions if needed
       const permissionError = handleApiError(err);
       if (permissionError) {
-        requestPermission(permissionError);
+        invalidatePermission(accountId, "calendar", "full");
+        setError("Permission error: You need additional permissions to delete calendars");
       } else {
         setError(err instanceof Error ? err.message : 'An error occurred while deleting the calendar');
       }
@@ -232,7 +216,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
     } finally {
       setLoading(false);
     }
-  }, [verifyAccess, accountId]);
+  }, [accountId, verifyServiceAccess, invalidatePermission]);
 
   return {
     calendars,

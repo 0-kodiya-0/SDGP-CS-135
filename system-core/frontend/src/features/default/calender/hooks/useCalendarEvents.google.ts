@@ -2,8 +2,8 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseCalendarEventsReturn, CalendarEvent, CreateEventParams, UpdateEventParams } from "../types/types.google.api";
-import { useTokenApi } from "../../user_account";
-import { createPermissionError, requestPermission, handleApiError } from "../../user_account/utils/utils.google";
+import { handleApiError } from "../../user_account/utils/utils.google";
+import { useGooglePermissions } from "../../user_account/hooks/usePermissions.google";
 
 /**
  * Hook for managing Google Calendar Events
@@ -15,32 +15,8 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
     const [error, setError] = useState<string | null>(null);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>();
 
-    // Use token API to check for scopes
-    const { checkServiceAccess } = useTokenApi();
-
-    /**
-     * Verify the user has appropriate access for operation
-     */
-    const verifyAccess = useCallback(async (
-        scopeLevel: "readonly" | "events" | "full" = "readonly"
-    ): Promise<boolean> => {
-        try {
-            const accessCheck = await checkServiceAccess(accountId, "calendar", scopeLevel);
-
-            if (!accessCheck || !accessCheck.hasAccess) {
-                // Create and handle permission error
-                const permissionError = createPermissionError("calendar", scopeLevel, accountId);
-                requestPermission(permissionError);
-                setError(`You need additional permissions to access calendar events`);
-                return false;
-            }
-
-            return true;
-        } catch (err) {
-            console.error("Error checking calendar access:", err);
-            return false;
-        }
-    }, [accountId, checkServiceAccess]);
+    // Use Google Permissions hook
+    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
 
     /**
      * List events from a calendar
@@ -61,9 +37,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         setError(null);
     
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "calendar", "readonly");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to access calendar events");
                 setLoading(false);
                 return [];
             }
@@ -103,9 +80,11 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 return [];
             }
         } catch (err) {
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "calendar", "readonly");
+                setError("Permission error: You need additional permissions to access calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing events');
             }
@@ -113,7 +92,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Get a specific event by ID
@@ -126,9 +105,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "calendar", "readonly");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to access calendar events");
                 setLoading(false);
                 return null;
             }
@@ -150,10 +130,11 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "calendar", "readonly");
+                setError("Permission error: You need additional permissions to access calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the event');
             }
@@ -161,7 +142,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Create a new event
@@ -173,9 +154,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         setError(null);
 
         try {
-            // Verify access first - creating events requires 'events' scope level
-            const hasAccess = await verifyAccess("events");
+            // Verify access using the updated permission hook - creating events requires write access
+            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to create calendar events");
                 setLoading(false);
                 return null;
             }
@@ -195,10 +177,11 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "calendar", "full");
+                setError("Permission error: You need additional permissions to create calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the event');
             }
@@ -206,7 +189,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Update an existing event
@@ -219,9 +202,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         setError(null);
 
         try {
-            // Verify access first - updating events requires 'events' scope level
-            const hasAccess = await verifyAccess("events");
+            // Verify access using the updated permission hook - updating events requires write access
+            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to update calendar events");
                 setLoading(false);
                 return null;
             }
@@ -243,10 +227,11 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "calendar", "full");
+                setError("Permission error: You need additional permissions to update calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the event');
             }
@@ -254,7 +239,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     /**
      * Delete an event
@@ -270,9 +255,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         setError(null);
 
         try {
-            // Verify access first - deleting events requires 'events' scope level
-            const hasAccess = await verifyAccess("events");
+            // Verify access using the updated permission hook - deleting events requires write access
+            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to delete calendar events");
                 setLoading(false);
                 return false;
             }
@@ -298,10 +284,11 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 return false;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "calendar", "full");
+                setError("Permission error: You need additional permissions to delete calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the event');
             }
@@ -309,7 +296,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, event?.id, verifyAccess]);
+    }, [accountId, event?.id, verifyServiceAccess, invalidatePermission]);
 
     return {
         events,
