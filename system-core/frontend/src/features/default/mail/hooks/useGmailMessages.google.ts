@@ -28,28 +28,28 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
             q?: string;
             labelIds?: string[];
             includeSpamTrash?: boolean;
+            format?: 'metadata' | 'minimal' | 'full' | 'raw';
         }
     ): Promise<void> => {
         setLoading(true);
         setError(null);
-
+    
         try {
-            // Verify access using the updated permission hook
             const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
                 setError("You need additional permissions to access Gmail messages");
                 setLoading(false);
                 return;
             }
-
-            // Build query parameters
+    
             const queryParams = new URLSearchParams();
             if (params?.pageToken) queryParams.append('pageToken', params.pageToken);
             if (params?.maxResults) queryParams.append('maxResults', params.maxResults.toString());
             if (params?.q) queryParams.append('q', params.q);
             if (params?.labelIds && params.labelIds.length > 0) queryParams.append('labelIds', params.labelIds.join(','));
             if (params?.includeSpamTrash) queryParams.append('includeSpamTrash', 'true');
-
+            queryParams.append('format', params?.format || 'metadata'); // added format here
+    
             const response = await axios.get<ApiResponse<{
                 messages: GmailMessage[];
                 nextPageToken?: string;
@@ -57,13 +57,11 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 `${API_BASE_URL}/google/${accountId}/gmail/messages?${queryParams.toString()}`,
                 { withCredentials: true }
             );
-
+    
             if (response.data.success && response.data.data) {
                 if (params?.pageToken) {
-                    // If using pagination, append to existing messages
                     setMessages(prev => [...prev, ...response.data.data!.messages]);
                 } else {
-                    // Otherwise replace the messages list
                     setMessages(response.data.data.messages);
                 }
                 setNextPageToken(response.data.data.nextPageToken);
@@ -71,7 +69,6 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 setError(response.data.error?.message || 'Failed to list messages');
             }
         } catch (err) {
-            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
                 invalidatePermission(accountId, "gmail", "readonly");

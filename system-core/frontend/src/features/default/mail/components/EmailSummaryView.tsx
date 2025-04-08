@@ -58,27 +58,15 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     }, [listLabels]);
 
     useEffect(() => {
-        // Load messages when selected label changes or search query updates
         const loadMessages = async () => {
-            const params: {
-                labelIds?: string[];
-                q?: string;
-                maxResults?: number;
-            } = {
-                maxResults: 20
+            const params = {
+                maxResults: 20,
+                labelIds: selectedLabel ? [selectedLabel] : undefined,
+                q: searchQuery,
+                format: 'metadata' // crucial for initial fast loading
             };
-
-            if (selectedLabel) {
-                params.labelIds = [selectedLabel];
-            }
-
-            if (searchQuery) {
-                params.q = searchQuery;
-            }
-
             await listMessages(params);
         };
-
         loadMessages();
     }, [selectedLabel, searchQuery, listMessages]);
 
@@ -208,18 +196,9 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openEmailInTab = async (emailId: string) => {
-        // Mark as read if unread
-        const email = parsedEmails.find(email => email.id === emailId);
-        if (email?.isUnread) {
-            await modifyLabels(emailId, [], [GMAIL_SYSTEM_LABELS.UNREAD]);
-        }
-
-        // Fetch the complete message with all details
         const fullMessage = await getMessage(emailId, 'full');
-
         if (fullMessage) {
             const parsedEmail = parseGmailMessage(fullMessage);
-
             addTab(
                 parsedEmail.subject || 'No Subject',
                 null,
@@ -242,6 +221,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
             );
         }
     };
+    
 
     const openLabelManagerInTab = () => {
         addTab(

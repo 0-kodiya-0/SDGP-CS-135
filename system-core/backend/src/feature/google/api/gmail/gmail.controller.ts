@@ -23,9 +23,8 @@ export class GmailController {
         if (!req.googleAuth) {
             return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
         }
-
+    
         try {
-            // Extract query parameters
             const params: GetMessagesParams = {
                 maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 20,
                 pageToken: req.query.pageToken as string,
@@ -33,14 +32,26 @@ export class GmailController {
                 labelIds: req.query.labelIds ? (req.query.labelIds as string).split(',') : undefined,
                 includeSpamTrash: req.query.includeSpamTrash === 'true'
             };
-
-            // Create service and get messages
+    
             const gmailService = new GmailService(req.googleAuth);
-            const messages = await gmailService.listMessages(params);
-
+    
+            // Fetch the initial list of message IDs
+            const messageList = await gmailService.listMessages(params);
+    
+            // Fetch metadata headers in parallel for faster load
+            const metadataPromises = messageList.items.map(async (msg) => {
+                const messageMetadata = await gmailService.getMessage({
+                    id: msg.id!,
+                    format: 'metadata'
+                });
+                return messageMetadata;
+            });
+    
+            const messagesWithMetadata = await Promise.all(metadataPromises);
+    
             sendSuccess(res, 200, {
-                messages: messages.items,
-                nextPageToken: messages.nextPageToken
+                messages: messagesWithMetadata,
+                nextPageToken: messageList.nextPageToken
             });
         } catch (error) {
             handleGoogleApiError(req, res, error);
