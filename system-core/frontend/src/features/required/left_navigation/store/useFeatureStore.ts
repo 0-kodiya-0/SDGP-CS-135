@@ -4,7 +4,19 @@ import { useCallback, useEffect } from 'react';
 import { useAccount } from '../../../default/user_account';
 
 // Define the feature types
-export type FeatureType = 'contacts' | 'files' | 'calendar' | 'mail' | 'default' | 'workspace' | 'chat';
+export type FeatureType = 
+  | 'contacts' 
+  | 'files' 
+  | 'calendar' 
+  | 'mail' 
+  | 'default' 
+  | 'workspace' 
+  | 'chat'
+  | 'workspace-contacts'
+  | 'workspace-files'
+  | 'workspace-calendar'
+  | 'workspace-mail'
+  | 'workspace-chat';
 
 // Define user-feature map to track feature selection by accountId
 export type AccountFeatureMap = {
