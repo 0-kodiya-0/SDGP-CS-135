@@ -36,7 +36,7 @@ export default function SummaryView({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { addTab, closeTab, activeTabId, setActiveTab } = useTabStore();
+  const { tabs, addTab, closeTab, activeTabId, setActiveTab } = useTabStore();
 
   // Using a Record<string, string> is more efficient for simple key-value storage than Map
   const [tabIdFileNameAssociations, setTabIdFileNameAssociations] = useState<Record<string, string>>({});
