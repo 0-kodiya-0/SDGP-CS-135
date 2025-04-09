@@ -366,7 +366,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                 </p>
                 <button
                     className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                    onClick={checkAllGmailPermissions}
+                    onClick={() => checkAllGmailPermissions(true)}
                     disabled={permissionsLoading}
                 >
                     {permissionsLoading ? 'Requesting Access...' : 'Grant Gmail Access'}

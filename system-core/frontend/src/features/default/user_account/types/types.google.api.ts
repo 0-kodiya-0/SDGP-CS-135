@@ -125,6 +125,14 @@ export type ServicePermissions = {
     [scope in ScopeLevel]?: { hasAccess: boolean; };
 };
 
+/**
+ * Interface for service access verification results
+ */
+export  interface VerificationResult {
+  grantedPermissions: Record<ScopeLevel, boolean>;
+  missingPermissions: ScopeLevel[];
+}
+
 export interface PermissionCacheEntry {
     hasAccess: boolean;
     lastChecked: number;
@@ -149,7 +157,7 @@ export interface UseServicePermissionsReturn {
     permissionError: string | null;
 
     // Functions
-    checkAllServicePermissions: () => Promise<void>;
+    checkAllServicePermissions: (rMissingPermissions: boolean) => Promise<void>;
     hasRequiredPermission: (requiredScope: ScopeLevel) => boolean;
     invalidateServicePermission: (scope: ScopeLevel) => void;
 

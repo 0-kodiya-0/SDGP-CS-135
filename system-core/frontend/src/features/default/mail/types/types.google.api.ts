@@ -1,4 +1,4 @@
-import { ServicePermissions, UseServicePermissionsReturn } from "../../user_account/types/types.google.api";
+import { UseServicePermissionsReturn } from "../../user_account/types/types.google.api";
 
 // Define return types for each hook
 export interface UseGmailMessagesReturn extends Omit<UseServicePermissionsReturn, 'checkAllServicePermissions' | 'hasRequiredPermission' | 'invalidateServicePermission'> {
@@ -22,7 +22,7 @@ export interface UseGmailMessagesReturn extends Omit<UseServicePermissionsReturn
     getMessage: (messageId: string, format?: 'minimal' | 'full' | 'raw' | 'metadata') => Promise<GmailMessage | null>;
     sendMessage: (params: SendMessageParams) => Promise<GmailMessage | null>;
 
-    checkAllGmailPermissions: () => Promise<void>;
+    checkAllGmailPermissions: (rMissingPermissions: boolean) => Promise<void>;
 }
 
 export interface UseGmailLabelsReturn extends Omit<UseServicePermissionsReturn, 'checkAllServicePermissions' | 'hasRequiredPermission' | 'invalidateServicePermission'> {

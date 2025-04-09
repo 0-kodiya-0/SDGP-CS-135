@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTokenApi } from '../../user_account';
 import { createPermissionError, requestPermission } from '../../user_account/utils/utils.google';
-import { CalendarScope, DocsScope, DriveScope, GmailScope, MeetScope, PeopleScope, ScopeLevel, ServiceType } from '../types/types.google.api';
+import { CalendarScope, DocsScope, DriveScope, GmailScope, MeetScope, PeopleScope, ScopeLevel, ServiceType, VerificationResult } from '../types/types.google.api';
 import { useGooglePermissionsStore } from '../store/googlePermission.store';
 
 // Type guard functions to check scope compatibility with service - unchanged
@@ -68,6 +68,76 @@ export const useGooglePermissions = () => {
   } = useGooglePermissionsStore();
 
   /**
+   * Check service access for specific scopes and update the cache
+   * Does not request permissions - only checks and updates cache
+   */
+  const checkAndUpdateServiceAccess = useCallback(async (
+    accountId: string,
+    service: ServiceType,
+    requestedScopes: ScopeLevel[]
+  ): Promise<VerificationResult> => {
+    const grantedPermissions: Record<ScopeLevel, boolean> = {} as Record<ScopeLevel, boolean>;
+    const missingPermissions: ScopeLevel[] = [];
+
+    try {
+      // Make API call to check all scopes at once
+      const accessCheck = await checkServiceAccess(accountId, service, requestedScopes);
+
+      if (accessCheck?.scopeResults) {
+        // Process the results for each scope
+        for (const scope of requestedScopes) {
+          const scopeResult = accessCheck.scopeResults[scope];
+          const hasAccess = scopeResult?.hasAccess || false;
+
+          // Update cache and results
+          updateCache(accountId, service, scope, hasAccess);
+          grantedPermissions[scope] = hasAccess;
+
+          // Keep track of missing permission scopes
+          if (!hasAccess) {
+            missingPermissions.push(scope);
+          }
+        }
+      } else {
+        // If the API call failed, mark all scopes as not having access
+        for (const scope of requestedScopes) {
+          grantedPermissions[scope] = false;
+          invalidatePermission(accountId, service, scope);
+          missingPermissions.push(scope);
+        }
+      }
+
+      return { grantedPermissions, missingPermissions };
+    } catch (err) {
+      console.error(`Error checking ${service} access:`, err);
+
+      // On error, invalidate all relevant cache entries
+      requestedScopes.forEach(scope => {
+        grantedPermissions[scope] = false;
+        invalidatePermission(accountId, service, scope);
+        missingPermissions.push(scope);
+      });
+
+      return { grantedPermissions, missingPermissions };
+    }
+  }, [checkServiceAccess, updateCache, invalidatePermission]);
+
+  /**
+   * Request permissions for specified scopes
+   */
+  const requestMissingPermissions = useCallback((
+    accountId: string,
+    service: ServiceType,
+    missingScopes: ScopeLevel[]
+  ): void => {
+    if (missingScopes.length > 0) {
+      // Create a combined permission error for all missing scopes
+      const permissionError = createPermissionError(service, missingScopes, accountId);
+      requestPermission(permissionError);
+    }
+  }, []);
+
+  /**
    * Check and request permission for a specific Google service and one or more scope levels
    * Uses cached results when available to avoid repeated permission requests
    * Validates that requested scopes are valid for the service
@@ -76,10 +146,11 @@ export const useGooglePermissions = () => {
     accountId: string,
     service: ServiceType,
     scopeLevels: ScopeLevel | ScopeLevel[] = "readonly"
-  ): Promise<Record<ScopeLevel, boolean>> => {
+  ): Promise<VerificationResult> => {
     // Convert single scope to array for consistent handling
     const requestedScopes = Array.isArray(scopeLevels) ? scopeLevels : [scopeLevels];
-    const results: Record<ScopeLevel, boolean> = {} as Record<ScopeLevel, boolean>;
+    const grantedPermissions: Record<ScopeLevel, boolean> = {} as Record<ScopeLevel, boolean>;
+    const missingPermissions: ScopeLevel[] = [];
 
     // Get valid scopes for this service
     const validScopes = getValidScopesForService(service);
@@ -93,76 +164,36 @@ export const useGooglePermissions = () => {
     }
 
     // Check if we have all permissions cached
-    let allCached = true;
     const missingScopes: ScopeLevel[] = [];
 
     for (const scope of scopes) {
       const cachedPermission = getPermission(accountId, service, scope);
       if (isCacheValid(cachedPermission)) {
-        results[scope] = true;
+        grantedPermissions[scope] = true;
       } else {
-        allCached = false;
         missingScopes.push(scope);
       }
     }
 
     // If all scopes are cached with valid permissions, return early
-    if (allCached) {
-      return results;
+    if (missingScopes.length === 0) {
+      return { grantedPermissions, missingPermissions };
     }
 
-    try {
-      // Make a single API call to check all missing scopes at once
-      const accessCheck = await checkServiceAccess(accountId, service, missingScopes);
+    // Check access for missing scopes and update cache
+    const result = await checkAndUpdateServiceAccess(accountId, service, missingScopes);
+    
+    // Merge results
+    Object.assign(grantedPermissions, result.grantedPermissions);
+    missingPermissions.push(...result.missingPermissions);
 
-      if (accessCheck?.scopeResults) {
-        // Process the results for each scope
-        const missingPermissionScopes: ScopeLevel[] = [];
-
-        for (const scope of missingScopes) {
-          const scopeResult = accessCheck.scopeResults[scope];
-          const hasAccess = scopeResult?.hasAccess || false;
-
-          // Update cache and results
-          updateCache(accountId, service, scope, hasAccess);
-          results[scope] = hasAccess;
-
-          // Keep track of missing permission scopes
-          if (!hasAccess) {
-            missingPermissionScopes.push(scope);
-          }
-        }
-
-        // If we have missing permissions, request them all at once
-        if (missingPermissionScopes.length > 0) {
-          // Create a combined permission error for all missing scopes
-          const permissionError = createPermissionError(service, missingPermissionScopes, accountId);
-          requestPermission(permissionError);
-        }
-      } else {
-        // If the API call failed, mark all scopes as not having access
-        for (const scope of missingScopes) {
-          results[scope] = false;
-          invalidatePermission(accountId, service, scope);
-        }
-      }
-
-      return results;
-    } catch (err) {
-      console.error(`Error checking ${service} access:`, err);
-
-      // On error, invalidate all relevant cache entries
-      missingScopes.forEach(scope => {
-        results[scope] = false;
-        invalidatePermission(accountId, service, scope);
-      });
-
-      return results;
-    }
-  }, [checkServiceAccess, getPermission, invalidatePermission, isCacheValid, updateCache]);
+    return { grantedPermissions, missingPermissions };
+  }, [checkAndUpdateServiceAccess, getPermission, isCacheValid]);
 
   return {
     verifyServiceAccess,
+    checkAndUpdateServiceAccess,
+    requestMissingPermissions,
     invalidatePermission,
     clearAccountPermissions,
     clearAllPermissions,
