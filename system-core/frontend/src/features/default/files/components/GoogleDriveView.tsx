@@ -36,7 +36,8 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
       ComponentTypes.FILES_DETAIL_VIEW,
       {
         selectedFile: file,
-        isGoogleDrive: true
+        isGoogleDrive: true,
+        accountId: accountId
       }
     );
     setActiveTab(tabId);

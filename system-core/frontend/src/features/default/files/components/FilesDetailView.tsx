@@ -8,9 +8,10 @@ interface DetailViewProps {
   selectedFile: string | DriveFile | null;
   onFileUploaded: () => void;
   isGoogleDrive?: boolean;
+  accountId?: string;
 }
 
-export default function DetailView({ selectedFile, onFileUploaded, isGoogleDrive }: DetailViewProps) {
+export default function DetailView({ selectedFile, onFileUploaded, isGoogleDrive, accountId }: DetailViewProps) {
   const { readFile, isLoading } = useFileHandling();
   const [fileData, setFileData] = useState<Awaited<ReturnType<typeof readFile>> | DriveFile | null>(null);
 
@@ -56,6 +57,7 @@ export default function DetailView({ selectedFile, onFileUploaded, isGoogleDrive
           onFileUpdated={handleFileUpdated}
           onSelectFile={loadSelectedFile}
           isGoogleDrive={isGoogleDrive}
+          accountId={accountId}
         />
       ) : (
         <div className="w-full h-full flex justify-center items-center">
