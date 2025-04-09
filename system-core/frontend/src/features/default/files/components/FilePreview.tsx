@@ -81,7 +81,39 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
     const driveFile = file as DriveFile;
     
     if (driveFile.mimeType.startsWith("image/")) {
-      return <ImageViewer file={driveFile} onImageUpdated={onFileUpdated} onSelectOtherFile={onSelectFile} />;
+      return (
+        <div className="w-full h-full flex flex-col">
+          <div className="p-3 bg-white shadow flex items-center justify-between">
+            <span className="ml-4 font-semibold">{driveFile.name}</span>
+            <div className="flex gap-2">
+              <a
+                href={`https://drive.google.com/file/d/${driveFile.id}/view`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700 mr-2"
+              >
+                Open in Drive
+              </a>
+              <a
+                href={getDownloadUrl(driveFile.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700"
+              >
+                Download
+              </a>
+            </div>
+          </div>
+          <div className="flex-grow flex items-center justify-center p-4 bg-gray-100">
+            <img
+              src={getDownloadUrl(driveFile.id)}
+              alt={driveFile.name}
+              className="max-w-full max-h-full object-contain"
+              onError={() => handlePreviewError("Failed to load image preview. Authentication may have failed.")}
+            />
+          </div>
+        </div>
+      );
     }
 
     if (driveFile.mimeType === "application/pdf") {
@@ -207,7 +239,12 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
   const localFile = file as UploadedFile;
   
   if (localFile.type.startsWith("image/")) {
-    return <ImageViewer file={localFile} onImageUpdated={onFileUpdated} onSelectOtherFile={onSelectFile} />;
+    return <ImageViewer 
+      file={localFile} 
+      onImageUpdated={onFileUpdated} 
+      onSelectOtherFile={onSelectFile}
+      accountId={accountId}
+    />;
   }
 
   if (localFile.type === "application/pdf") {

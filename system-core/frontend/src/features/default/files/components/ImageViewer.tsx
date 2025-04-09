@@ -12,12 +12,14 @@ interface ImageViewerProps {
   file: UploadedFile | DriveFile;
   onImageUpdated: () => void;
   onSelectOtherFile: (fileName: string) => void;
+  accountId?: string;
 }
 
 export const ImageViewer = ({
   file,
   onImageUpdated,
-  onSelectOtherFile
+  onSelectOtherFile,
+  accountId = ''
 }: ImageViewerProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<any>(null);
@@ -26,7 +28,7 @@ export const ImageViewer = ({
   const [showSuccess, setShowSuccess] = useState(false);
   const [targetFileName, setTargetFileName] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string>("");
-  const { getDownloadUrl } = useDriveFiles('');
+  const { getDownloadUrl } = useDriveFiles(accountId);
 
   const {
     hasUnsavedChanges,
@@ -176,9 +178,8 @@ export const ImageViewer = ({
       // Local file
       setImageUrl(file.data);
     } else {
-      // Google Drive file
-      const downloadUrl = getDownloadUrl(file.id);
-      setImageUrl(downloadUrl);
+      // Google Drive file - use authenticated download URL
+      setImageUrl(getDownloadUrl(file.id));
     }
   }, [file, getDownloadUrl]);
 
