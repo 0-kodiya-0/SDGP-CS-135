@@ -16,7 +16,7 @@ export function NotificationIcon() {
     // Fetch initial unread count
     const fetchUnreadCount = async () => {
       try {
-        const response = await axios.get('/api/v1/chat/unread-count', {
+        const response = await axios.get(`/api/v1/chat/${currentAccount?.id}/unread-count`, {
           withCredentials: true
         });
         setUnreadCount(response.data.count);

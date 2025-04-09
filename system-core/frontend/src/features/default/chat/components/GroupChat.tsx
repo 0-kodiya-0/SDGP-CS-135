@@ -23,6 +23,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import axios from 'axios';
 import { useContacts, PersonType } from '../../contacts';
 import { useAccount, useAuth } from '../../user_account';
+import { API_BASE_URL } from '../../../../conf/axios';
 
 interface GroupChatProps {
   open: boolean;
@@ -62,7 +63,7 @@ export const GroupChat: React.FC<GroupChatProps> = ({ open, onClose, onGroupCrea
     };
 
     searchUsers();
-  }, [searchQuery, searchContacts]);
+  }, [searchQuery]);
 
   const handleAddUser = (contact: PersonType) => {
     const email = contact.emailAddresses?.[0]?.value;
@@ -95,7 +96,7 @@ export const GroupChat: React.FC<GroupChatProps> = ({ open, onClose, onGroupCrea
       setIsCreating(true);
       setError(null);
 
-      const response = await axios.post('/api/chat/conversations/group', {
+      const response = await axios.post(`${API_BASE_URL}/chat/${currentAccount?.id}/conversations/group`, {
         name: groupName,
         participants: selectedUsers.map(user => user.email)
       }, {

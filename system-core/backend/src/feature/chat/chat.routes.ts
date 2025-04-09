@@ -1,15 +1,30 @@
 import { Router, Request, Response } from 'express';
 import * as chatService from './chat.service';
 import { validateAccountAccess } from '../../services/session';
+import mongoose from 'mongoose';
 
 const router = Router();
 
+// Middleware for input validation
+const validateObjectId = (id: string): boolean => {
+    return mongoose.Types.ObjectId.isValid(id);
+};
+
+const validateTimestamp = (timestamp: string): boolean => {
+    return !isNaN(Date.parse(timestamp));
+};
+
+// Apply account access validation to all routes
 router.use("/:accountId", validateAccountAccess);
 
 // Get user's conversations
 router.get('/:accountId/conversations', async (req: Request, res: Response) => {
     try {
         const userId = req.oauthAccount?.id as string;
+
+        if (!validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid user ID format' });
+        }
 
         const conversations = await chatService.getUserConversations(userId);
         res.json(conversations);
@@ -20,11 +35,34 @@ router.get('/:accountId/conversations', async (req: Request, res: Response) => {
 });
 
 // Get messages for a conversation
-router.get('/:accountId/conversations/:conversationId/messages', async (req: Request<{ conversationId: string }>, res: Response) => {
+router.get('/:accountId/conversations/:conversationId/messages', async (req: Request<{ accountId: string, conversationId: string }>, res: Response) => {
     try {
+        const userId = req.oauthAccount?.id as string;
         const { conversationId } = req.params;
-        const before = req.query.before ? new Date(req.query.before as string) : undefined;
-        const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+        
+        if (!validateObjectId(conversationId)) {
+            return res.status(400).json({ error: 'Invalid conversation ID format' });
+        }
+
+        // Validate that user is a participant in the conversation
+        const hasAccess = await chatService.verifyConversationAccess(conversationId, userId);
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this conversation' });
+        }
+
+        const beforeStr = req.query.before as string | undefined;
+        const before = beforeStr && validateTimestamp(beforeStr) ? new Date(beforeStr) : undefined;
+        
+        if (beforeStr && !before) {
+            return res.status(400).json({ error: 'Invalid timestamp format' });
+        }
+        
+        const limitStr = req.query.limit as string | undefined;
+        const limit = limitStr ? parseInt(limitStr) : 50;
+        
+        if (isNaN(limit) || limit < 1 || limit > 100) {
+            return res.status(400).json({ error: 'Limit must be between 1 and 100' });
+        }
 
         const messages = await chatService.getMessages(conversationId, limit, before);
         res.json(messages);
@@ -39,6 +77,14 @@ router.post('/:accountId/conversations/private', async (req: Request, res: Respo
     try {
         const userId = req.oauthAccount?.id as string;
         const { otherUserId } = req.body;
+        
+        if (!validateObjectId(userId) || !validateObjectId(otherUserId)) {
+            return res.status(400).json({ error: 'Invalid user ID format' });
+        }
+
+        if (userId === otherUserId) {
+            return res.status(400).json({ error: 'Cannot create a conversation with yourself' });
+        }
 
         const conversation = await chatService.getOrCreatePrivateConversation(userId, otherUserId);
         res.json(conversation);
@@ -51,8 +97,23 @@ router.post('/:accountId/conversations/private', async (req: Request, res: Respo
 // Create group conversation
 router.post('/:accountId/conversations/group', async (req: Request, res: Response) => {
     try {
-        const userId = req.oauthAccount?.id as string;;
+        const userId = req.oauthAccount?.id as string;
         const { name, participants } = req.body;
+        
+        if (!name || typeof name !== 'string' || name.length > 100) {
+            return res.status(400).json({ error: 'Invalid group name. Must be string and under 100 characters' });
+        }
+        
+        if (!Array.isArray(participants) || participants.length < 1) {
+            return res.status(400).json({ error: 'Participants must be an array with at least one member' });
+        }
+        
+        // Validate all participant IDs
+        for (const participantId of participants) {
+            if (!validateObjectId(participantId)) {
+                return res.status(400).json({ error: `Invalid participant ID format: ${participantId}` });
+            }
+        }
 
         // Add the creator to the participants list if not already included
         const allParticipants = participants.includes(userId)
@@ -68,15 +129,25 @@ router.post('/:accountId/conversations/group', async (req: Request, res: Respons
 });
 
 // Add user to group
-router.post('/:accountId/conversations/:conversationId/participants', async (req: Request<{ conversationId: string }>, res: Response) => {
+router.post('/:accountId/conversations/:conversationId/participants', async (req: Request<{ accountId: string, conversationId: string }>, res: Response) => {
     try {
+        const currentUserId = req.oauthAccount?.id as string;
         const { conversationId } = req.params;
         const { userId } = req.body;
+        
+        if (!validateObjectId(conversationId) || !validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid ID format' });
+        }
+
+        // Verify the current user is a participant
+        const hasAccess = await chatService.verifyConversationAccess(conversationId, currentUserId);
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this conversation' });
+        }
 
         const conversation = await chatService.addUserToGroup(conversationId, userId);
         if (!conversation) {
-            res.status(404).json({ error: 'Conversation not found' });
-            return
+            return res.status(404).json({ error: 'Conversation not found or is not a group' });
         }
 
         res.json(conversation);
@@ -87,18 +158,31 @@ router.post('/:accountId/conversations/:conversationId/participants', async (req
 });
 
 // Remove user from group
-router.delete('/:accountId/conversations/:conversationId/participants/:userId', async (req: Request<{ conversationId: string; userId: string }>, res: Response) => {
+router.delete('/:accountId/conversations/:conversationId/participants/:userId', async (req: Request<{ accountId: string, conversationId: string, userId: string }>, res: Response) => {
     try {
+        const currentUserId = req.oauthAccount?.id as string;
         const { conversationId, userId } = req.params;
+        
+        if (!validateObjectId(conversationId) || !validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid ID format' });
+        }
+
+        // Verify the current user is a participant
+        const hasAccess = await chatService.verifyConversationAccess(conversationId, currentUserId);
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this conversation' });
+        }
 
         const conversation = await chatService.removeUserFromGroup(conversationId, userId);
         if (!conversation) {
-            res.status(404).json({ error: 'Conversation not found' });
-            return
+            return res.status(404).json({ error: 'Conversation not found or is not a group' });
         }
 
         res.json(conversation);
     } catch (error) {
+        if (error instanceof Error && error.message === 'Cannot remove user from a group with only 2 participants') {
+            return res.status(400).json({ error: error.message });
+        }
         console.error('Error removing user from group:', error);
         res.status(500).json({ error: 'Failed to remove user from group' });
     }
@@ -108,12 +192,65 @@ router.delete('/:accountId/conversations/:conversationId/participants/:userId', 
 router.get('/:accountId/messages/unread/count', async (req: Request, res: Response) => {
     try {
         const userId = req.oauthAccount?.id as string;
+        
+        if (!validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid user ID format' });
+        }
 
         const count = await chatService.getUnreadCount(userId);
         res.json({ count });
     } catch (error) {
         console.error('Error getting unread count:', error);
         res.status(500).json({ error: 'Failed to get unread count' });
+    }
+});
+
+// Mark messages as read in a conversation
+router.post('/:accountId/conversations/:conversationId/read', async (req: Request<{ accountId: string, conversationId: string }>, res: Response) => {
+    try {
+        const userId = req.oauthAccount?.id as string;
+        const { conversationId } = req.params;
+        
+        if (!validateObjectId(conversationId) || !validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid ID format' });
+        }
+
+        // Verify the user is a participant
+        const hasAccess = await chatService.verifyConversationAccess(conversationId, userId);
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this conversation' });
+        }
+
+        await chatService.markMessagesAsRead(conversationId, userId);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+        res.status(500).json({ error: 'Failed to mark messages as read' });
+    }
+});
+
+// Delete conversation
+router.delete('/:accountId/conversations/:conversationId', async (req: Request<{ accountId: string, conversationId: string }>, res: Response) => {
+    try {
+        const userId = req.oauthAccount?.id as string;
+        const { conversationId } = req.params;
+        
+        if (!validateObjectId(conversationId) || !validateObjectId(userId)) {
+            return res.status(400).json({ error: 'Invalid ID format' });
+        }
+
+        const result = await chatService.deleteConversation(conversationId, userId);
+        if (!result) {
+            return res.status(404).json({ error: 'Conversation not found' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'User is not a participant in this conversation') {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Error deleting conversation:', error);
+        res.status(500).json({ error: 'Failed to delete conversation' });
     }
 });
 

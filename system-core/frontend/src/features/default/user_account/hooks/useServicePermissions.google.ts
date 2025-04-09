@@ -8,7 +8,7 @@ import { useGooglePermissionsStore, usePermissionsCacheState } from '../store/go
  * This wraps the useGooglePermissions hook with service-specific functionality
  */
 export const useServicePermissions = (
-  accountId: string,
+  accountId: string | null,
   serviceType: ServiceType
 ): UseServicePermissionsReturn => {
   // Use the base Google permissions hook

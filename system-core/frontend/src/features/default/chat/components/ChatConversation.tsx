@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import axios from 'axios';
 import { useAccount } from '../../user_account';
 import { fetchAccountEmail, fetchAccountDetails } from '../../user_account/utils/account.utils';
+import { API_BASE_URL, SOCKET_URL } from '../../../../conf/axios';
 
 interface Message {
   _id: string;
@@ -35,8 +36,8 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
   useEffect(() => {
     if (!currentAccount?.id) return;
 
-    // Updated Socket.IO connection URL with correct path
-    const newSocket = io('http://localhost:8080', {
+    // Socket.IO connection with correct configuration
+    const newSocket = io(SOCKET_URL, {
       path: '/socket.io',
       withCredentials: true,
       transports: ['websocket']
@@ -44,7 +45,7 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
 
     newSocket.on('connect', () => {
       console.log('Connected to chat server');
-      newSocket.emit('authenticate', currentAccount);
+      newSocket.emit('authenticate', currentAccount.id);
       newSocket.emit('join_conversation', conversationId);
     });
 
@@ -62,6 +63,11 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
           return [...prev, message];
         });
         scrollToBottom();
+
+        // Mark message as read if from someone else
+        if (message.sender !== currentAccount.id) {
+          newSocket.emit('mark_read', conversationId);
+        }
       }
     });
 
@@ -74,7 +80,9 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
   }, [currentAccount?.id, conversationId]);
 
   useEffect(() => {
-    loadMessages();
+    if (conversationId) {
+      loadMessages();
+    }
   }, [conversationId]);
 
   useEffect(() => {
@@ -108,12 +116,16 @@ export default function ChatConversation({ conversationId }: ChatConversationPro
 
   const loadMessages = async () => {
     try {
-      // Updated API endpoint path with base URL
-      const response = await axios.get(`/api/v1/chat/conversations/${conversationId}/messages`, {
+      const response = await axios.get(`${API_BASE_URL}/chat/${currentAccount?.id}/conversations/${conversationId}/messages`, {
         withCredentials: true
       });
       setMessages(response.data.reverse());
       scrollToBottom();
+
+      // Mark messages as read when conversation is loaded
+      if (socket) {
+        socket.emit('mark_read', conversationId);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }

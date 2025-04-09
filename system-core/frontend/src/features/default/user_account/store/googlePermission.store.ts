@@ -118,4 +118,4 @@ export const useGooglePermissionsStore = create<GooglePermissionsState>()(
   )
 );
 
-export const usePermissionsCacheState = (accountId: string, service: ServiceType) => (state: GooglePermissionsState) => state.permissionCache[accountId]?.[service]
+export const usePermissionsCacheState = (accountId: string | null, service: ServiceType) => (state: GooglePermissionsState) => accountId ? state.permissionCache[accountId]?.[service] : null

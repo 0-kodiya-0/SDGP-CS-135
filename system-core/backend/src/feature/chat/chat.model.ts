@@ -24,27 +24,70 @@ export interface ConversationData {
   updatedAt: string;
 }
 
-// Message Schema
+// Message Schema with validation
 const MessageSchema = new Schema({
-  conversationId: { type: String, required: true, index: true },
-  sender: { type: String, required: true },
-  content: { type: String, required: true },
-  timestamp: { type: String, required: true, default: () => new Date().toISOString() },
+  conversationId: { 
+    type: String, 
+    required: true, 
+    index: true,
+    validate: {
+      validator: (value: string) => mongoose.Types.ObjectId.isValid(value),
+      message: 'Invalid conversationId format'
+    }
+  },
+  sender: { 
+    type: String, 
+    required: true,
+    validate: {
+      validator: (value: string) => mongoose.Types.ObjectId.isValid(value),
+      message: 'Invalid sender format'
+    }
+  },
+  content: { 
+    type: String, 
+    required: true,
+    maxlength: [5000, 'Message content cannot exceed 5000 characters']
+  },
+  timestamp: { 
+    type: String, 
+    required: true, 
+    default: () => new Date().toISOString(),
+    validate: {
+      validator: (value: string) => !isNaN(Date.parse(value)),
+      message: 'Invalid timestamp format'
+    }
+  },
   read: { type: Boolean, default: false }
 }, {
   timestamps: true,
   versionKey: false
 });
 
-// Conversation Schema
+// Conversation Schema with validation
 const ConversationSchema = new Schema({
   type: { type: String, enum: ['private', 'group'], required: true },
-  participants: [{ type: String, required: true }],
-  name: { type: String }, // Optional, for group chats
+  participants: [{ 
+    type: String, 
+    required: true,
+    validate: {
+      validator: (value: string) => mongoose.Types.ObjectId.isValid(value),
+      message: 'Invalid participant ID format'
+    }
+  }],
+  name: { 
+    type: String,
+    maxlength: [100, 'Group name cannot exceed 100 characters']
+  }, // Optional, for group chats
   lastMessage: {
     content: { type: String },
     sender: { type: String },
-    timestamp: { type: String }
+    timestamp: { 
+      type: String,
+      validate: {
+        validator: (value: string) => !isNaN(Date.parse(value)),
+        message: 'Invalid timestamp format in lastMessage'
+      }
+    }
   }
 }, {
   timestamps: true,
@@ -78,6 +121,7 @@ ConversationSchema.methods.updateLastMessage = function (this: ConversationDocum
     sender,
     timestamp: new Date().toISOString()
   };
+  this.updatedAt = new Date().toISOString();
   return this.save();
 };
 

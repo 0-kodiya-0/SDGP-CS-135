@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Typography, Menu, MenuItem, } from '@mui/material';
+import { Box, List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Typography, Menu, MenuItem, CircularProgress } from '@mui/material';
 import { UserPlus, Users, Trash2 } from 'lucide-react';
 import { UserSearch } from './UserSearch';
 import { GroupChat } from './GroupChat';
@@ -8,6 +8,7 @@ import { useAccount } from '../../user_account';
 import { useTabStore } from '../../../required/tab_view';
 import { fetchAccountEmail } from '../../user_account/utils/account.utils';
 import { ComponentTypes } from '../../../required/tab_view/types/types.views';
+import { API_BASE_URL } from '../../../../conf/axios';
 
 interface Conversation {
   _id: string;
@@ -27,16 +28,20 @@ export default function ChatSummaryView() {
   const [showGroupChat, setShowGroupChat] = useState(false);
   const [participantEmails, setParticipantEmails] = useState<Record<string, string>>({});
   const { currentAccount } = useAccount();
-  const { addTab } = useTabStore();
+  const { addTab, closeTabs } = useTabStore();
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
     conversationId: string;
   } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadConversations();
-  }, []);
+    if (currentAccount?.id) {
+      loadConversations();
+    }
+  }, [currentAccount?.id]);
 
   useEffect(() => {
     const fetchEmails = async () => {
@@ -72,14 +77,18 @@ export default function ChatSummaryView() {
   }, [conversations, currentAccount?.id]);
 
   const loadConversations = async () => {
+    if (!currentAccount?.id) return;
+
+    setLoading(true);
     try {
-      // Updated API endpoint path with base URL
-      const response = await axios.get('/api/v1/chat/conversations', {
+      const response = await axios.get(`${API_BASE_URL}/chat/${currentAccount.id}/conversations`, {
         withCredentials: true
       });
       setConversations(response.data);
     } catch (error) {
       console.error('Error loading conversations:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,13 +114,23 @@ export default function ChatSummaryView() {
   };
 
   const getOtherParticipantName = (conversation: Conversation) => {
-    if (conversation.type === 'group') return conversation.name;
+    // Remove the console.log
+    if (conversation.type === 'group') return conversation.name || 'Group Chat';
+
     const otherParticipant = conversation.participants.find(p => p !== currentAccount?.id);
-    return otherParticipant ? participantEmails[otherParticipant] || otherParticipant : 'Unknown';
+    if (!otherParticipant) return 'Unknown';
+
+    // Check if we have the email mapping
+    const email = participantEmails[otherParticipant];
+    if (!email) return 'Loading...'; // Show loading state instead of ID
+
+    // Format email for display - show name part only
+    return email.split('@')[0] || email;
   };
 
   const handleContextMenu = (event: React.MouseEvent, conversationId: string) => {
     event.preventDefault();
+    event.stopPropagation();
     setContextMenu(
       contextMenu === null
         ? { mouseX: event.clientX, mouseY: event.clientY, conversationId }
@@ -124,18 +143,29 @@ export default function ChatSummaryView() {
   };
 
   const handleDeleteConversation = async () => {
-    if (!contextMenu?.conversationId) return;
+    if (!contextMenu?.conversationId || !currentAccount?.id) return;
+
+    const conversationId = contextMenu.conversationId;
+    setIsDeleting(conversationId);
 
     try {
-      // Updated API endpoint path with base URL
-      await axios.delete(`/api/v1/chat/conversations/${contextMenu.conversationId}`, {
+      // Close any tabs associated with this conversation
+      closeTabs((tab) => {
+        const params = tab.params as any;
+        return params?.conversationId === conversationId;
+      });
+
+      // Delete the conversation
+      await axios.delete(`${API_BASE_URL}/chat/${currentAccount.id}/conversations/${conversationId}`, {
         withCredentials: true
       });
 
-      setConversations(prev => prev.filter(conv => conv._id !== contextMenu.conversationId));
-      handleCloseContextMenu();
+      setConversations(prev => prev.filter(conv => conv._id !== conversationId));
     } catch (error) {
       console.error('Error deleting conversation:', error);
+    } finally {
+      setIsDeleting(null);
+      handleCloseContextMenu();
     }
   };
 
@@ -154,31 +184,69 @@ export default function ChatSummaryView() {
       </Box>
 
       <Box className="flex-1 overflow-auto">
-        <List>
-          {conversations.map(conversation => (
-            <ListItem
-              key={conversation._id}
-              button
-              onClick={() => handleConversationClick(conversation)}
-              onContextMenu={(e) => handleContextMenu(e, conversation._id)}
-              className="hover:bg-gray-50"
-            >
-              <ListItemAvatar>
-                <Avatar>
-                  {conversation.type === 'group' ? (
-                    <Users className="w-5 h-5" />
-                  ) : (
-                    getOtherParticipantName(conversation)[0]
-                  )}
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={getOtherParticipantName(conversation)}
-                secondary={conversation.lastMessage?.content || 'No messages yet'}
-              />
-            </ListItem>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <CircularProgress />
+          </Box>
+        ) : conversations.length === 0 ? (
+          <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="80%" p={3}>
+            <Typography variant="body1" color="text.secondary" textAlign="center">
+              No conversations yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" textAlign="center" mt={1}>
+              Start by adding a new chat
+            </Typography>
+          </Box>
+        ) : (
+          <List>
+            {conversations.map(conversation => (
+              <ListItem
+                key={conversation._id}
+                button
+                onClick={() => handleConversationClick(conversation)}
+                onContextMenu={(e) => handleContextMenu(e, conversation._id)}
+                className="hover:bg-gray-50 relative"
+                sx={{
+                  opacity: isDeleting === conversation._id ? 0.5 : 1,
+                  pointerEvents: isDeleting === conversation._id ? 'none' : 'auto'
+                }}
+              >
+                <ListItemAvatar>
+                  <Avatar>
+                    {conversation.type === 'group' ? (
+                      <Users className="w-5 h-5" />
+                    ) : (
+                      getOtherParticipantName(conversation)[0]?.toUpperCase() || '?'
+                    )}
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={getOtherParticipantName(conversation)}
+                  secondary={conversation.lastMessage?.content || 'No messages yet'}
+                  primaryTypographyProps={{
+                    style: {
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
+                  secondaryTypographyProps={{
+                    style: {
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
+                />
+                {isDeleting === conversation._id && (
+                  <Box position="absolute" right={16} display="flex" alignItems="center">
+                    <CircularProgress size={24} />
+                  </Box>
+                )}
+              </ListItem>
+            ))}
+          </List>
+        )}
       </Box>
 
       <Menu
@@ -191,7 +259,11 @@ export default function ChatSummaryView() {
             : undefined
         }
       >
-        <MenuItem onClick={handleDeleteConversation} className="text-red-600">
+        <MenuItem
+          onClick={handleDeleteConversation}
+          className="text-red-600"
+          disabled={!!isDeleting}
+        >
           <Trash2 className="w-4 h-4 mr-2" />
           Delete Conversation
         </MenuItem>
