@@ -10,11 +10,11 @@ export const isGmailScope = (scope: ScopeLevel): scope is GmailScope => {
 };
 
 export const isCalendarScope = (scope: ScopeLevel): scope is CalendarScope => {
-  return ['readonly', 'full', 'event', 'addonly'].includes(scope);
+  return ['readonly', 'full', 'events' ].includes(scope);
 };
 
 export const isDriveScope = (scope: ScopeLevel): scope is DriveScope => {
-  return ['readonly', 'full', 'file', 'metadata', 'appdata'].includes(scope);
+  return ['readonly', 'full', 'file'].includes(scope);
 };
 
 export const isDocsScope = (scope: ScopeLevel): scope is DocsScope => {
@@ -22,11 +22,11 @@ export const isDocsScope = (scope: ScopeLevel): scope is DocsScope => {
 };
 
 export const isPeopleScope = (scope: ScopeLevel): scope is PeopleScope => {
-  return ['readonly', 'full', 'contacts', 'directory'].includes(scope);
+  return ['readonly', 'full'].includes(scope);
 };
 
 export const isMeetScope = (scope: ScopeLevel): scope is MeetScope => {
-  return ['readonly', 'full', 'schedule', 'join'].includes(scope);
+  return ['readonly', 'full'].includes(scope);
 };
 
 // Helper to get valid scopes for a service - unchanged
@@ -35,14 +35,14 @@ export const getValidScopesForService = (service: ServiceType): ScopeLevel[] => 
     case 'gmail':
       return ['readonly', 'send', 'compose', 'full'];
     case 'calendar':
-      return ['readonly', 'event', 'full'];
+      return ['readonly', 'events', 'full'];
     case 'drive':
       return ['readonly', 'file', 'full'];
     case 'sheets':
     case 'docs':
       return ['readonly', 'create', 'edit', 'full'];
     case 'people':
-      return ['readonly', 'contacts', 'full'];
+      return ['readonly', 'full'];
     case 'meet':
       return ['readonly', 'full'];
     default:
