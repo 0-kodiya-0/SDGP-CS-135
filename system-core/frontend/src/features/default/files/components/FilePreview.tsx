@@ -80,7 +80,7 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
   if (isGoogleDrive) {
     const driveFile = file as DriveFile;
     
-    if (driveFile.mimeType.startsWith("image/")) {
+    if (driveFile?.mimeType?.startsWith("image/")) {
       return (
         <div className="w-full h-full flex flex-col">
           <div className="p-3 bg-white shadow flex items-center justify-between">
@@ -116,7 +116,7 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
       );
     }
 
-    if (driveFile.mimeType === "application/pdf") {
+    if (driveFile?.mimeType === "application/pdf") {
       return (
         <div className="w-full h-full flex flex-col">
           <div className="p-3 bg-white shadow flex items-center justify-between">
@@ -143,9 +143,9 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
     }
 
     // Handle Google Docs, Sheets, and Slides
-    if (driveFile.mimeType.includes('document') || 
-        driveFile.mimeType.includes('spreadsheet') || 
-        driveFile.mimeType.includes('presentation')) {
+    if (driveFile?.mimeType?.includes('document') || 
+        driveFile?.mimeType?.includes('spreadsheet') || 
+        driveFile?.mimeType?.includes('presentation')) {
       const exportUrl = getExportUrl(driveFile.id, driveFile.mimeType);
       return (
         <div className="w-full h-full flex flex-col">
@@ -183,7 +183,7 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
     }
 
     // Handle text files
-    if (driveFile.mimeType.startsWith("text/") || isCodeFile) {
+    if (driveFile?.mimeType?.startsWith("text/") || isCodeFile) {
       const downloadUrl = getDownloadUrl(driveFile.id);
       return (
         <div className="w-full h-full flex flex-col">
@@ -238,16 +238,34 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
   // Handle local files
   const localFile = file as UploadedFile;
   
-  if (localFile.type.startsWith("image/")) {
-    return <ImageViewer 
-      file={localFile} 
-      onImageUpdated={onFileUpdated} 
-      onSelectOtherFile={onSelectFile}
-      accountId={accountId}
-    />;
+  if (localFile?.type?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full flex flex-col">
+        <div className="p-3 bg-white shadow flex items-center justify-between">
+          <span className="ml-4 font-semibold">{localFile.name}</span>
+          {localFile.data && (
+            <a
+              href={localFile.data}
+              download={localFile.name}
+              className="text-blue-500 hover:text-blue-700"
+            >
+              Download
+            </a>
+          )}
+        </div>
+        <div className="flex-grow flex items-center justify-center p-4 bg-gray-100">
+          <img
+            src={localFile.data}
+            alt={localFile.name}
+            className="max-w-full max-h-full object-contain"
+            onError={() => handlePreviewError("Failed to load image preview.")}
+          />
+        </div>
+      </div>
+    );
   }
 
-  if (localFile.type === "application/pdf") {
+  if (localFile?.type === "application/pdf") {
     return <PDFViewer file={localFile} />;
   }
 
