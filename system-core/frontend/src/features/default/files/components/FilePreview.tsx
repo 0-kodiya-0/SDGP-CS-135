@@ -239,30 +239,12 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
   const localFile = file as UploadedFile;
   
   if (localFile?.type?.startsWith("image/")) {
-    return (
-      <div className="w-full h-full flex flex-col">
-        <div className="p-3 bg-white shadow flex items-center justify-between">
-          <span className="ml-4 font-semibold">{localFile.name}</span>
-          {localFile.data && (
-            <a
-              href={localFile.data}
-              download={localFile.name}
-              className="text-blue-500 hover:text-blue-700"
-            >
-              Download
-            </a>
-          )}
-        </div>
-        <div className="flex-grow flex items-center justify-center p-4 bg-gray-100">
-          <img
-            src={localFile.data}
-            alt={localFile.name}
-            className="max-w-full max-h-full object-contain"
-            onError={() => handlePreviewError("Failed to load image preview.")}
-          />
-        </div>
-      </div>
-    );
+    return <ImageViewer 
+      file={localFile} 
+      onImageUpdated={onFileUpdated} 
+      onSelectOtherFile={onSelectFile}
+      accountId={accountId}
+    />;
   }
 
   if (localFile?.type === "application/pdf") {
