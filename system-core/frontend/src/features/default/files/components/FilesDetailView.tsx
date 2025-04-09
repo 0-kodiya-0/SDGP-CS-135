@@ -2,23 +2,29 @@ import { useEffect, useState } from "react";
 import { FilePreview } from "./FilePreview";
 import UploadComponent from "./UploadComponent";
 import { useFileHandling } from "../hooks/useFileHandling";
+import { DriveFile } from "../types/types.google.api";
 
 interface DetailViewProps {
-  selectedFile: string | null;
+  selectedFile: string | DriveFile | null;
   onFileUploaded: () => void;
+  isGoogleDrive?: boolean;
 }
 
-export default function DetailView({ selectedFile, onFileUploaded }: DetailViewProps) {
+export default function DetailView({ selectedFile, onFileUploaded, isGoogleDrive }: DetailViewProps) {
   const { readFile, isLoading } = useFileHandling();
-  const [fileData, setFileData] = useState<Awaited<ReturnType<typeof readFile>>>(null);
+  const [fileData, setFileData] = useState<Awaited<ReturnType<typeof readFile>> | DriveFile | null>(null);
 
   useEffect(() => {
     if (selectedFile) {
-      loadSelectedFile(selectedFile);
+      if (isGoogleDrive && typeof selectedFile !== 'string') {
+        setFileData(selectedFile);
+      } else if (typeof selectedFile === 'string') {
+        loadSelectedFile(selectedFile);
+      }
     } else {
       setFileData(null);
     }
-  }, [selectedFile]);
+  }, [selectedFile, isGoogleDrive]);
 
   const loadSelectedFile = async (fileName: string) => {
     try {
@@ -49,10 +55,14 @@ export default function DetailView({ selectedFile, onFileUploaded }: DetailViewP
           file={fileData}
           onFileUpdated={handleFileUpdated}
           onSelectFile={loadSelectedFile}
+          isGoogleDrive={isGoogleDrive}
         />
       ) : (
         <div className="w-full h-full flex justify-center items-center">
-          <UploadComponent onFileUploaded={onFileUploaded} />
+          <UploadComponent 
+            onFileUploaded={onFileUploaded} 
+            onClose={() => {}} 
+          />
         </div>
       )}
     </div>

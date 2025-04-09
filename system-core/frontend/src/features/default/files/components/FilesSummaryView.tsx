@@ -11,6 +11,7 @@ import {
   FiPlus,
 } from "react-icons/fi";
 import { LucideIcon } from "lucide-react";
+import { SiGoogledrive } from "react-icons/si";
 import SearchBar from "./SearchBar";
 import { useFileHandling, UploadedFile } from "../hooks/useFileHandling";
 import { useTabStore } from "../../../required/tab_view";
@@ -19,6 +20,7 @@ import { Environment } from "../../environment";
 import CreateFile from "./CreateFile";
 import UploadComponent from "./UploadComponent";
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import GoogleDriveView from "./GoogleDriveView";
 
 // Ensuring SummaryView only has allowed parameters
 interface SummaryViewProps {
@@ -30,13 +32,15 @@ interface SummaryViewProps {
 
 export default function SummaryView({
   featureName = "files",
+  accountId
 }: SummaryViewProps) {
   const { files, deleteFile, isLoading, refreshFiles } = useFileHandling();
   const [filteredFiles, setFilteredFiles] = useState<UploadedFile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { addTab, closeTab, activeTabId, setActiveTab } = useTabStore();
+  const { addTab, closeTab, activeTabId, setActiveTab, tabs } = useTabStore();
+  const [showGoogleDrive, setShowGoogleDrive] = useState(false);
 
   // Using a Record<string, string> is more efficient for simple key-value storage than Map
   const [tabIdFileNameAssociations, setTabIdFileNameAssociations] = useState<Record<string, string>>({});
@@ -71,9 +75,8 @@ export default function SummaryView({
 
   const handleDeleteFile = (e: React.MouseEvent, fileName: string) => {
     e.stopPropagation();
-    // Instead of using window.confirm, set the deleteFileName state.
     setDeleteFileName(fileName);
-  };  
+  };
 
   const handleDownload = (e: React.MouseEvent, file: UploadedFile) => {
     e.stopPropagation();
@@ -97,11 +100,8 @@ export default function SummaryView({
 
     // Check for unsaved changes in any current editor
     if (window.handleFileSelectionChange && typeof window.handleFileSelectionChange === "function") {
-      // Instead of passing the onSelectOtherFile callback that affects the current tab,
-      // we'll handle the tab creation directly in SummaryView
       const canProceed = window.handleFileSelectionChange(fileName);
       if (!canProceed) {
-        // Store this function to be called after save/discard is handled
         window.pendingTabCreation = () => {
           createNewFileTab(fileName);
         };
@@ -117,7 +117,7 @@ export default function SummaryView({
     for (const [tabId, fname] of Object.entries(tabIdFileNameAssociations)) {
       if (fname === fileName) {
         // Check if the tab still exists in the current tabs list
-        if (tabs.some(tab => tab.id === tabId)) {
+        if (tabs.some((tab: { id: string }) => tab.id === tabId)) {
           return tabId;
         } else {
           // Remove stale association if the tab is no longer open
@@ -222,6 +222,13 @@ export default function SummaryView({
             >
               <FiPlus size={18} />
             </button>
+            <button
+              onClick={() => setShowGoogleDrive(!showGoogleDrive)}
+              className={`text-gray-600 transition-colors p-1 ${showGoogleDrive ? 'text-blue-600' : 'hover:text-blue-600'}`}
+              title="Google Drive"
+            >
+              <SiGoogledrive size={18} />
+            </button>
           </div>
         </div>
 
@@ -229,54 +236,59 @@ export default function SummaryView({
       </div>
 
       {/* File List */}
-      <div className="flex-grow overflow-y-auto bg-gray-50 p-2">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-20">
-            <div className="animate-pulse flex flex-col items-center">
-              <div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-              <span className="text-sm text-gray-500">Loading files...</span>
-            </div>
-          </div>
-        ) : filteredFiles.length === 0 ? (
-          <div className="text-center p-4 text-gray-500">
-            {files.length === 0
-              ? "No files uploaded yet."
-              : "No files match your search."}
-          </div>
+      <div className="flex-grow overflow-y-auto p-2">
+        {showGoogleDrive ? (
+          <GoogleDriveView accountId={accountId || ''} />
         ) : (
-          <ul className="space-y-2">
-            {filteredFiles.map((file) => (
-              <li
-                key={file.name}
-                onClick={() => handleFileClick(file.name)}
-                className={`flex items-center p-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors ${selectedFileName === file.name
-                  ? "bg-blue-100 border-l-4 border-blue-500"
-                  : "bg-white"
-                  }`}
-              >
-                <div className="flex-shrink-0 mr-2">{getFileIcon(file)}</div>
-                <div className="flex-grow truncate font-medium text-sm text-gray-800">
-                  {file.name}
+          <>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-20">
+                <div className="animate-pulse flex flex-col items-center">
+                  <div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                  <span className="text-sm text-gray-500">Loading files...</span>
                 </div>
-                <div className="flex items-center gap-1 ml-2">
-                  <button
-                    onClick={(e) => handleDownload(e, file)}
-                    className="p-1 text-blue-500 hover:text-blue-700 transition-colors"
-                    title="Download file"
+              </div>
+            ) : filteredFiles.length === 0 ? (
+              <div className="text-center p-4 text-gray-500">
+                {files.length === 0
+                  ? "No files uploaded yet."
+                  : "No files match your search."}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {filteredFiles.map((file) => (
+                  <li
+                    key={file.name}
+                    onClick={() => handleFileClick(file.name)}
+                    className={`flex items-center p-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors ${
+                      selectedFileName === file.name
+                        ? "bg-blue-100 border-l-4 border-blue-500"
+                        : "bg-white"
+                    }`}
                   >
-                    <FiDownload size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => handleDeleteFile(e, file.name)}
-                    className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                    title="Delete file"
-                  >
-                    <FiTrash2 size={16} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <div className="flex-shrink-0 mr-2">{getFileIcon(file)}</div>
+                    <div className="flex-grow truncate font-medium text-sm text-gray-800">
+                      {file.name}
+                    </div>
+                    <button
+                      onClick={(e) => handleDownload(e, file)}
+                      className="text-gray-600 hover:text-blue-600 transition-colors p-1"
+                      title="Download"
+                    >
+                      <FiDownload size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteFile(e, file.name)}
+                      className="text-gray-600 hover:text-red-600 transition-colors p-1"
+                      title="Delete"
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
 

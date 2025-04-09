@@ -5,11 +5,13 @@ import { FiSave, FiCheck } from "react-icons/fi";
 import { UploadedFile, useFileHandling } from "../hooks/useFileHandling";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
+import { DriveFile } from "../types/types.google.api";
+import { useDriveFiles } from "../hooks/useDriveFiles.google";
 
 interface ImageViewerProps {
-  file: UploadedFile;
+  file: UploadedFile | DriveFile;
   onImageUpdated: () => void;
-  onSelectOtherFile?: (fileName: string) => void;
+  onSelectOtherFile: (fileName: string) => void;
 }
 
 export const ImageViewer = ({
@@ -23,6 +25,8 @@ export const ImageViewer = ({
   const [newFileName, setNewFileName] = useState(file.name);
   const [showSuccess, setShowSuccess] = useState(false);
   const [targetFileName, setTargetFileName] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const { getDownloadUrl } = useDriveFiles('');
 
   const {
     hasUnsavedChanges,
@@ -167,6 +171,17 @@ export const ImageViewer = ({
     };
   }, [hasUnsavedChanges, openUnsavedDialog, setPendingOperation, onSelectOtherFile]);
 
+  useEffect(() => {
+    if ('data' in file) {
+      // Local file
+      setImageUrl(file.data);
+    } else {
+      // Google Drive file
+      const downloadUrl = getDownloadUrl(file.id);
+      setImageUrl(downloadUrl);
+    }
+  }, [file, getDownloadUrl]);
+
   const handleSave = async (saveAsNew: boolean) => {
     const instance = instanceRef.current;
     if (!instance) return;
@@ -212,51 +227,29 @@ export const ImageViewer = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-gray-100 p-4">
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-4 bg-white p-3 rounded-lg shadow">
-        <div className="flex items-center">
-          <span className="font-semibold text-lg text-gray-800 truncate max-w-[300px]">
-            {file.name}
-          </span>
-
-          {showSuccess && (
-            <div
-              className="ml-4 px-3 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"
-              style={{ animation: "fadeIn 0.3s ease-in-out forwards" }}
-            >
-              <FiCheck className="text-green-500" />
-              <span>Image saved successfully!</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            className="border px-3 py-2 rounded-lg max-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="New image name..."
-            value={newFileName}
-            onChange={(e) => setNewFileName(e.target.value)}
-          />
-          <button
-            className="px-3 py-2 flex items-center gap-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-            onClick={() => handleSave(false)}
+    <div className="w-full h-full flex flex-col">
+      <div className="p-3 bg-white shadow flex items-center justify-between">
+        <span className="ml-4 font-semibold">{file.name}</span>
+        {'id' in file && (
+          <a
+            href={getDownloadUrl(file.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-700"
           >
-            <FiSave /> Save
-          </button>
-          <button
-            className="px-3 py-2 flex items-center gap-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
-            onClick={() => handleSave(true)}
-          >
-            <FiSave /> Save As
-          </button>
-        </div>
+            Download
+          </a>
+        )}
       </div>
-
-      <div className="flex-grow flex justify-center items-center bg-white rounded-lg shadow p-2 overflow-hidden">
-        <div
-          ref={editorRef}
-          className="w-[90%] h-[80vh] max-w-[1200px] max-h-[800px] flex justify-center items-center overflow-hidden"
+      <div className="flex-grow flex items-center justify-center p-4 bg-gray-100">
+        <img
+          src={imageUrl}
+          alt={file.name}
+          className="max-w-full max-h-full object-contain"
+          onError={(e) => {
+            console.error("Error loading image:", e);
+            // You might want to show an error message here
+          }}
         />
       </div>
 
