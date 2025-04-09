@@ -12,6 +12,7 @@ interface FilePreviewProps {
   onFileUpdated: () => void;
   onSelectFile: (fileName: string) => void;
   isGoogleDrive?: boolean;
+  accountId?: string;
 }
 
 const codeFileExtensions = [
@@ -20,13 +21,15 @@ const codeFileExtensions = [
   "rb", "rs", "swift", "kt", "yaml", "toml", "ini", "dockerfile"
 ];
 
-export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }: FilePreviewProps) => {
+export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, accountId = '' }: FilePreviewProps) => {
   const [lastSelectedFile, setLastSelectedFile] = useState<string | null>(null);
-  const { getDownloadUrl, getExportUrl } = useDriveFiles('');
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const { getDownloadUrl, getExportUrl } = useDriveFiles(accountId);
 
   useEffect(() => {
     if (file) {
       setLastSelectedFile(file.name);
+      setPreviewError(null);
     }
   }, [file]);
 
@@ -43,6 +46,37 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
     lastSelectedFile
   };
 
+  const handlePreviewError = (error: string) => {
+    setPreviewError(error);
+  };
+
+  if (previewError) {
+    return (
+      <div className="w-full h-full flex flex-col">
+        <div className="p-3 bg-white shadow flex items-center justify-between">
+          <span className="ml-4 font-semibold">{file.name}</span>
+          {isGoogleDrive && (
+            <a
+              href={getDownloadUrl((file as DriveFile).id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700"
+            >
+              Download
+            </a>
+          )}
+        </div>
+        <div className="flex-grow flex items-center justify-center p-4">
+          <div className="text-center p-8 bg-gray-50 rounded-lg shadow-inner">
+            <p className="text-red-500 font-semibold mb-2">Error previewing file</p>
+            <p className="text-gray-600">{previewError}</p>
+            <p className="mt-4">Please try downloading the file instead.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isGoogleDrive) {
     const driveFile = file as DriveFile;
     
@@ -51,7 +85,29 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
     }
 
     if (driveFile.mimeType === "application/pdf") {
-      return <PDFViewer file={driveFile} />;
+      return (
+        <div className="w-full h-full flex flex-col">
+          <div className="p-3 bg-white shadow flex items-center justify-between">
+            <span className="ml-4 font-semibold">{driveFile.name}</span>
+            <a
+              href={getDownloadUrl(driveFile.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700"
+            >
+              Download
+            </a>
+          </div>
+          <div className="flex-grow flex items-center justify-center p-4">
+            <iframe
+              src={`https://drive.google.com/file/d/${driveFile.id}/preview`}
+              onError={() => handlePreviewError("Failed to load PDF preview. Authentication may have failed.")}
+              className="w-full h-full"
+              title={driveFile.name}
+            />
+          </div>
+        </div>
+      );
     }
 
     // Handle Google Docs, Sheets, and Slides
@@ -65,7 +121,7 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
             <span className="ml-4 font-semibold">{driveFile.name}</span>
             <div className="flex gap-2">
               <a
-                href={exportUrl}
+                href={`https://drive.google.com/open?id=${driveFile.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-500 hover:text-blue-700"
@@ -84,7 +140,8 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
           </div>
           <div className="flex-grow flex items-center justify-center p-4">
             <iframe
-              src={exportUrl}
+              src={`https://docs.google.com/document/d/${driveFile.id}/preview`}
+              onError={() => handlePreviewError("Failed to load Google document preview. Authentication may have failed.")}
               className="w-full h-full"
               title={driveFile.name}
             />
@@ -111,7 +168,8 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
           </div>
           <div className="flex-grow flex items-center justify-center p-4">
             <iframe
-              src={downloadUrl}
+              src={`https://drive.google.com/file/d/${driveFile.id}/preview`}
+              onError={() => handlePreviewError("Failed to load text file preview. Authentication may have failed.")}
               className="w-full h-full"
               title={driveFile.name}
             />
@@ -166,8 +224,17 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive }
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="p-3 bg-white shadow flex items-center">
+      <div className="p-3 bg-white shadow flex items-center justify-between">
         <span className="ml-4 font-semibold">{localFile.name}</span>
+        {localFile.data && (
+          <a
+            href={localFile.data}
+            download={localFile.name}
+            className="text-blue-500 hover:text-blue-700"
+          >
+            Download
+          </a>
+        )}
       </div>
       <div className="flex-grow flex items-center justify-center p-4">
         <div className="text-center p-8 bg-gray-50 rounded-lg shadow-inner">
