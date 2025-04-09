@@ -3,8 +3,8 @@ import axios from 'axios';
 import { PersonType, CreateContactParams, UpdateContactParams } from '../types/types.data';
 import { UseContactsReturn } from '../types/types.google.api';
 import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
-import { useTokenApi } from '../../user_account';
-import { createPermissionError, requestPermission, handleApiError } from '../../user_account/utils/utils.google';
+import { handleApiError } from '../../user_account/utils/utils.google';
+import { useGooglePermissions } from '../../user_account/hooks/usePermissions.google';
 
 /**
  * Hook for managing Google Contacts
@@ -16,32 +16,8 @@ export const useContacts = (accountId: string): UseContactsReturn => {
     const [nextPageToken, setNextPageToken] = useState<string | undefined>();
     const [syncToken, setSyncToken] = useState<string | undefined>();
     
-    // Use token API to check for scopes
-    const { checkServiceAccess } = useTokenApi();
-
-    /**
-     * Verify the user has appropriate access for operation
-     */
-    const verifyAccess = useCallback(async (
-        scopeLevel: "readonly" | "full" = "readonly"
-    ): Promise<boolean> => {
-        try {
-            const accessCheck = await checkServiceAccess(accountId, "people", scopeLevel);
-            
-            if (!accessCheck || !accessCheck.hasAccess) {
-                // Create and handle permission error
-                const permissionError = createPermissionError("people", scopeLevel, accountId);
-                requestPermission(permissionError);
-                setError(`You need additional permissions to access contacts`);
-                return false;
-            }
-            
-            return true;
-        } catch (err) {
-            console.error("Error checking people access:", err);
-            return false;
-        }
-    }, [accountId, checkServiceAccess]);
+    // Use Google Permissions hook
+    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
 
     // Fetch contacts list
     const fetchContacts = useCallback(async (
@@ -57,9 +33,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to access contacts");
                 setLoading(false);
                 return;
             }
@@ -89,17 +66,18 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 setError(response.data.error?.message || 'Failed to fetch contacts');
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while fetching contacts');
             }
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     // Get a single contact
     const getContact = useCallback(async (
@@ -112,9 +90,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to access contacts");
                 setLoading(false);
                 return null;
             }
@@ -134,10 +113,11 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to access contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting contact');
             }
@@ -145,7 +125,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     // Create a new contact
     const createContact = useCallback(async (
@@ -155,9 +135,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first - creating contacts requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook - creating contacts requires 'full' access
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to create contacts");
                 setLoading(false);
                 return null;
             }
@@ -175,10 +156,11 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to create contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating contact');
             }
@@ -186,7 +168,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     // Update a contact
     const updateContact = useCallback(async (
@@ -197,9 +179,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first - updating contacts requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook - updating contacts requires 'full' access
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to update contacts");
                 setLoading(false);
                 return null;
             }
@@ -217,10 +200,11 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to update contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating contact');
             }
@@ -228,7 +212,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     // Delete a contact
     const deleteContact = useCallback(async (
@@ -238,9 +222,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first - deleting contacts requires 'full' access
-            const hasAccess = await verifyAccess("full");
+            // Verify access using the updated permission hook - deleting contacts requires 'full' access
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "full");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to delete contacts");
                 setLoading(false);
                 return false;
             }
@@ -257,10 +242,11 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 return false;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "full");
+                setError("Permission error: You need additional permissions to delete contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting contact');
             }
@@ -268,7 +254,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     // Search contacts
     const searchContacts = useCallback(async (
@@ -284,9 +270,10 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
+            // Verify access using the updated permission hook
+            const hasAccess = await verifyServiceAccess(accountId, "gmail", "readonly");
             if (!hasAccess) {
+                setError("Permission error: You need additional permissions to search contacts");
                 setLoading(false);
                 return null;
             }
@@ -317,10 +304,11 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 return null;
             }
         } catch (err) {
-            // Handle permission errors
+            // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidatePermission(accountId, "gmail", "readonly");
+                setError("Permission error: You need additional permissions to search contacts");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while searching contacts');
             }
@@ -328,7 +316,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [verifyAccess, accountId]);
+    }, [accountId, verifyServiceAccess, invalidatePermission]);
 
     return {
         contacts,
