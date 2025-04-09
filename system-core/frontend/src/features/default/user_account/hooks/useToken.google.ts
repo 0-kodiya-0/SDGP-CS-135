@@ -54,7 +54,7 @@ export const useTokenApi = (): UseTokenApiReturn => {
     const checkServiceAccess = useCallback(async (
         accountId: string,
         service: string,
-        scopeLevel: string
+        scopeLevel: string | string[]
     ): Promise<ServiceAccessResponse | null> => {
         try {
             setLoading(true);
@@ -63,7 +63,15 @@ export const useTokenApi = (): UseTokenApiReturn => {
             // Build query parameters
             const queryParams = new URLSearchParams();
             queryParams.append('service', service);
-            queryParams.append('scopeLevel', scopeLevel);
+
+            // Handle single or multiple scope levels
+            if (Array.isArray(scopeLevel)) {
+                // For multiple scopes, send as comma-separated list
+                queryParams.append('scopeLevels', JSON.stringify(scopeLevel));
+            } else {
+                // For backwards compatibility
+                queryParams.append('scopeLevel', scopeLevel);
+            }
 
             const response = await axios.get<ApiResponse<ServiceAccessResponse>>(
                 `${API_BASE_URL}/google/${accountId}/token/check?${queryParams.toString()}`,

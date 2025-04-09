@@ -497,8 +497,12 @@ router.get(
 
             const userEmail = account.userDetails.email;
 
-            // Get the scope
-            const scope = getGoogleScope(service as GoogleServiceName, scopeLevel);
+            const scopeLevels = scopeLevel.split(',');
+            
+            // Get the scopes - handle both single and multiple scopes
+            const scopes = scopeLevels.map(level => 
+                getGoogleScope(service as GoogleServiceName, level)
+            );
 
             // Generate state and save permission state
             const state = await generatePermissionState(
@@ -511,7 +515,7 @@ router.get(
 
             // CRITICAL: These options force Google to use the specified account
             const authOptions: AuthenticateOptionsGoogle = {
-                scope: scope,
+                scope: scopes,
                 accessType: 'offline',
                 loginHint: userEmail,     // Pre-select the account
                 state,

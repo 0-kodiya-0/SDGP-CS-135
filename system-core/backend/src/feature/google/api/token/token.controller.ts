@@ -58,11 +58,34 @@ export const getTokenInfo = async (req: GoogleApiRequest, res: Response) => {
  */
 export const checkServiceAccess = async (req: GoogleApiRequest, res: Response) => {
     try {
-        // Get service and scope level from query parameters
-        const { service, scopeLevel } = req.query;
+        // Get service and scope levels from query parameters
+        const { service, scopeLevel, scopeLevels } = req.query;
 
-        if (!service || !scopeLevel) {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Service and scopeLevel parameters are required');
+        if (!service) {
+            return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Service parameter is required');
+        }
+
+        // Determine scope levels to check
+        let scopesToCheck: string[] = [];
+
+        if (scopeLevels) {
+            try {
+                // Parse the JSON array of scope levels
+                scopesToCheck = JSON.parse(scopeLevels.toString());
+                if (!Array.isArray(scopesToCheck)) {
+                    scopesToCheck = [];
+                }
+            } catch {
+                // Try treating it as a comma-separated string if JSON parsing fails
+                scopesToCheck = scopeLevels.toString().split(',');
+            }
+        } else if (scopeLevel) {
+            // Fall back to single scope level
+            scopesToCheck = [scopeLevel.toString()];
+        }
+
+        if (scopesToCheck.length === 0) {
+            return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'At least one scope level is required');
         }
 
         // Ensure we have a Google client attached by the middleware
@@ -86,27 +109,41 @@ export const checkServiceAccess = async (req: GoogleApiRequest, res: Response) =
         // Cast to GoogleServiceName since we've validated it
         const serviceName = service.toString() as GoogleServiceName;
 
-        // Validate the scope level for this service
-        try {
-            const requiredScope = getGoogleScope(serviceName, scopeLevel.toString());
+        // Use GoogleTokenService to get all granted scopes at once
+        const googleTokenService = GoogleTokenService.getInstance();
+        const tokenInfo = await googleTokenService.getTokenInfo(accessToken);
+        const grantedScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
 
-            // Use GoogleTokenService to check if the token has the required scope
-            const googleTokenService = GoogleTokenService.getInstance();
-            const hasAccess = await googleTokenService.hasScope(accessToken, requiredScope);
+        // Process all requested scopes at once
+        const results: Record<string, { hasAccess: boolean, requiredScope: string }> = {};
 
-            return sendSuccess(res, 200, {
-                service: serviceName,
-                scopeLevel: scopeLevel.toString(),
-                hasAccess,
-                requiredScope
-            });
-        } catch (error) {
-            // If getGoogleScope throws an error due to invalid scope level
-            if (error instanceof Error && error.message.includes('Invalid scope level')) {
-                return sendError(res, 400, ApiErrorCode.INVALID_SCOPE, error.message);
+        for (const scope of scopesToCheck) {
+            try {
+                const requiredScope = getGoogleScope(serviceName, scope);
+                // Check if the token has this scope
+                const hasAccess = grantedScopes.includes(requiredScope);
+
+                results[scope] = {
+                    hasAccess,
+                    requiredScope
+                };
+            } catch (error) {
+                // If getGoogleScope throws an error due to invalid scope level
+                if (error instanceof Error && error.message.includes('Invalid scope level')) {
+                    results[scope] = {
+                        hasAccess: false,
+                        requiredScope: error.message
+                    };
+                } else {
+                    throw error; // Re-throw other errors
+                }
             }
-            throw error; // Re-throw other errors to be handled by the outer catch
         }
+
+        return sendSuccess(res, 200, {
+            service: serviceName,
+            scopeResults: results
+        });
     } catch (error) {
         return handleGoogleApiError(req, res, error);
     }
@@ -193,7 +230,7 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
 //             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
 //         }
 
-//         
+//
 //         const session = extractSession(req);
 
 //         if (!session) {
@@ -237,7 +274,7 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
 //             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Account ID is required");
 //         }
 
-//         
+//
 //         const session = extractSession(req);
 
 //         if (!session) {
@@ -275,7 +312,7 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
 //             return sendError(res, 400, ApiErrorCode.MISSING_DATA, "Target account ID is required");
 //         }
 
-//         
+//
 //         const session = extractSession(req);
 
 //         if (!session) {

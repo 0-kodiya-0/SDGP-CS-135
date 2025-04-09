@@ -508,31 +508,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
             )}
 
             {/* Add some styles for no scrollbar */}
-            <style jsx>{`
-                .no-scrollbar {
-                    -ms-overflow-style: none;  /* IE and Edge */
-                    scrollbar-width: none;  /* Firefox */
-                }
-                
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;  /* Chrome, Safari and Opera */
-                }
-                
-                .prose {
-                    max-width: 100%;
-                    color: rgba(55, 65, 81, 1);
-                    line-height: 1.6;
-                }
-                
-                .prose a {
-                    color: #3b82f6;
-                    text-decoration: underline;
-                }
-                
-                .prose p, .prose ul, .prose ol {
-                    margin-bottom: 1rem;
-                }
-            `}</style>
+            
         </div>
     );
 };

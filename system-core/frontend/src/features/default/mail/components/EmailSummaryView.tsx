@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useGmailMessages } from '../hooks/useGmailMessages.google';
 import { useGmailLabels } from '../hooks/useLabels.google';
-import { GmailMessage, GmailLabel, ParsedEmail, GMAIL_SYSTEM_LABELS } from '../types/types.google.api';
-import { parseGmailMessage, formatEmailDate } from '../utils/utils.google.api';
-import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Plus, ChevronDown } from 'lucide-react';
+import { ParsedEmail, GMAIL_SYSTEM_LABELS } from '../types/types.google.api';
+import { parseGmailMessage } from '../utils/utils.google.api';
+import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Shield } from 'lucide-react';
 
 // Components import
 import EmailListItem from './EmailListItem';
-import EmailDetailsView from './EmailDetailsView';
-import LabelManager from './LabelManager';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
+import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
 
 interface GmailSummaryViewProps {
     accountId: string;
@@ -21,11 +20,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
     const [parsedEmails, setParsedEmails] = useState<ParsedEmail[]>([]);
-    const [showLabels, setShowLabels] = useState(false);
-
-    useEffect(() => {
-        console.log(accountId)
-    }, [accountId])
+    // const [showLabels, setShowLabels] = useState(false);
+    // const [permissionRequested, setPermissionRequested] = useState(false);
 
     // Hooks
     const { addTab } = useTabStore();
@@ -38,13 +34,19 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         trashMessage,
         modifyLabels,
         sendMessage,
-        nextPageToken
+        nextPageToken,
     } = useGmailMessages(accountId);
+
+    const {
+        permissions,
+        permissionsLoading,
+        permissionError,
+        checkAllServicePermissions: checkAllGmailPermissions,
+    } = useServicePermissions(accountId, 'gmail');
 
     const {
         labels,
         loading: labelsLoading,
-        error: labelsError,
         listLabels,
         createLabel,
         updateLabel,
@@ -54,8 +56,25 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     // Effects
     useEffect(() => {
         // Load labels when component mounts
-        listLabels();
-    }, [listLabels]);
+        if (permissions?.readonly?.hasAccess) {
+            listLabels();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [permissionsLoading]);
+
+    useEffect(() => {
+        console.log(permissionsLoading, permissions)
+    }, [permissionsLoading, permissions])
+
+    // useEffect(() => {
+    //     console.log("Permission state changed:", JSON.stringify(permissions));
+
+    //     // If we just got readonly access, try loading messages
+    //     if (permissions?.readonly) {
+    //         console.log("Got readonly access, loading messages");
+    //         handleRefresh();
+    //     }
+    // }, [permissions]); // Watch the entire permissions object
 
     useEffect(() => {
         const loadMessages = async () => {
@@ -67,8 +86,13 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
             };
             await listMessages(params);
         };
-        loadMessages();
-    }, [selectedLabel, searchQuery, listMessages]);
+
+        // Only load messages if we have permissions
+        if (permissions?.readonly?.hasAccess) {
+            loadMessages();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedLabel, searchQuery, permissionsLoading]);
 
     useEffect(() => {
         // Parse messages when they change
@@ -76,7 +100,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
             if (messages && messages.length > 0) {
                 // Create an array to hold the parsed emails
                 const parsedArray: ParsedEmail[] = [];
-                
+
                 // Process each message
                 for (const message of messages) {
                     // Check if this message lacks payload (needs full details)
@@ -100,17 +124,17 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                         parsedArray.push(parseGmailMessage(message));
                     }
                 }
-                
+
                 setParsedEmails(parsedArray);
             } else {
                 setParsedEmails([]);
             }
         };
-    
-        processMessages();
-    }, [messages, getMessage]);
 
-    // Handlers
+        processMessages();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [messages]);
+
     const handleLabelClick = (labelId: string) => {
         setSelectedLabel(labelId);
         setSelectedEmailId(null);
@@ -139,6 +163,9 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleRefresh = () => {
+        if (!permissions?.readonly) {
+            return;
+        }
         listMessages({
             labelIds: selectedLabel ? [selectedLabel] : undefined,
             q: searchQuery || undefined,
@@ -147,6 +174,9 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleTrashEmail = async (emailId: string) => {
+        if (!permissions?.full?.hasAccess) {
+            return;
+        }
         const success = await trashMessage(emailId);
         if (success) {
             // If we were viewing this email, clear selection
@@ -157,6 +187,10 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleStarred = async (emailId: string, isStarred: boolean) => {
+        if (!permissions?.full?.hasAccess) {
+            return;
+        }
+
         if (isStarred) {
             // Remove STARRED label
             await modifyLabels(emailId, [], [GMAIL_SYSTEM_LABELS.STARRED]);
@@ -169,6 +203,10 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleImportant = async (emailId: string, isImportant: boolean) => {
+        if (!permissions?.full?.hasAccess) {
+            return;
+        }
+
         if (isImportant) {
             // Remove IMPORTANT label
             await modifyLabels(emailId, [], [GMAIL_SYSTEM_LABELS.IMPORTANT]);
@@ -181,6 +219,10 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openComposeInTab = () => {
+        if (!permissions?.send?.hasAccess) {
+            return;
+        }
+
         addTab(
             "Compose Email",
             null,
@@ -196,6 +238,10 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openEmailInTab = async (emailId: string) => {
+        if (!permissions?.readonly) {
+            return;
+        }
+
         const fullMessage = await getMessage(emailId, 'full');
         if (fullMessage) {
             const parsedEmail = parseGmailMessage(fullMessage);
@@ -221,9 +267,12 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
             );
         }
     };
-    
 
     const openLabelManagerInTab = () => {
+        if (!permissions?.full?.hasAccess) {
+            return;
+        }
+
         addTab(
             "Manage Labels",
             null,
@@ -239,76 +288,112 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     // Render system labels at the top
-    const renderSystemLabels = () => {
-        const systemLabelsConfig = [
-            { id: GMAIL_SYSTEM_LABELS.INBOX, icon: <Inbox className="w-4 h-4" />, label: 'Inbox' },
-            { id: GMAIL_SYSTEM_LABELS.SENT, icon: <Send className="w-4 h-4" />, label: 'Sent' },
-            { id: GMAIL_SYSTEM_LABELS.STARRED, icon: <Star className="w-4 h-4" />, label: 'Starred' },
-            { id: GMAIL_SYSTEM_LABELS.IMPORTANT, icon: <AlertCircle className="w-4 h-4" />, label: 'Important' },
-            { id: GMAIL_SYSTEM_LABELS.TRASH, icon: <Trash className="w-4 h-4" />, label: 'Trash' }
-        ];
+    // const renderSystemLabels = () => {
+    //     const systemLabelsConfig = [
+    //         { id: GMAIL_SYSTEM_LABELS.INBOX, icon: <Inbox className="w-4 h-4" />, label: 'Inbox' },
+    //         { id: GMAIL_SYSTEM_LABELS.SENT, icon: <Send className="w-4 h-4" />, label: 'Sent' },
+    //         { id: GMAIL_SYSTEM_LABELS.STARRED, icon: <Star className="w-4 h-4" />, label: 'Starred' },
+    //         { id: GMAIL_SYSTEM_LABELS.IMPORTANT, icon: <AlertCircle className="w-4 h-4" />, label: 'Important' },
+    //         { id: GMAIL_SYSTEM_LABELS.TRASH, icon: <Trash className="w-4 h-4" />, label: 'Trash' }
+    //     ];
 
-        return (
-            <div className="space-y-1 mb-4">
-                {systemLabelsConfig.map(item => (
-                    <div
-                        key={item.id}
-                        className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer hover:bg-gray-100 
-              ${selectedLabel === item.id ? 'bg-gray-100 font-medium' : ''}`}
-                        onClick={() => handleLabelClick(item.id)}
-                    >
-                        {item.icon}
-                        <span>{item.label}</span>
-                    </div>
-                ))}
-            </div>
-        );
-    };
+    //     return (
+    //         <div className="space-y-1 mb-4">
+    //             {systemLabelsConfig.map(item => (
+    //                 <div
+    //                     key={item.id}
+    //                     className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer hover:bg-gray-100 
+    //           ${selectedLabel === item.id ? 'bg-gray-100 font-medium' : ''}`}
+    //                     onClick={() => handleLabelClick(item.id)}
+    //                 >
+    //                     {item.icon}
+    //                     <span>{item.label}</span>
+    //                 </div>
+    //             ))}
+    //         </div>
+    //     );
+    // };
 
     // Render user custom labels
-    const renderCustomLabels = () => {
-        const customLabels = labels.filter(label => !label.id.toUpperCase().startsWith('CATEGORY_') && !Object.values(GMAIL_SYSTEM_LABELS).includes(label.id));
+    // const renderCustomLabels = () => {
+    //     const customLabels = labels.filter(label => !label.id.toUpperCase().startsWith('CATEGORY_') && !Object.values(GMAIL_SYSTEM_LABELS).includes(label.id));
 
-        if (customLabels.length === 0) {
-            return null;
-        }
+    //     if (customLabels.length === 0) {
+    //         return null;
+    //     }
 
+    //     return (
+    //         <div className="mt-4">
+    //             <div
+    //                 className="flex items-center justify-between px-3 py-2 cursor-pointer"
+    //                 onClick={() => setShowLabels(!showLabels)}
+    //             >
+    //                 <span className="text-sm font-medium text-gray-600">Labels</span>
+    //                 <ChevronDown className={`w-4 h-4 transform transition-transform ${showLabels ? 'rotate-180' : ''}`} />
+    //             </div>
+
+    //             {showLabels && (
+    //                 <div className="space-y-1 mt-1">
+    //                     {customLabels.map(label => (
+    //                         <div
+    //                             key={label.id}
+    //                             className={`flex items-center px-3 py-2 rounded cursor-pointer hover:bg-gray-100
+    //               ${selectedLabel === label.id ? 'bg-gray-100 font-medium' : ''}`}
+    //                             onClick={() => handleLabelClick(label.id)}
+    //                         >
+    //                             <Tag className="w-4 h-4 mr-2" />
+    //                             <span className="truncate">{label.name}</span>
+    //                         </div>
+    //                     ))}
+    //                 </div>
+    //             )}
+
+    //             <div
+    //                 className="flex items-center gap-2 px-3 py-2 mt-2 cursor-pointer hover:bg-gray-100 text-blue-600"
+    //                 onClick={openLabelManagerInTab}
+    //             >
+    //                 <Plus className="w-4 h-4" />
+    //                 <span>Manage labels</span>
+    //             </div>
+    //         </div>
+    //     );
+    // };
+
+    const renderPermissionRequest = () => {
         return (
-            <div className="mt-4">
-                <div
-                    className="flex items-center justify-between px-3 py-2 cursor-pointer"
-                    onClick={() => setShowLabels(!showLabels)}
+            <div className="flex flex-col items-center justify-center h-full p-8">
+                <Shield className="w-16 h-16 text-blue-500 mb-4" />
+                <h2 className="text-xl font-semibold mb-2">Gmail Access Required</h2>
+                <p className="text-gray-600 text-center mb-6">
+                    To use Gmail features, we need your permission to access your emails, labels, and send messages on your behalf.
+                </p>
+                <button
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    onClick={() => checkAllGmailPermissions(true)}
+                    disabled={permissionsLoading}
                 >
-                    <span className="text-sm font-medium text-gray-600">Labels</span>
-                    <ChevronDown className={`w-4 h-4 transform transition-transform ${showLabels ? 'rotate-180' : ''}`} />
-                </div>
+                    {permissionsLoading ? 'Requesting Access...' : 'Grant Gmail Access'}
+                </button>
 
-                {showLabels && (
-                    <div className="space-y-1 mt-1">
-                        {customLabels.map(label => (
-                            <div
-                                key={label.id}
-                                className={`flex items-center px-3 py-2 rounded cursor-pointer hover:bg-gray-100
-                  ${selectedLabel === label.id ? 'bg-gray-100 font-medium' : ''}`}
-                                onClick={() => handleLabelClick(label.id)}
-                            >
-                                <Tag className="w-4 h-4 mr-2" />
-                                <span className="truncate">{label.name}</span>
-                            </div>
-                        ))}
-                    </div>
+                {permissionError && (
+                    <p className="text-red-500 mt-4 text-sm">
+                        Error: {permissionError}
+                    </p>
                 )}
 
-                <div
-                    className="flex items-center gap-2 px-3 py-2 mt-2 cursor-pointer hover:bg-gray-100 text-blue-600"
-                    onClick={openLabelManagerInTab}
-                >
-                    <Plus className="w-4 h-4" />
-                    <span>Manage labels</span>
-                </div>
+                {!permissions?.readonly && (
+                    <p className="text-amber-600 mt-4 text-sm">
+                        Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
+                    </p>
+                )}
             </div>
         );
     };
+
+    // Check if we need to show the permission request screen
+    if (!permissions?.readonly?.hasAccess) {
+        return renderPermissionRequest();
+    }
 
     return (
         <div className="flex flex-col h-full">
@@ -471,21 +556,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
             </div>
 
             {/* Add this CSS to your global styles file */}
-            <style jsx>{`
-                .no-scrollbar {
-                    -ms-overflow-style: none;  /* IE and Edge */
-                    scrollbar-width: none;  /* Firefox */
-                }
-                
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;  /* Chrome, Safari and Opera */
-                }
-                
-                .email-list {
-                    /* Add a slight fade effect at the bottom to indicate more content */
-                    mask-image: linear-gradient(to bottom, black 95%, transparent 100%);
-                }
-            `}</style>
+
         </div>
     );
 };

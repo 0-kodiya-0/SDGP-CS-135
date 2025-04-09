@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Search, Plus, Users, X, Phone, MessageCircle } from 'lucide-react';
+import { User, Search, Plus, Users, X, Phone, MessageCircle, Shield } from 'lucide-react';
 import CreateContactForm from './CreateContactForms';
 import GroupView from './GroupView';
-import ExpandView from './ContactExpandView';
-import GroupDetailView from './GroupDetailView';
 import CreateGroupForm from './CreateGroupForms';
 import { useContacts } from '../hooks/useContacts.google';
 import { PersonType, ContactGroupType } from '../types/types.data';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
+import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
 
 interface SummaryViewProps {
   accountId: string;
@@ -22,6 +21,13 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     nextPageToken,
     fetchContacts,
   } = useContacts(accountId);
+
+  const {
+    permissions,
+    permissionsLoading,
+    permissionError,
+    checkAllServicePermissions: checkAllPeoplePermissions,
+  } = useServicePermissions(accountId, 'people');
 
   // Use the tabs hook
   const { addTab, updateTab, closeTab, setActiveTab: setActiveTabInContext, tabs } = useTabStore();
@@ -40,8 +46,10 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
   const [currentTabContent, setCurrentTabContent] = useState<'contact' | 'group' | null>(null);
 
   useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
+    if (permissions?.readonly?.hasAccess) {
+      fetchContacts();
+    }
+  }, [permissions]);
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {
@@ -245,6 +253,43 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
     </svg>
   );
+
+  // Permission request screen renderer
+  const renderPermissionRequest = () => {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <Shield className="w-16 h-16 text-blue-500 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Contacts Access Required</h2>
+        <p className="text-gray-600 text-center mb-6">
+          To use Contacts features, we need your permission to access your contact information.
+        </p>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          onClick={() => checkAllPeoplePermissions(true)}
+          disabled={permissionsLoading}
+        >
+          {permissionsLoading ? 'Requesting Access...' : 'Grant Contacts Access'}
+        </button>
+
+        {permissionError && (
+          <p className="text-red-500 mt-4 text-sm">
+            Error: {permissionError}
+          </p>
+        )}
+
+        {!permissions?.readonly?.hasAccess && (
+          <p className="text-amber-600 mt-4 text-sm">
+            Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  // Check if we need to show the permission request screen
+  if (!permissions?.readonly?.hasAccess) {
+    return renderPermissionRequest();
+  }
 
   // Determine which contacts to display based on search status
   const displayedContacts = isSearching ? filteredContacts : contacts;

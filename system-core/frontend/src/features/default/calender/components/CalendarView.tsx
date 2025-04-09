@@ -36,7 +36,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
         if (accountId) {
             listCalendars();
         }
-    }, [accountId, listCalendars]);
+    }, [accountId]);
 
     // Set initial selected calendars once they're loaded
     useEffect(() => {

@@ -25,9 +25,7 @@ export interface TokenInfoResponse {
 
 export interface ServiceAccessResponse {
     service: string;
-    scopeLevel: string;
-    hasAccess: boolean;
-    requiredScope: string;
+    scopeResults : Record<string, { hasAccess: boolean, requiredScope: string }>;
 }
 
 export interface SessionInfo {
@@ -59,18 +57,18 @@ export interface UseTokenApiReturn {
     serviceAccess: ServiceAccessResponse | null;
     loading: boolean;
     error: string | null;
-    
+
     // Token info and permissions
     getTokenInfo: (accountId: string) => Promise<TokenInfoResponse | null>;
     checkServiceAccess: (
         accountId: string,
         service: string,
-        scopeLevel: string
+        scopeLevel: ScopeLevel[]
     ) => Promise<ServiceAccessResponse | null>;
-    
+
     // New token management functions
     refreshToken: (accountId: string) => Promise<boolean>;
-    
+
     // // Session management
     // getSessions: (accountId: string) => Promise<SessionInfo[] | null>;
     // terminateOtherSessions: (accountId: string) => Promise<boolean>;
@@ -92,4 +90,77 @@ export interface RequiredPermission {
 export interface PermissionError {
     code: string;
     message: string | { requiredPermission?: RequiredPermission; permissionInfo?: PermissionInfo; };
+}
+
+// Enhanced permission scope types with service-specific scope levels
+export type ServiceType = "gmail" | "calendar" | "drive" | "sheets" | "docs" | "meet" | "people";
+
+// Base scope levels that apply across services
+export type BaseScope = "readonly" | "full";
+
+// Gmail-specific scope levels
+export type GmailScope = BaseScope | "send" | "compose";
+
+// Calendar-specific scope levels
+export type CalendarScope = BaseScope | "event";
+
+// Drive-specific scope levels
+export type DriveScope = BaseScope | "file" ;
+
+// Sheets & Docs specific scope levels
+export type DocsScope = BaseScope | "create" | "edit";
+
+// People-specific scope levels
+export type PeopleScope = BaseScope | "contacts" ;
+
+// Meet-specific scope levels
+export type MeetScope = BaseScope;
+
+// Union type of all possible scopes
+export type ScopeLevel = GmailScope | CalendarScope | DriveScope | DocsScope | PeopleScope | MeetScope;
+
+// Generic interface for service permissions that handles any scope type
+// Generic interface for service permissions that handles any scope type
+export type ServicePermissions = {
+    [scope in ScopeLevel]?: { hasAccess: boolean; };
+};
+
+/**
+ * Interface for service access verification results
+ */
+export  interface VerificationResult {
+  grantedPermissions: Record<ScopeLevel, boolean>;
+  missingPermissions: ScopeLevel[];
+}
+
+export interface PermissionCacheEntry {
+    hasAccess: boolean;
+    lastChecked: number;
+}
+
+export interface ServiceCache {
+    [scope: string]: PermissionCacheEntry;
+}
+
+export interface AccountCache {
+    [service: string]: ServiceCache;
+}
+
+export interface PermissionCache {
+    [accountId: string]: AccountCache;
+}
+
+export interface UseServicePermissionsReturn {
+    // Permission states
+    permissions?: ServicePermissions;
+    permissionsLoading: boolean;
+    permissionError: string | null;
+
+    // Functions
+    checkAllServicePermissions: (rMissingPermissions: boolean) => Promise<void>;
+    hasRequiredPermission: (requiredScope: ScopeLevel) => boolean;
+    invalidateServicePermission: (scope: ScopeLevel) => void;
+
+    // Service information
+    availableScopes: ScopeLevel[];
 }

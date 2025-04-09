@@ -31,7 +31,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
             };
             fetchEvent();
         }
-    }, [accountId, eventId, calendarId, getEvent]);
+    }, [accountId, eventId, calendarId]);
 
     // Handle edit event
     const handleEditEvent = () => {

@@ -40,7 +40,7 @@ const CreateGroupForm: FC<CreateGroupFormProps> = ({
     if (isOpen) {
       fetchContacts();
     }
-  }, [isOpen, fetchContacts]);
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
