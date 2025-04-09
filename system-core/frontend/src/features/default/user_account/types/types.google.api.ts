@@ -25,9 +25,7 @@ export interface TokenInfoResponse {
 
 export interface ServiceAccessResponse {
     service: string;
-    scopeLevel: string;
-    hasAccess: boolean;
-    requiredScope: string;
+    scopeResults : Record<string, { hasAccess: boolean, requiredScope: string }>;
 }
 
 export interface SessionInfo {
@@ -65,7 +63,7 @@ export interface UseTokenApiReturn {
     checkServiceAccess: (
         accountId: string,
         service: string,
-        scopeLevel: string
+        scopeLevel: ScopeLevel[]
     ) => Promise<ServiceAccessResponse | null>;
 
     // New token management functions

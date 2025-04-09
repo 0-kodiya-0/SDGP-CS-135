@@ -1,5 +1,6 @@
 // googlePermissionUtils.ts
 import { API_BASE_URL } from "../../../../conf/axios";
+import { ScopeLevel } from "../types/types.google.api";
 
 // Types for permission handling
 export interface PermissionInfo {
@@ -63,9 +64,43 @@ export function handleApiError(error: any): PermissionError | null {
     };
 }
 
-/**
- * Redirect to Google permission page to request access
- */
+export function createPermissionError(
+    service: string, 
+    scopeLevel: ScopeLevel | ScopeLevel[], 
+    accountId: string
+): PermissionError {
+    // Get base URL for permission requests
+    const baseUrl =  `${API_BASE_URL}/oauth/permission`;
+    
+    // Create permission info object
+    const permissionInfo: PermissionInfo = {
+        permissionUrl: baseUrl,
+        redirectUrl: window.location.href,
+        accountId
+    };
+    
+    // Create required permission object
+    let requiredPermission: RequiredPermission;
+    
+    if (Array.isArray(scopeLevel)) {
+        // For multiple scopes, join them with commas
+        requiredPermission = {
+            service,
+            scopeLevel: scopeLevel.join(','),
+            permissionInfo
+        };
+    } else {
+        requiredPermission = {
+            service,
+            scopeLevel,
+            permissionInfo
+        };
+    }
+    
+    // Return error with required permission info
+    return new Error(JSON.stringify({ requiredPermission })) as unknown as PermissionError;
+}
+
 export function requestPermission(permissionError: PermissionError): void {
     // Extract permission info from the error
     let permission: RequiredPermission | null = null;
@@ -79,6 +114,13 @@ export function requestPermission(permissionError: PermissionError): void {
                 scopeLevel: 'unknown',
                 permissionInfo: permissionError.message.permissionInfo
             };
+        }
+    } else if (permissionError && typeof permissionError.message === 'string') {
+        try {
+            const errorData = JSON.parse(permissionError.message);
+            permission = errorData.requiredPermission;
+        } catch (e) {
+            console.error('Error parsing permission error message:', e);
         }
     }
 
@@ -102,6 +144,7 @@ export function requestPermission(permissionError: PermissionError): void {
 
     // If we have service and scopeLevel information, include it in the URL
     if (service !== 'unknown' && scopeLevel !== 'unknown') {
+        // Support comma-separated scope levels for multiple scopes
         requestUrl = `${permissionUrl}/${service}/${scopeLevel}`;
     }
 
@@ -110,28 +153,4 @@ export function requestPermission(permissionError: PermissionError): void {
 
     // Redirect to the permission request page
     window.location.href = requestUrl;
-}
-
-/**
- * Create a permission error object for insufficient permissions
- */
-export function createPermissionError(
-    service: string,
-    scopeLevel: string,
-    accountId: string
-): PermissionError {
-    return {
-        code: "INSUFFICIENT_SCOPE",
-        message: {
-            requiredPermission: {
-                service,
-                scopeLevel,
-                permissionInfo: {
-                    permissionUrl: `${API_BASE_URL}/oauth/permission`,
-                    redirectUrl: window.location.pathname,
-                    accountId
-                }
-            }
-        }
-    };
 }

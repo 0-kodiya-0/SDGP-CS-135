@@ -55,90 +55,117 @@ export const getValidScopesForService = (service: ServiceType): ScopeLevel[] => 
  * to avoid redundant permission requests across hooks and sessions
  */
 export const useGooglePermissions = () => {
-    const { checkServiceAccess } = useTokenApi();
-   
-    // Use Zustand store for persistent permissions cache
-    const {
-      isCacheValid,
-      getPermission,
-      updateCache,
-      invalidatePermission,
-      clearAccountPermissions,
-      clearAllPermissions
-    } = useGooglePermissionsStore();
+  const { checkServiceAccess } = useTokenApi();
 
-    /**
-     * Check and request permission for a specific Google service and one or more scope levels
-     * Uses cached results when available to avoid repeated permission requests
-     * Validates that requested scopes are valid for the service
-     */
-    const verifyServiceAccess = useCallback(async (
-        accountId: string,
-        service: ServiceType,
-        scopeLevels: ScopeLevel | ScopeLevel[] = "readonly"
-    ): Promise<Record<ScopeLevel, boolean>> => {
-        // Convert single scope to array for consistent handling
-        const requestedScopes = Array.isArray(scopeLevels) ? scopeLevels : [scopeLevels];
-        const results: Record<ScopeLevel, boolean> = {} as Record<ScopeLevel, boolean>;
-       
-        // Get valid scopes for this service
-        const validScopes = getValidScopesForService(service);
-       
-        // Filter out invalid scopes
-        const scopes = requestedScopes.filter(scope => validScopes.includes(scope));
-       
-        // Warn if any invalid scopes were requested
-        if (scopes.length !== requestedScopes.length) {
-            console.warn(`Some requested scopes are not valid for ${service} service. Valid scopes are: ${validScopes.join(', ')}`);
+  // Use Zustand store for persistent permissions cache
+  const {
+    isCacheValid,
+    getPermission,
+    updateCache,
+    invalidatePermission,
+    clearAccountPermissions,
+    clearAllPermissions
+  } = useGooglePermissionsStore();
+
+  /**
+   * Check and request permission for a specific Google service and one or more scope levels
+   * Uses cached results when available to avoid repeated permission requests
+   * Validates that requested scopes are valid for the service
+   */
+  const verifyServiceAccess = useCallback(async (
+    accountId: string,
+    service: ServiceType,
+    scopeLevels: ScopeLevel | ScopeLevel[] = "readonly"
+  ): Promise<Record<ScopeLevel, boolean>> => {
+    // Convert single scope to array for consistent handling
+    const requestedScopes = Array.isArray(scopeLevels) ? scopeLevels : [scopeLevels];
+    const results: Record<ScopeLevel, boolean> = {} as Record<ScopeLevel, boolean>;
+
+    // Get valid scopes for this service
+    const validScopes = getValidScopesForService(service);
+
+    // Filter out invalid scopes
+    const scopes = requestedScopes.filter(scope => validScopes.includes(scope));
+
+    // Warn if any invalid scopes were requested
+    if (scopes.length !== requestedScopes.length) {
+      console.warn(`Some requested scopes are not valid for ${service} service. Valid scopes are: ${validScopes.join(', ')}`);
+    }
+
+    // Check if we have all permissions cached
+    let allCached = true;
+    const missingScopes: ScopeLevel[] = [];
+
+    for (const scope of scopes) {
+      const cachedPermission = getPermission(accountId, service, scope);
+      if (isCacheValid(cachedPermission)) {
+        results[scope] = true;
+      } else {
+        allCached = false;
+        missingScopes.push(scope);
+      }
+    }
+
+    // If all scopes are cached with valid permissions, return early
+    if (allCached) {
+      return results;
+    }
+
+    try {
+      // Make a single API call to check all missing scopes at once
+      const accessCheck = await checkServiceAccess(accountId, service, missingScopes);
+
+      if (accessCheck?.scopeResults) {
+        // Process the results for each scope
+        const missingPermissionScopes: ScopeLevel[] = [];
+
+        for (const scope of missingScopes) {
+          const scopeResult = accessCheck.scopeResults[scope];
+          const hasAccess = scopeResult?.hasAccess || false;
+
+          // Update cache and results
+          updateCache(accountId, service, scope, hasAccess);
+          results[scope] = hasAccess;
+
+          // Keep track of missing permission scopes
+          if (!hasAccess) {
+            missingPermissionScopes.push(scope);
+          }
         }
 
-        try {
-            // Check each requested scope
-            for (const scope of scopes) {
-                // Check if we have this specific permission cached
-                const cachedPermission = getPermission(accountId, service, scope);
-               
-                if (isCacheValid(cachedPermission)) {
-                    // Use cached result when valid
-                    results[scope] = true;
-                    continue;
-                }
-
-                // If no valid cache or cache shows no access, check with the server
-                const accessCheck = await checkServiceAccess(accountId, service, scope);
-                const hasAccess = accessCheck?.hasAccess || false;
-
-                // Update cache with the result
-                updateCache(accountId, service, scope, hasAccess);
-                results[scope] = hasAccess;
-
-                // If access check failed, request permission
-                if (!hasAccess) {
-                    const permissionError = createPermissionError(service, scope, accountId);
-                    requestPermission(permissionError);
-                }
-            }
-
-            return results;
-        } catch (err) {
-            console.error(`Error checking ${service} access:`, err);
-           
-            // On error, invalidate all relevant cache entries
-            // This is the core of our error-based cache invalidation approach
-            scopes.forEach(scope => {
-                results[scope] = false;
-                invalidatePermission(accountId, service, scope);
-            });
-           
-            return results;
+        // If we have missing permissions, request them all at once
+        if (missingPermissionScopes.length > 0) {
+          // Create a combined permission error for all missing scopes
+          const permissionError = createPermissionError(service, missingPermissionScopes, accountId);
+          requestPermission(permissionError);
         }
-    }, [checkServiceAccess, getPermission, invalidatePermission, isCacheValid, updateCache]);
+      } else {
+        // If the API call failed, mark all scopes as not having access
+        for (const scope of missingScopes) {
+          results[scope] = false;
+          invalidatePermission(accountId, service, scope);
+        }
+      }
 
-    return {
-        verifyServiceAccess,
-        invalidatePermission,
-        clearAccountPermissions,
-        clearAllPermissions,
-        getValidScopesForService
-    };
+      return results;
+    } catch (err) {
+      console.error(`Error checking ${service} access:`, err);
+
+      // On error, invalidate all relevant cache entries
+      missingScopes.forEach(scope => {
+        results[scope] = false;
+        invalidatePermission(accountId, service, scope);
+      });
+
+      return results;
+    }
+  }, [checkServiceAccess, getPermission, invalidatePermission, isCacheValid, updateCache]);
+
+  return {
+    verifyServiceAccess,
+    invalidatePermission,
+    clearAccountPermissions,
+    clearAllPermissions,
+    getValidScopesForService
+  };
 };

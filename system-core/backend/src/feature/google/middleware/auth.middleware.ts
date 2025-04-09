@@ -6,6 +6,7 @@ import { createOAuth2Client, GoogleServiceName, getGoogleScope } from "../config
 import { GoogleTokenService } from "../services/token";
 import { GoogleApiRequest } from "../types";
 import { getValidAccessToken } from "../../../services/session";
+import { SessionPayload } from "../../../types/session.types";
 
 /**
  * Core middleware for Google API authentication
@@ -21,15 +22,7 @@ export const authenticateGoogleApi = async (
     next: NextFunction
 ) => {
     const accountId = req.params.accountId;
-    const session = req.session;
-
-    if (!accountId) {
-        return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Account ID is required');
-    }
-    
-    if (!session) {
-        return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
-    }
+    const session = req.session as SessionPayload;
 
     try {
 
