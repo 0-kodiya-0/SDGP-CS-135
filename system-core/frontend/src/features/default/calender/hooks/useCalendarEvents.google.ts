@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseCalendarEventsReturn, CalendarEvent, CreateEventParams, UpdateEventParams } from "../types/types.google.api";
 import { handleApiError } from "../../user_account/utils/utils.google";
-import { useGooglePermissions } from "../../user_account/hooks/usePermissions.google";
+import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
 
 /**
  * Hook for managing Google Calendar Events
@@ -16,7 +16,10 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
     const [nextPageToken, setNextPageToken] = useState<string | undefined>();
 
     // Use Google Permissions hook
-    const { verifyServiceAccess, invalidatePermission } = useGooglePermissions();
+    const {
+        hasRequiredPermission,
+        invalidateServicePermission,
+    } = useServicePermissions(accountId, 'calendar');
 
     /**
      * List events from a calendar
@@ -35,16 +38,15 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
     ): Promise<CalendarEvent[]> => {
         setLoading(true);
         setError(null);
-    
+
         try {
             // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "calendar", "readonly");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("readonly")) {
                 setError("Permission error: You need additional permissions to access calendar events");
                 setLoading(false);
                 return [];
             }
-    
+
             // Build query parameters
             const queryParams = new URLSearchParams();
             if (params?.calendarId) queryParams.append('calendarId', params.calendarId);
@@ -55,7 +57,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             if (params?.singleEvents) queryParams.append('singleEvents', params.singleEvents.toString());
             if (params?.orderBy) queryParams.append('orderBy', params.orderBy);
             if (params?.q) queryParams.append('q', params.q);
-    
+
             const response = await axios.get<ApiResponse<{
                 events: CalendarEvent[];
                 nextPageToken?: string;
@@ -63,7 +65,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 `${API_BASE_URL}/google/${accountId}/calendar/events?${queryParams.toString()}`,
                 { withCredentials: true }
             );
-    
+
             if (response.data.success && response.data.data) {
                 const fetchedEvents = response.data.data.events;
                 if (params?.pageToken) {
@@ -83,7 +85,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "calendar", "readonly");
+                invalidateServicePermission("readonly");
                 setError("Permission error: You need additional permissions to access calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing events');
@@ -92,7 +94,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
 
     /**
      * Get a specific event by ID
@@ -106,8 +108,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
 
         try {
             // Verify access using the updated permission hook
-            const hasAccess = await verifyServiceAccess(accountId, "calendar", "readonly");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("readonly")) {
                 setError("Permission error: You need additional permissions to access calendar events");
                 setLoading(false);
                 return null;
@@ -133,7 +134,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "calendar", "readonly");
+                invalidateServicePermission("readonly");
                 setError("Permission error: You need additional permissions to access calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the event');
@@ -142,7 +143,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
 
     /**
      * Create a new event
@@ -155,8 +156,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
 
         try {
             // Verify access using the updated permission hook - creating events requires write access
-            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("full")) {
                 setError("Permission error: You need additional permissions to create calendar events");
                 setLoading(false);
                 return null;
@@ -180,7 +180,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "calendar", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to create calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the event');
@@ -189,7 +189,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
 
     /**
      * Update an existing event
@@ -203,8 +203,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
 
         try {
             // Verify access using the updated permission hook - updating events requires write access
-            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("full")) {
                 setError("Permission error: You need additional permissions to update calendar events");
                 setLoading(false);
                 return null;
@@ -230,7 +229,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "calendar", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to update calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the event');
@@ -239,7 +238,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyServiceAccess, invalidatePermission]);
+    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
 
     /**
      * Delete an event
@@ -256,8 +255,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
 
         try {
             // Verify access using the updated permission hook - deleting events requires write access
-            const hasAccess = await verifyServiceAccess(accountId, "calendar", "full");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("full")) {
                 setError("Permission error: You need additional permissions to delete calendar events");
                 setLoading(false);
                 return false;
@@ -287,7 +285,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidatePermission(accountId, "calendar", "full");
+                invalidateServicePermission("full");
                 setError("Permission error: You need additional permissions to delete calendar events");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the event');
@@ -296,7 +294,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
         } finally {
             setLoading(false);
         }
-    }, [accountId, event?.id, verifyServiceAccess, invalidatePermission]);
+    }, [hasRequiredPermission, accountId, event?.id, invalidateServicePermission]);
 
     return {
         events,

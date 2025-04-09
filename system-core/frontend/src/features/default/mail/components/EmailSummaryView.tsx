@@ -8,6 +8,7 @@ import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Sh
 // Components import
 import EmailListItem from './EmailListItem';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
+import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
 
 interface GmailSummaryViewProps {
     accountId: string;
@@ -34,12 +35,14 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         modifyLabels,
         sendMessage,
         nextPageToken,
+    } = useGmailMessages(accountId);
 
+    const {
+        permissions,
         permissionsLoading,
         permissionError,
-        permissions,
-        checkAllGmailPermissions
-    } = useGmailMessages(accountId);
+        checkAllServicePermissions: checkAllGmailPermissions,
+    } = useServicePermissions(accountId, 'gmail');
 
     const {
         labels,
@@ -56,16 +59,16 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         if (permissions?.readonly?.hasAccess) {
             listLabels();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [permissionsLoading]);
 
     useEffect(() => {
         console.log(permissionsLoading, permissions)
-    } , [permissionsLoading, permissions])
+    }, [permissionsLoading, permissions])
 
     // useEffect(() => {
     //     console.log("Permission state changed:", JSON.stringify(permissions));
-        
+
     //     // If we just got readonly access, try loading messages
     //     if (permissions?.readonly) {
     //         console.log("Got readonly access, loading messages");
@@ -88,7 +91,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         if (permissions?.readonly?.hasAccess) {
             loadMessages();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedLabel, searchQuery, permissionsLoading]);
 
     useEffect(() => {
@@ -129,7 +132,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         };
 
         processMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages]);
 
     const handleLabelClick = (labelId: string) => {

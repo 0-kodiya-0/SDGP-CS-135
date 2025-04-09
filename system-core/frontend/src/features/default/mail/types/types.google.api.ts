@@ -1,7 +1,5 @@
-import { UseServicePermissionsReturn } from "../../user_account/types/types.google.api";
-
 // Define return types for each hook
-export interface UseGmailMessagesReturn extends Omit<UseServicePermissionsReturn, 'checkAllServicePermissions' | 'hasRequiredPermission' | 'invalidateServicePermission'> {
+export interface UseGmailMessagesReturn {
     messages: GmailMessage[];
     message: GmailMessage | null;
     loading: boolean;
@@ -21,11 +19,9 @@ export interface UseGmailMessagesReturn extends Omit<UseServicePermissionsReturn
     modifyLabels: (messageId: string, addLabelIds?: string[], removeLabelIds?: string[]) => Promise<GmailMessage | null>;
     getMessage: (messageId: string, format?: 'minimal' | 'full' | 'raw' | 'metadata') => Promise<GmailMessage | null>;
     sendMessage: (params: SendMessageParams) => Promise<GmailMessage | null>;
-
-    checkAllGmailPermissions: (rMissingPermissions: boolean) => Promise<void>;
 }
 
-export interface UseGmailLabelsReturn extends Omit<UseServicePermissionsReturn, 'checkAllServicePermissions' | 'hasRequiredPermission' | 'invalidateServicePermission'> {
+export interface UseGmailLabelsReturn {
     labels: GmailLabel[];
     loading: boolean;
     error: string | null;
@@ -36,8 +32,6 @@ export interface UseGmailLabelsReturn extends Omit<UseServicePermissionsReturn, 
     updateLabel: (labelId: string, params: Omit<UpdateLabelParams, 'id'>) => Promise<GmailLabel | null>;
     deleteLabel: (labelId: string) => Promise<boolean>;
     getLabel: (labelId: string) => Promise<GmailLabel | null>;
-
-    checkAllGmailPermissions: () => Promise<void>;
 }
 
 // Gmail Message types

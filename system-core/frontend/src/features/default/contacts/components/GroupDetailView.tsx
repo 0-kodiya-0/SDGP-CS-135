@@ -32,7 +32,7 @@ const GroupDetailView: React.FC<GroupDetailViewProps> = ({
   // Fetch contacts when component mounts
   useEffect(() => {
     fetchContacts();
-  }, [fetchContacts]);
+  }, []);
 
   // Fetch group details to get updated member list
   useEffect(() => {
@@ -50,7 +50,7 @@ const GroupDetailView: React.FC<GroupDetailViewProps> = ({
     };
 
     fetchGroupDetails();
-  }, [group, contacts, getGroup, refreshKey]);
+  }, [group, contacts, refreshKey]);
 
   const handleAddMembersClick = () => {
     setIsAddingMembers(true);

@@ -44,7 +44,7 @@ const GroupView: React.FC<GroupViewProps> = ({
   // Fetch groups when component mounts
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
+  }, []);
 
   const handleGroupCreated = () => {
     // Refresh groups after a new group is created

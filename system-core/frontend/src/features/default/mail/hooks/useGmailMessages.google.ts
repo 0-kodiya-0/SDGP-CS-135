@@ -17,13 +17,8 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
 
     // Use Gmail Permissions hook via the generic service permissions hook
     const { 
-        permissions,
-        permissionsLoading,
-        permissionError,
-        checkAllServicePermissions,
         hasRequiredPermission,
         invalidateServicePermission,
-        availableScopes
     } = useServicePermissions(accountId, 'gmail');
 
     // Check permissions when the hook is first used
@@ -337,15 +332,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         loading,
         error,
         nextPageToken,
-        // Add permission-related states for UI feedback
-        permissionsLoading,
-        permissionError,
-        permissions,
-        // Add the permission check function for direct use
-        checkAllGmailPermissions: checkAllServicePermissions,
-        // Make available scopes accessible
-        availableScopes,
-        // Regular message functions
+
         listMessages,
         getMessage,
         sendMessage,

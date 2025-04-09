@@ -15,13 +15,8 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
     // Use Gmail Permissions hook via the generic service permissions hook
     const {
-        permissions,
-        permissionsLoading,
-        permissionError,
-        checkAllServicePermissions,
         hasRequiredPermission,
         invalidateServicePermission,
-        availableScopes
     } = useServicePermissions(accountId, 'gmail');
 
     // Check permissions when the hook is first used
@@ -251,14 +246,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         labels,
         loading,
         error,
-        // Add permission-related states for UI feedback
-        permissionsLoading,
-        permissionError,
-        permissions,
-        // Add the permission check function for direct use
-        checkAllGmailPermissions: checkAllServicePermissions,
-        // Regular label functions
-        availableScopes,
+
         listLabels,
         createLabel,
         updateLabel,

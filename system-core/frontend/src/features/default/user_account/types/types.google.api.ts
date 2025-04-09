@@ -102,19 +102,19 @@ export type BaseScope = "readonly" | "full";
 export type GmailScope = BaseScope | "send" | "compose";
 
 // Calendar-specific scope levels
-export type CalendarScope = BaseScope | "event" | "addonly";
+export type CalendarScope = BaseScope | "event";
 
 // Drive-specific scope levels
-export type DriveScope = BaseScope | "file" | "metadata" | "appdata";
+export type DriveScope = BaseScope | "file" ;
 
 // Sheets & Docs specific scope levels
 export type DocsScope = BaseScope | "create" | "edit";
 
 // People-specific scope levels
-export type PeopleScope = BaseScope | "contacts" | "directory";
+export type PeopleScope = BaseScope | "contacts" ;
 
 // Meet-specific scope levels
-export type MeetScope = BaseScope | "schedule" | "join";
+export type MeetScope = BaseScope;
 
 // Union type of all possible scopes
 export type ScopeLevel = GmailScope | CalendarScope | DriveScope | DocsScope | PeopleScope | MeetScope;

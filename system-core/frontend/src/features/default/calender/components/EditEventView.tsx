@@ -27,7 +27,7 @@ export default function EditEventView({ accountId, event }: EditEventViewProps) 
         if (accountId) {
             listCalendars();
         }
-    }, [accountId, listCalendars]);
+    }, [accountId]);
 
     // Handle input change
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

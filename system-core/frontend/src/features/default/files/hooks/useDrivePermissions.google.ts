@@ -2,8 +2,8 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { API_BASE_URL } from "../../../../conf/axios";
 import { Permission } from "../types/types.google.api";
-import { useTokenApi } from "../../user_account";
-import { createPermissionError, requestPermission, handleApiError } from "../../user_account/utils/utils.google";
+import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
+import { handleApiError } from "../../user_account";
 
 /**
  * Hook for managing file permissions
@@ -13,32 +13,10 @@ export const useDrivePermissions = (accountId: string) => {
     const [error, setError] = useState<string | null>(null);
     const [permissions, setPermissions] = useState<Permission[]>([]);
 
-    // Use token API to check for scopes
-    const { checkServiceAccess } = useTokenApi();
-
-    /**
-     * Verify the user has appropriate access for operation
-     */
-    const verifyAccess = useCallback(async (
-        scopeLevel: "readonly" | "file" | "full" = "readonly"
-    ): Promise<boolean> => {
-        try {
-            const accessCheck = await checkServiceAccess(accountId, "drive", scopeLevel);
-
-            if (!accessCheck || !accessCheck.hasAccess) {
-                // Create and handle permission error
-                const permissionError = createPermissionError("drive", scopeLevel, accountId);
-                requestPermission(permissionError);
-                setError(`You need additional permissions to access Drive permissions`);
-                return false;
-            }
-
-            return true;
-        } catch (err) {
-            console.error("Error checking drive access:", err);
-            return false;
-        }
-    }, [accountId, checkServiceAccess]);
+    const {
+        hasRequiredPermission,
+        invalidateServicePermission,
+    } = useServicePermissions(accountId, 'drive');
 
     /**
      * List permissions for a file
@@ -54,9 +32,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            // Verify access first
-            const hasAccess = await verifyAccess("readonly");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -77,7 +53,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidateServicePermission("readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to list permissions');
             }
@@ -85,7 +61,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyAccess]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Share a file with another user
@@ -106,9 +82,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            // Verify access first - sharing requires 'file' access
-            const hasAccess = await verifyAccess("file");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("file")) {
                 setLoading(false);
                 return null;
             }
@@ -127,7 +101,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidateServicePermission("file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to share file');
             }
@@ -135,7 +109,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, listPermissions, verifyAccess]);
+    }, [accountId, listPermissions, hasRequiredPermission, invalidateServicePermission]);
 
     /**
      * Delete a permission from a file
@@ -151,9 +125,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            // Verify access first - deleting permissions requires 'file' access
-            const hasAccess = await verifyAccess("file");
-            if (!hasAccess) {
+            if (!hasRequiredPermission("file")) {
                 setLoading(false);
                 return null;
             }
@@ -177,7 +149,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                requestPermission(permissionError);
+                invalidateServicePermission("file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to delete permission');
             }
@@ -185,7 +157,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, verifyAccess]);
+    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
 
     return {
         permissions,
@@ -194,6 +166,6 @@ export const useDrivePermissions = (accountId: string) => {
         listPermissions,
         shareFile,
         deletePermission,
-        verifyAccess
+        hasRequiredPermission, invalidateServicePermission
     };
 };

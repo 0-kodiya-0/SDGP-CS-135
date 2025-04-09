@@ -35,16 +35,16 @@ export const getValidScopesForService = (service: ServiceType): ScopeLevel[] => 
     case 'gmail':
       return ['readonly', 'send', 'compose', 'full'];
     case 'calendar':
-      return ['readonly', 'event', 'addonly', 'full'];
+      return ['readonly', 'event', 'full'];
     case 'drive':
-      return ['readonly', 'file', 'metadata', 'appdata', 'full'];
+      return ['readonly', 'file', 'full'];
     case 'sheets':
     case 'docs':
       return ['readonly', 'create', 'edit', 'full'];
     case 'people':
-      return ['readonly', 'contacts', 'directory', 'full'];
+      return ['readonly', 'contacts', 'full'];
     case 'meet':
-      return ['readonly', 'schedule', 'join', 'full'];
+      return ['readonly', 'full'];
     default:
       return ['readonly', 'full'];
   }
