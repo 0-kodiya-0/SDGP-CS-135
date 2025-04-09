@@ -132,7 +132,7 @@ export const ImageViewer = ({
         // Do not remove the SVG element, so TUI can reuse it.
       };
     }
-  }, [file.data, file.name, setHasUnsavedChanges]);
+  }, [file.data, file.name]);
 
   // Reset file name and clear unsaved flag when file changes
   useEffect(() => {
