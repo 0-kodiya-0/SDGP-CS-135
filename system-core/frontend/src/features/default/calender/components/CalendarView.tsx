@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, SquarePlus, Loader2, Check, Filter, RefreshCcw, CalendarPlus } from 'lucide-react';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import Calendar from '@toast-ui/react-calendar';
 import '@toast-ui/calendar/dist/toastui-calendar.min.css';
 import { useTabStore } from '../../../required/tab_view';
@@ -429,13 +431,13 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                                 taskView: false
                             }}
                             template={{
-                                milestone(event) {
+                                milestone(event : any) {
                                     return `<span style="color: ${event.color}">${event.title}</span>`;
                                 },
-                                allday(event) {
+                                allday(event: any) {
                                     return `<span style="color: ${event.color}">${event.title}</span>`;
                                 },
-                                time(event) {
+                                time(event: any) {
                                     return `<span style="color: ${event.color}">${event.title}</span>`;
                                 }
                             }}
