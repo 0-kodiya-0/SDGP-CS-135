@@ -12,7 +12,7 @@ interface SummaryViewProps {
   accountId: string;
 }
 
-export default function CalendarSummaryView({ accountId }: SummaryViewProps) {
+export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
   const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
@@ -357,3 +357,5 @@ export default function CalendarSummaryView({ accountId }: SummaryViewProps) {
     </div>
   );
 }
+
+export default CalendarSummaryView;

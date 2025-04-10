@@ -15,7 +15,7 @@ interface CalendarEventViewProps {
 export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
     const [event, setEvent] = useState<CalendarEvent | null>(null);
     const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
-    const { updateTab, addTab, closeTab } = useTabStore();
+    const { addTab, closeTab } = useTabStore();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
 
@@ -39,7 +39,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
             addTab(
                 `Edit: ${event.summary || 'Untitled'}`, 
                 null,
-                ComponentTypes.EDIT_EVENT_VIEW, 
+                ComponentTypes.CALENDAR_EDIT_EVENT_VIEW, 
                 { 
                     accountId, 
                     event 

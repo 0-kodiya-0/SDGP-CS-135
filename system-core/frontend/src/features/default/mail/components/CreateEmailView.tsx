@@ -14,7 +14,6 @@ interface CreateEmailViewProps {
 }
 
 const CreateEmailView: React.FC<CreateEmailViewProps> = ({
-  accountId,
   onSend,
   replyTo
 }) => {
@@ -54,38 +53,38 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
   // Submit the form and send the email
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!to.trim()) {
       setError('Recipient is required');
       return;
     }
-    
+
     if (!subject.trim()) {
       setError('Subject is required');
       return;
     }
-    
+
     if (!body.trim()) {
       setError('Message body is required');
       return;
     }
-    
+
     try {
       setSending(true);
       setError(null);
-      
+
       // Parse recipients
       const toArray = to.split(',').map(email => email.trim()).filter(Boolean);
       const ccArray = cc ? cc.split(',').map(email => email.trim()).filter(Boolean) : undefined;
       const bccArray = bcc ? bcc.split(',').map(email => email.trim()).filter(Boolean) : undefined;
-      
+
       // Convert Files to MessageAttachments
       let attachmentArray: MessageAttachment[] = [];
       if (attachments.length > 0) {
         const promises = attachments.map(file => fileToAttachment(file));
         attachmentArray = await Promise.all(promises);
       }
-      
+
       const params: SendMessageParams = {
         to: toArray,
         subject,
@@ -95,9 +94,9 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
         bcc: bccArray,
         attachments: attachmentArray.length > 0 ? attachmentArray : undefined
       };
-      
+
       await onSend(params);
-      
+
       // Reset form after successful send
       setTo('');
       setCc('');
@@ -105,7 +104,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
       setSubject('');
       setBody('');
       setAttachments([]);
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send email');
     } finally {
@@ -116,15 +115,15 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
   // Toggle formatting (if using HTML)
   const insertFormatting = (tag: string) => {
     if (!isHtml) return;
-    
+
     // Simple formatting implementation
     const textarea = document.getElementById('email-body') as HTMLTextAreaElement;
     if (!textarea) return;
-    
+
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = body.substring(start, end);
-    
+
     let formattedText = '';
     switch (tag) {
       case 'b':
@@ -140,20 +139,22 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
         formattedText = `<ol><li>${selectedText}</li></ol>`;
         break;
       case 'a':
-        const url = prompt('Enter URL:', 'https://');
-        if (url) {
-          formattedText = `<a href="${url}">${selectedText || url}</a>`;
-        } else {
-          return;
+        {
+          const url = prompt('Enter URL:', 'https://');
+          if (url) {
+            formattedText = `<a href="${url}">${selectedText || url}</a>`;
+          } else {
+            return;
+          }
+          break;
         }
-        break;
       default:
         return;
     }
-    
+
     const newBody = body.substring(0, start) + formattedText + body.substring(end);
     setBody(newBody);
-    
+
     // Focus back to textarea after formatting
     setTimeout(() => {
       textarea.focus();
@@ -168,12 +169,12 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
         {/* Email Header */}
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-semibold mb-4">Compose Email</h1>
-          
+
           {/* Recipients */}
           <div className="mb-3">
             <div className="flex items-center">
               <label className="w-16 text-gray-600">To:</label>
-              <input 
+              <input
                 type="text"
                 className="flex-1 p-2 border-b border-gray-300 focus:outline-none focus:border-blue-500"
                 value={to}
@@ -182,13 +183,13 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               />
             </div>
           </div>
-          
+
           {/* CC */}
           {showCc && (
             <div className="mb-3">
               <div className="flex items-center">
                 <label className="w-16 text-gray-600">Cc:</label>
-                <input 
+                <input
                   type="text"
                   className="flex-1 p-2 border-b border-gray-300 focus:outline-none focus:border-blue-500"
                   value={cc}
@@ -198,13 +199,13 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               </div>
             </div>
           )}
-          
+
           {/* BCC */}
           {showBcc && (
             <div className="mb-3">
               <div className="flex items-center">
                 <label className="w-16 text-gray-600">Bcc:</label>
-                <input 
+                <input
                   type="text"
                   className="flex-1 p-2 border-b border-gray-300 focus:outline-none focus:border-blue-500"
                   value={bcc}
@@ -214,12 +215,12 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               </div>
             </div>
           )}
-          
+
           {/* CC/BCC Buttons */}
           {(!showCc || !showBcc) && (
             <div className="ml-16 mb-3 flex space-x-3">
               {!showCc && (
-                <button 
+                <button
                   type="button"
                   className="text-sm text-blue-600 hover:text-blue-800"
                   onClick={() => setShowCc(true)}
@@ -228,7 +229,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
                 </button>
               )}
               {!showBcc && (
-                <button 
+                <button
                   type="button"
                   className="text-sm text-blue-600 hover:text-blue-800"
                   onClick={() => setShowBcc(true)}
@@ -238,12 +239,12 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               )}
             </div>
           )}
-          
+
           {/* Subject */}
           <div className="mb-3">
             <div className="flex items-center">
               <label className="w-16 text-gray-600">Subject:</label>
-              <input 
+              <input
                 type="text"
                 className="flex-1 p-2 border-b border-gray-300 focus:outline-none focus:border-blue-500"
                 value={subject}
@@ -253,41 +254,41 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
             </div>
           </div>
         </div>
-        
+
         {/* Formatting toolbar (for HTML emails) */}
         {isHtml && (
           <div className="px-4 py-2 border-b border-gray-200 flex items-center space-x-2">
-            <button 
-              type="button" 
-              className="p-1 rounded hover:bg-gray-100" 
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-gray-100"
               onClick={() => insertFormatting('b')}
             >
               <Bold className="w-4 h-4" />
             </button>
-            <button 
-              type="button" 
-              className="p-1 rounded hover:bg-gray-100" 
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-gray-100"
               onClick={() => insertFormatting('i')}
             >
               <Italic className="w-4 h-4" />
             </button>
-            <button 
-              type="button" 
-              className="p-1 rounded hover:bg-gray-100" 
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-gray-100"
               onClick={() => insertFormatting('ul')}
             >
               <List className="w-4 h-4" />
             </button>
-            <button 
-              type="button" 
-              className="p-1 rounded hover:bg-gray-100" 
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-gray-100"
               onClick={() => insertFormatting('ol')}
             >
               <ListOrdered className="w-4 h-4" />
             </button>
-            <button 
-              type="button" 
-              className="p-1 rounded hover:bg-gray-100" 
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-gray-100"
               onClick={() => insertFormatting('a')}
             >
               <Link className="w-4 h-4" />
@@ -305,7 +306,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
             </div>
           </div>
         )}
-        
+
         {/* Email body */}
         <div className="flex-1 p-4">
           <textarea
@@ -316,7 +317,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
             placeholder="Write your message here..."
           ></textarea>
         </div>
-        
+
         {/* Attachments section */}
         <div className="p-4 border-t border-gray-200">
           {attachments.length > 0 && (
@@ -324,7 +325,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               <h3 className="text-sm font-medium mb-2">Attachments</h3>
               <div className="flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
-                  <div 
+                  <div
                     key={index}
                     className="flex items-center bg-gray-100 rounded-md px-3 py-1"
                   >
@@ -332,7 +333,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
                     <span className="text-xs text-gray-500 ml-1">
                       ({formatFileSize(file.size)})
                     </span>
-                    <button 
+                    <button
                       type="button"
                       className="ml-2 text-gray-500 hover:text-red-500"
                       onClick={() => handleRemoveAttachment(index)}
@@ -344,15 +345,15 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
               </div>
             </div>
           )}
-          
+
           {/* Action buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <label className="cursor-pointer">
-                <input 
-                  type="file" 
-                  multiple 
-                  className="hidden" 
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
                   onChange={handleFileSelect}
                 />
                 <div className="flex items-center text-gray-600 hover:text-gray-800">
@@ -361,7 +362,7 @@ const CreateEmailView: React.FC<CreateEmailViewProps> = ({
                 </div>
               </label>
             </div>
-            
+
             <div className="flex items-center">
               {error && (
                 <div className="text-red-500 mr-4 text-sm">{error}</div>

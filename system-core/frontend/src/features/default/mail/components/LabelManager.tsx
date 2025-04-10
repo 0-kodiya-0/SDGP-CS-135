@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GmailLabel, CreateLabelParams, GMAIL_SYSTEM_LABELS } from '../types/types.google.api';
+import { GmailLabel, CreateLabelParams } from '../types/types.google.api';
 import { Plus, Edit, Trash, Check, X, Tag } from 'lucide-react';
 import { getDisplayLabelName, isSystemLabel, getLabelColor } from '../utils/utils.google.api';
 

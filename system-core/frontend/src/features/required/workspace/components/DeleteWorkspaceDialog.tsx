@@ -42,3 +42,5 @@ export function DeleteWorkspaceDialog({ isOpen, onClose, onConfirm, workspaceNam
     </div>
   );
 } 
+
+export default DeleteWorkspaceDialog;

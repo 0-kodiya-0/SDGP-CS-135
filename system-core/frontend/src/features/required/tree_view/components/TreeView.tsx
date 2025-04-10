@@ -1,7 +1,7 @@
 import GroupPanel from './GroupPanel.tsx';
 import ResizeHandle from './ResizeHandle.tsx';
 import { useStore } from '../store';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { LayoutGrid } from 'lucide-react';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -24,7 +24,7 @@ export const TreeView = ({
         let result: TreeNode[] = [];
         let totalSize = 0;
 
-        node.children.forEach((child, _index) => {
+        node.children.forEach((child) => {
             if (child.splitDirection === node.splitDirection && !child.tabItem) {
                 const flattened = flattenSimilarDirections(child);
                 result = [...result, ...flattened.nodes];

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, SquarePlus, Loader2, Check, Filter, RefreshCcw, CalendarPlus } from 'lucide-react';
 import Calendar from '@toast-ui/react-calendar';
 import '@toast-ui/calendar/dist/toastui-calendar.min.css';

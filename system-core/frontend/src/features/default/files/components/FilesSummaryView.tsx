@@ -22,18 +22,18 @@ import UploadComponent from "./UploadComponent";
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import GoogleDriveView from "./GoogleDriveView";
 
-// Ensuring SummaryView only has allowed parameters
-interface SummaryViewProps {
+// Ensuring FileSummaryView only has allowed parameters
+interface FileSummaryViewProps {
   featureName?: string;
   icon?: LucideIcon;
   environment?: Environment;
   accountId?: string;
 }
 
-export default function SummaryView({
+export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
   featureName = "files",
   accountId
-}: SummaryViewProps) {
+}) => {
   const { files, deleteFile, isLoading, refreshFiles } = useFileHandling();
   const [filteredFiles, setFilteredFiles] = useState<UploadedFile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -355,3 +355,5 @@ export default function SummaryView({
     </div>
   );
 }
+
+export default FileSummaryView;

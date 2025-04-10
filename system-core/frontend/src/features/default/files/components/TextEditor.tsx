@@ -70,13 +70,11 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     };
 
     if (typeof window !== 'undefined') {
-      // @ts-ignore
       window.handleFileSelectionChange = handleFileSelectionChange;
     }
 
     return () => {
       if (typeof window !== 'undefined') {
-        // @ts-ignore
         delete window.handleFileSelectionChange;
       }
     };

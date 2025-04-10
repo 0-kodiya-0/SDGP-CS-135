@@ -55,7 +55,7 @@ export const useTabStoreBase = create<TabStateBase>()(
         return accountTabs[accountId]?.activeTabId || null;
       },
       
-      addTabForAccount: (accountId, title, content, componentType, props = {}) => {
+      addTabForAccount: (accountId, title, _content, componentType, props = {}) => {
         console.log(`[TabStore] Adding tab for account: ${accountId}, title: ${title}, componentType: ${componentType}`);
         
         const tabs = get().getTabsForAccount(accountId);

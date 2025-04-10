@@ -7,7 +7,6 @@ const ContactsFeature = lazy(() => import('../../../default/contacts/components/
 const FilesFeature = lazy(() => import('../../../default/files/components/FilesSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const CalendarFeature = lazy(() => import('../../../default/calender/components/CalenderSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const MailFeature = lazy(() => import('../../../default/mail/components/EmailSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
-// const WorkspaceFeature = lazy(() => import('../../workspace/components/WorkspaceSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const ChatFeature = lazy(() => import('../../../default/chat/components/ChatSummaryView.tsx').catch(() => import('./FeaturePlaceholder.tsx')));
 const DefaultFeature = lazy(() => import('./FeaturePlaceholder.tsx'));
 
@@ -16,7 +15,7 @@ export interface DetailPaneProps {
   className?: string;
 }
 
-export function DetailPane({ environment, className }: DetailPaneProps) {
+export function DetailPane({ className }: DetailPaneProps) {
   // Use the feature store hook that automatically uses the current account
   const { currentFeature, accountId } = useFeatureStore();
 
@@ -35,8 +34,6 @@ export function DetailPane({ environment, className }: DetailPaneProps) {
         return <CalendarFeature accountId={accountId} />;
       case 'mail':
         return <MailFeature accountId={accountId} />;
-      // case 'workspace':
-      //   return <WorkspaceFeature accountId={accountId} />
       case 'chat':
         return <ChatFeature accountId={accountId} />;
       default:

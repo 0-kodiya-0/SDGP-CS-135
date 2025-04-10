@@ -1,7 +1,7 @@
 // feature/default/user_account/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
+import { API_BASE_URL } from '../../../../conf/axios';
 
 interface AuthContextType {
     isAuthenticated: boolean;

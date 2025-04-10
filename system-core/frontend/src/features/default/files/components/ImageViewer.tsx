@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ImageEditor from "tui-image-editor";
 import "tui-image-editor/dist/tui-image-editor.css";
-import { FiSave, FiCheck } from "react-icons/fi";
+import { FiCheck } from "react-icons/fi";
 import { UploadedFile, useFileHandling } from "../hooks/useFileHandling";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
@@ -166,13 +166,11 @@ export const ImageViewer = ({
     };
 
     if (typeof window !== "undefined") {
-      // @ts-ignore
       window.handleFileSelectionChange = handleFileSelectionChange;
     }
 
     return () => {
       if (typeof window !== "undefined") {
-        // @ts-ignore
         delete window.handleFileSelectionChange;
       }
     };
@@ -194,7 +192,7 @@ export const ImageViewer = ({
 
     try {
       const dataUrl = instance.toDataURL();
-      let nameToSave = file.name;
+      const nameToSave = file.name;
 
       if (saveAsNew) {
         setIsSaveAsDialogOpen(true);

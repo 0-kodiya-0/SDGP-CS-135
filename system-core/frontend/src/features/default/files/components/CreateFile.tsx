@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import ReactQuill from "react-quill";
 import Editor from "@monaco-editor/react";
 import { FiX, FiFileText, FiCode, FiSave } from "react-icons/fi";

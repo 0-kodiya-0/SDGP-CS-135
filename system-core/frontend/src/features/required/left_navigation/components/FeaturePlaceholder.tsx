@@ -1,5 +1,5 @@
 import React from 'react';
-import { LucideIcon, FileQuestion, Mail } from 'lucide-react';
+import { LucideIcon, FileQuestion } from 'lucide-react';
 import { Environment } from '../../../default/environment';
 
 interface FeaturePlaceholderProps {
@@ -10,10 +10,7 @@ interface FeaturePlaceholderProps {
 }
 
 const FeaturePlaceholder: React.FC<FeaturePlaceholderProps> = ({ 
-  featureName = 'Feature', 
-  icon: Icon = FileQuestion,
-  environment,
-  accountId 
+  icon: Icon = FileQuestion
 }) => {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center text-gray-500 p-8">

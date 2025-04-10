@@ -1,6 +1,6 @@
 import { Check, Trash2, X, AlertTriangle } from 'lucide-react';
 import { useConsentStore } from '../store/consentStore';
-import { useNotificationStore } from '../store/useNotificationStore';
+import { Notification, useNotificationStore } from '../store/useNotificationStore';
 
 export function NotificationPanel() {
     const {

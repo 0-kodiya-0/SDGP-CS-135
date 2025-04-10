@@ -24,7 +24,7 @@ const codeFileExtensions = [
 export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, accountId = '' }: FilePreviewProps) => {
   const [lastSelectedFile, setLastSelectedFile] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const { getDownloadUrl, getExportUrl } = useDriveFiles(accountId);
+  const { getDownloadUrl } = useDriveFiles(accountId);
 
   useEffect(() => {
     if (file) {
@@ -146,7 +146,6 @@ export const FilePreview = ({ file, onFileUpdated, onSelectFile, isGoogleDrive, 
     if (driveFile?.mimeType?.includes('document') || 
         driveFile?.mimeType?.includes('spreadsheet') || 
         driveFile?.mimeType?.includes('presentation')) {
-      const exportUrl = getExportUrl(driveFile.id, driveFile.mimeType);
       return (
         <div className="w-full h-full flex flex-col">
           <div className="p-3 bg-white shadow flex items-center justify-between">

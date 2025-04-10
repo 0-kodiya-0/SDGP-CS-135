@@ -5,7 +5,6 @@ import {
     Forward,
     Trash,
     Star,
-    AlertCircle,
     Tag,
     Download,
     ChevronDown,
@@ -21,9 +20,7 @@ import {
     ParsedEmail,
     GmailLabel,
     SendMessageParams,
-    GMAIL_SYSTEM_LABELS,
-    MessageAttachment
-} from '../types/types.google.api';
+    GMAIL_SYSTEM_LABELS} from '../types/types.google.api';
 import { formatEmailAddress } from '../utils/utils.google.api';
 
 interface EmailDetailsViewProps {
@@ -41,7 +38,6 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
     onReply,
     onDelete,
     onToggleStarred,
-    onToggleImportant,
     availableLabels,
     onLabelChange
 }) => {

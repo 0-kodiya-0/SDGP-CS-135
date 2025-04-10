@@ -76,3 +76,5 @@ export function CreateWorkspaceForm({ isOpen, onClose, onCreateWorkspace }: Crea
     </div>
   );
 } 
+
+export default CreateWorkspaceForm;

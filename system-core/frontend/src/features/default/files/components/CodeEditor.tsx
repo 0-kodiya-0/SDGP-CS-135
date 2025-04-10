@@ -20,7 +20,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onFileUpdated, onS
   const [targetFileName, setTargetFileName] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState<string>(file.name);
   const [isSaveAsMode, setIsSaveAsMode] = useState<boolean>(false);
-  const { updateTab, closeTab, addTab, activeTabId } = useTabStore();
+  const { updateTab, activeTabId } = useTabStore();
 
   const {
     hasUnsavedChanges,
@@ -83,13 +83,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onFileUpdated, onS
     };
 
     if (typeof window !== 'undefined') {
-      // @ts-ignore
       window.handleFileSelectionChange = handleFileSelectionChange;
     }
 
     return () => {
       if (typeof window !== 'undefined') {
-        // @ts-ignore
         delete window.handleFileSelectionChange;
       }
     };
@@ -103,7 +101,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onFileUpdated, onS
   const handleSave = async () => {
     try {
       const fileType = file.type || 'text/plain';
-      let dataUrl = `data:${fileType};base64,${btoa(content)}`;
+      const dataUrl = `data:${fileType};base64,${btoa(content)}`;
       let fileToSave = { ...file, data: dataUrl };
       let fileNameToSave = file.name;
 
@@ -216,8 +214,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ file, onFileUpdated, onS
             onClick={handleSave}
             disabled={!hasUnsavedChanges && !isSaveAsMode}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${(hasUnsavedChanges || isSaveAsMode)
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              ? 'bg-green-500 text-white hover:bg-green-600'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               } transition-colors`}
           >
             <FiSave /> Save

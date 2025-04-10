@@ -9,12 +9,6 @@ import AccountSettingsPage from './features/default/user_account/pages/AccountSe
 import NotFoundPage from './pages/NotFoundPage';
 import AuthGuard from './pages/AuthGuard';
 import { LoginPage, SignupPage, AuthCallback, AuthRedirect } from './pages';
-import GooglePeopleApi from './examples/GooglePeopleApi';
-import ExampleWrapper from './examples';
-import GoogleMeetApi from './examples/GoogleMeetApi';
-import GoogleCalenderApi from './examples/GoogleCalenderApi';
-import GoogleGmailApi from './examples/GoogleGmailApi';
-import GoogleDriveApi from './examples/GoogleDriveApi';
 
 export const AppRoutes: React.FC = () => {
     return (
@@ -40,14 +34,6 @@ export const AppRoutes: React.FC = () => {
                             </AccountProvider>
                         </AuthGuard>
                     } />
-
-                    <Route path="/app/:accountId/example" element={<ExampleWrapper />}>
-                        <Route path="people" element={<GooglePeopleApi />} />
-                        <Route path="meet" element={<GoogleMeetApi />} />
-                        <Route path="gmail" element={<GoogleGmailApi />} />
-                        <Route path="drive" element={<GoogleDriveApi />} />
-                        <Route path="calender" element={<GoogleCalenderApi />} />
-                    </Route>
 
                     {/* Main application routes */}
                     <Route path="/app/:accountId/*" element={

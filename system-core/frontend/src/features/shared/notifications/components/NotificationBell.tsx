@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useConsentStore } from '../store/consentStore';
 import { NotificationPanel } from './NotificationPanel';

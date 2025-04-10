@@ -12,7 +12,6 @@ const AuthCallback: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState<string>('');
-    const [redirectPath, setRedirectPath] = useState<string>('/');
 
     // Process authentication result only once on component mount
     useEffect(() => {
@@ -28,9 +27,6 @@ const AuthCallback: React.FC = () => {
             const returnTo = searchParams.get('returnTo');
 
             // Set redirect path if specified
-            if (returnTo) {
-                setRedirectPath(returnTo);
-            }
 
             // Process the authentication result
             if (authStatus === 'error') {

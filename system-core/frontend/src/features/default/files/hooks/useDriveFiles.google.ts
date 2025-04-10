@@ -459,17 +459,7 @@ export const useDriveFiles = (accountId: string) => {
         return `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}/download?${queryParams.toString()}`;
     }, [accountId]);
 
-    const getExportUrl = (fileId: string, mimeType: string): string => {
-        let exportMimeType = 'application/pdf';
-        
-        if (mimeType.includes('document')) {
-            exportMimeType = 'application/pdf';
-        } else if (mimeType.includes('spreadsheet')) {
-            exportMimeType = 'application/pdf';
-        } else if (mimeType.includes('presentation')) {
-            exportMimeType = 'application/pdf';
-        }
-
+    const getExportUrl = (fileId: string): string => {
         return `https://docs.google.com/viewer?url=${encodeURIComponent(
             `https://drive.google.com/uc?export=view&id=${fileId}`
         )}&embedded=true`;

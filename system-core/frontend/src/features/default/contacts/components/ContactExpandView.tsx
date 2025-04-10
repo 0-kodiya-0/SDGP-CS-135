@@ -13,9 +13,7 @@ interface ExpandViewProps {
 const ExpandView: React.FC<ExpandViewProps> = ({
   selectedContact,
   accountId,
-  onContactDeleted,
-  onContactUpdated
-}) => {
+  onContactDeleted}) => {
   const { deleteContact } = useContacts(accountId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
