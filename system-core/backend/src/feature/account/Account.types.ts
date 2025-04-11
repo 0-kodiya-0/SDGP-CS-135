@@ -80,3 +80,6 @@ export interface OAuthAccount extends BaseAccount {
 }
 
 export type OAuthAccountDTO = Omit<OAuthAccount, "tokenDetails">
+
+export type Rename<T, K extends keyof T, NewKey extends string> =
+  Omit<T, K> & { [P in NewKey]: T[K] };

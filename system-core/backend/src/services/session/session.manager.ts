@@ -131,12 +131,9 @@ export const createOrUpdateSession = async (res: Response, account: OAuthAccount
 
     // Store or update the account session data in database
     await models.accounts.OAuthAccount.updateOne(
-        { id: account.id },
+        { _id: account.id },
         {
             $set: {
-                id: account.id,
-                accountType: account.accountType,
-                provider: account.provider,
                 tokenInfo: {
                     accessToken: tokenInfo.accessToken,
                     expiresAt: tokenInfo.expiresAt,
@@ -235,7 +232,7 @@ export const updateUserTokens = async (
 
         // Find and update token details
         await models.accounts.OAuthAccount.updateOne(
-            { id: accountId },
+            { _id: accountId },
             {
                 $set: {
                     tokenDetails,
@@ -267,7 +264,7 @@ export const getValidAccessToken = async (
 
     // Get the account session from the database
     const models = await db.getModels();
-    const accountSession = await models.accounts.OAuthAccount.findOne({ id: accountId });
+    const accountSession = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
     if (!accountSession || !accountSession.tokenDetails) {
         throw new Error('Account session not found');
@@ -276,7 +273,7 @@ export const getValidAccessToken = async (
     // If token is expired, refresh it
     if (isTokenExpired(accountSession.tokenDetails)) {
         // Get the account from the database to access the refresh token
-        const dbAccount = await models.accounts.OAuthAccount.findOne({ id: accountId });
+        const dbAccount = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
         if (!dbAccount || !dbAccount.tokenDetails.refreshToken) {
             throw new Error('No refresh token available');
@@ -295,7 +292,7 @@ export const getValidAccessToken = async (
 
         // Update the account session
         await models.accounts.OAuthAccount.updateOne(
-            { accountId },
+            { _id: accountId },
             {
                 $set: {
                     tokenInfo: {

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../../../conf/axios/types.ts';
 import {
     Device,
     UserDetails,
@@ -133,13 +134,13 @@ export const validateDevice = (device: Partial<Device>): boolean => {
 export const authFetch = async (url: string, options: AxiosRequestConfig = {}) => {
     try {
         const response = await axios({
-            url,
+            url: `${API_BASE_URL}${url}`,
             ...options,
             // The axios instance will automatically include cookies
             withCredentials: true,
         });
 
-        return response.data;
+        return response.data.data;
     } catch (error: any) {
         console.log(error)
         // Handle specific API error responses
@@ -182,15 +183,22 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
 /**
  * Get account details by ID
  */
-export const fetchAccountDetails = async (accountId: string) => {
-    return authFetch(`/api/v1/account/${accountId}`);
+export const fetchAccountDetails = (accountId: string) => {
+    return authFetch(`/account/${accountId}`);
 };
 
 /**
  * Fetch email for a specific account
  */
-export const fetchAccountEmail = async (accountId: string) => {
-    return authFetch(`/api/v1/account/${accountId}/email`);
+export const fetchAccountEmail = (accountId: string) => {
+    return authFetch(`/account/${accountId}/email`);
+};
+
+/**
+ * Fetch email for a specific account
+ */
+export const searchAccounts = (email: string) => {
+    return authFetch(`/account/search?email=${email}`);
 };
 
 export default authFetch;

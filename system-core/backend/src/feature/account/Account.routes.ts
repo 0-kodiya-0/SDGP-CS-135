@@ -3,6 +3,9 @@ import { sendSuccess, sendError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
 import { createSessionToken, validateAccountAccess } from '../../services/session';
+import { OAuthAccountDocument } from './Account.model';
+import { SessionPayload } from '../../types/session.types';
+import db from '../../config/db';
 
 export const router = express.Router();
 
@@ -14,9 +17,65 @@ router.get('/', (req: Request, res: Response) => {
     res.json({ accounts: req.session.accounts });
 });
 
+router.get('/search', async (req: Request, res: Response) => {
+    const email = req.query.email as string;
+
+    if (!email) {
+        sendError(res, 400, ApiErrorCode.MISSING_EMAIL, 'Email is required');
+        return;
+    }
+
+    try {
+        const models = await db.getModels();
+
+        const account = await models.accounts.OAuthAccount.findOne({ 'userDetails.email': email });
+
+        if (!account) {
+            sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
+            return;
+        }
+
+        const accountDto = toOAuthAccount(account);
+
+        sendSuccess(res, 200, { accountId : accountDto?.id });
+    } catch (error) {
+        console.error(error);
+        sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
+    }
+});
+
 // Logout all accounts (clear entire session)
 router.get('/logout/all', (req: Request, res: Response) => {
     res.clearCookie('session_token', { path: '/' });
+    res.redirect('/');
+});
+
+router.get('/logout/:accountId', (req: Request, res: Response) => {
+    const { accountId } = req.params;
+    const session = req.session;
+
+    if (!session) {
+        res.redirect('/');
+        return;
+    }
+
+    // Remove account from session
+    const updatedAccounts = session.accounts.filter(id => id !== accountId);
+
+    // If no accounts left, clear the session
+    if (updatedAccounts.length === 0) {
+        res.clearCookie('session_token', { path: '/' });
+        res.redirect('/');
+        return;
+    }
+
+    // Update the session
+    const updatedSession = {
+        ...session,
+        accounts: updatedAccounts
+    };
+
+    createSessionToken(res, updatedSession);
     res.redirect('/');
 });
 
@@ -25,12 +84,7 @@ router.use('/:accountId', validateAccountAccess);
 
 // Get account details
 router.get('/:accountId', async (req: Request, res: Response) => {
-    const account = req.oauthAccount;
-
-    if (!account) {
-        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-        return;
-    }
+    const account = req.oauthAccount as OAuthAccountDocument;
 
     const safeAccount = toOAuthAccount(account);
 
@@ -39,13 +93,8 @@ router.get('/:accountId', async (req: Request, res: Response) => {
 
 // Update OAuth account
 router.patch('/:accountId', async (req: Request, res: Response) => {
-    const account = req.oauthAccount;
+    const account = req.oauthAccount as OAuthAccountDocument;;
     const updates = req.body;
-
-    if (!account) {
-        sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-        return;
-    }
 
     try {
         // Apply updates to the account
@@ -68,12 +117,7 @@ router.patch('/:accountId', async (req: Request, res: Response) => {
 // Remove account from session and revoke tokens
 router.delete('/:accountId', async (req: Request, res: Response) => {
     const { accountId } = req.params;
-    const session = req.session;
-
-    if (!session) {
-        sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'No active session');
-        return;
-    }
+    const session = req.session as SessionPayload;
 
     // Remove account from session
     const updatedAccounts = session.accounts.filter(id => id !== accountId);
@@ -100,11 +144,7 @@ router.delete('/:accountId', async (req: Request, res: Response) => {
  * This route requires authentication and account access validation
  */
 router.get('/:accountId/email', async (req: Request, res: Response) => {
-    const account = req.oauthAccount;
-
-    if (!account) {
-        return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-    }
+    const account = req.oauthAccount as OAuthAccountDocument;
 
     sendSuccess(res, 200, {
         email: account.userDetails.email
@@ -114,14 +154,9 @@ router.get('/:accountId/email', async (req: Request, res: Response) => {
 // Update OAuth account security settings
 router.patch('/:accountId/security', async (req: Request, res: Response) => {
     const securityUpdates = req.body;
-    const account = req.oauthAccount;
+    const account = req.oauthAccount as OAuthAccountDocument;
 
     try {
-        if (!account) {
-            sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
-            return;
-        }
-
         // Update security settings
         account.security = {
             ...account.security,
@@ -140,42 +175,12 @@ router.patch('/:accountId/security', async (req: Request, res: Response) => {
     }
 });
 
-// Logout a specific account
-router.get('/:accountId/logout', (req: Request, res: Response) => {
-    const { accountId } = req.params;
-    const session = req.session;
-
-    if (!session) {
-        res.redirect('/');
-        return;
-    }
-
-    // Remove account from session
-    const updatedAccounts = session.accounts.filter(id => id !== accountId);
-
-    // If no accounts left, clear the session
-    if (updatedAccounts.length === 0) {
-        res.clearCookie('session_token', { path: '/' });
-        res.redirect('/');
-        return;
-    }
-
-    // Update the session
-    const updatedSession = {
-        ...session,
-        accounts: updatedAccounts
-    };
-
-    createSessionToken(res, updatedSession);
-    res.redirect('/');
-});
-
 // // Switch active account
 // router.post('/:accountId/switch', (req: Request, res: Response) => {
 //     const { accountId } = req.params;
 
 //     try {
-//         
+//
 //         const session = extractSession(req);
 
 //         if (!session) {

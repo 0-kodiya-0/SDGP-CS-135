@@ -178,7 +178,7 @@ export const refreshToken = async (req: GoogleApiRequest, res: Response) => {
 
             // Get the account from the database to access the refresh token
             const models = await db.getModels();
-            const dbAccount = await models.accounts.OAuthAccount.findOne({ id: accountId });
+            const dbAccount = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
             if (!dbAccount || !dbAccount.tokenDetails.refreshToken) {
                 return sendError(res, 400, ApiErrorCode.INVALID_DETAILS, "No refresh token available for this account");

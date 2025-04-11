@@ -20,7 +20,8 @@ import {
     ParsedEmail,
     GmailLabel,
     SendMessageParams,
-    GMAIL_SYSTEM_LABELS} from '../types/types.google.api';
+    GMAIL_SYSTEM_LABELS
+} from '../types/types.google.api';
 import { formatEmailAddress } from '../utils/utils.google.api';
 
 interface EmailDetailsViewProps {
@@ -81,14 +82,18 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
         }
 
         if (replyType === 'reply') {
-            // Reply to the original sender
-            to = [email.from?.email || ''];
+            // Reply to the original sender - ensure email is a string
+            to = email.from?.email ? [email.from.email] : [];
         } else if (replyType === 'replyAll') {
-            // Reply to the original sender and all recipients
-            to = [
-                email.from?.email || '',
-                ...(email.to || []).map(recipient => recipient.email),
-            ];
+            // Reply to the original sender and all recipients - ensure all emails are strings
+            const fromEmail = email.from?.email;
+            const toEmails = (email.to || [])
+                .map(recipient => recipient.email)
+                .filter((email): email is string => email !== undefined);
+
+            // Combine from and to emails, ensuring fromEmail exists
+            to = fromEmail ? [fromEmail, ...toEmails] : toEmails;
+
             // Deduplicate
             to = [...new Set(to)];
         } else if (replyType === 'forward') {
@@ -104,10 +109,18 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
         <br><br>
         <div style="padding-left: 10px; border-left: 1px solid #ddd; margin: 10px 0;">
           <div>---------- Original Message ----------</div>
-          <div><b>From:</b> ${formatEmailAddress(email.from || { email: 'Unknown' })}</div>
+          <div><b>From:</b> ${email.from ? formatEmailAddress({
+            name: email.from.name,
+            email: email.from.email || 'Unknown'
+        }) : 'Unknown'}</div>
           <div><b>Date:</b> ${email.date?.toLocaleString() || 'Unknown'}</div>
           <div><b>Subject:</b> ${email.subject || 'No Subject'}</div>
-          <div><b>To:</b> ${(email.to || []).map(t => formatEmailAddress(t)).join(', ') || 'Unknown'}</div>
+          <div><b>To:</b> ${(email.to || [])
+                .map(t => formatEmailAddress({
+                    name: t.name,
+                    email: t.email || 'Unknown'
+                }))
+                .join(', ') || 'Unknown'}</div>
           <br>
           <div>${originalContent}</div>
         </div>
@@ -123,7 +136,14 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
 
         // Add CC if replying all and there were CC recipients in the original
         if (replyType === 'replyAll' && email.cc && email.cc.length > 0) {
-            params.cc = email.cc.map(recipient => recipient.email);
+            // Filter out undefined email addresses
+            const ccEmails = email.cc
+                .map(recipient => recipient.email)
+                .filter((email): email is string => email !== undefined);
+
+            if (ccEmails.length > 0) {
+                params.cc = ccEmails;
+            }
         }
 
         await onReply(params);
@@ -147,11 +167,11 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
     // Get relative time for email
     const getRelativeTime = (date: Date | undefined): string => {
         if (!date || !(date instanceof Date)) return '';
-        
+
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        
+
         if (days === 0) {
             // Today - show time
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -167,7 +187,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
     // Get file icon based on mimetype
     const getFileIcon = (mimetype: string | undefined): React.ReactNode => {
         if (!mimetype) return <File className="w-5 h-5" />;
-        
+
         if (mimetype.includes('image')) {
             return <img src="/placeholder-image-icon.svg" className="w-5 h-5" alt="image" />;
         } else if (mimetype.includes('pdf')) {
@@ -234,7 +254,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
     // Render more actions menu
     const renderMoreActions = () => {
         if (!showMoreActions) return null;
-        
+
         return (
             <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48 overflow-hidden">
                 <div className="py-1">
@@ -251,8 +271,8 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                         <span>Add to Calendar</span>
                     </button>
                     <div className="border-t border-gray-200 my-1"></div>
-                    <button 
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center" 
+                    <button
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center"
                         onClick={() => {
                             onDelete();
                             setShowMoreActions(false);
@@ -273,7 +293,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                         <h1 className="text-xl font-semibold text-gray-900 mb-1">{email.subject || 'No Subject'}</h1>
-                        
+
                         {/* Labels */}
                         {visibleLabels.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -288,7 +308,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                             </div>
                         )}
                     </div>
-                    
+
                     <div className="flex items-center space-x-1 ml-2">
                         <button
                             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -325,7 +345,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                             {(email.from?.name || email.from?.email || '?').charAt(0).toUpperCase()}
                         </span>
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-baseline justify-between">
                             <div className="flex items-baseline flex-wrap">
@@ -336,10 +356,10 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                                     {email.from?.email && email.from.name ? `<${email.from.email}>` : ''}
                                 </span>
                             </div>
-                            
+
                             <div className="flex items-center text-sm text-gray-500 ml-auto">
                                 <span>{email.date ? getRelativeTime(email.date) : ''}</span>
-                                <button 
+                                <button
                                     className="ml-2 p-1 rounded-full hover:bg-gray-100"
                                     onClick={() => setEmailCollapsed(!emailCollapsed)}
                                 >
@@ -347,7 +367,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                                 </button>
                             </div>
                         </div>
-                        
+
                         {!emailCollapsed && (
                             <>
                                 <div className="mt-1 text-sm text-gray-700">
@@ -484,7 +504,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
                                 {/* Could add formatting options here */}
                             </div>
                             <div className="flex gap-2">
-                                <button 
+                                <button
                                     className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-md"
                                     onClick={() => setShowReplyForm(false)}
                                 >
@@ -504,7 +524,7 @@ const EmailDetailsView: React.FC<EmailDetailsViewProps> = ({
             )}
 
             {/* Add some styles for no scrollbar */}
-            
+
         </div>
     );
 };

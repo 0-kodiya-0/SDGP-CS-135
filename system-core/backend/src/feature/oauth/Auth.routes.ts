@@ -9,7 +9,6 @@ import { sendError } from '../../utils/response';
 import { ApiErrorCode } from '../../types/response.types';
 import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
 import passport from 'passport';
-import crypto from 'crypto';
 import db from '../../config/db';
 import { findUser } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
@@ -132,8 +131,7 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
         try {
             const models = await db.getModels();
 
-            const newAccount: OAuthAccount = {
-                id: crypto.randomBytes(16).toString('hex'),
+            const newAccount: Omit<OAuthAccount, "id"> = {
                 created: new Date().toISOString(),
                 updated: new Date().toISOString(),
                 accountType: AccountType.OAuth,
@@ -160,23 +158,22 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
 
             await clearSignUpState(stateDetails.state);
 
-            // Create the account in the accounts database
-            await models.accounts.OAuthAccount.create(newAccount);
+            const newAccountDoc = await models.accounts.OAuthAccount.create(newAccount);
 
             // Create session with the new account using SessionManager
-            const sessionResponse = await createOrUpdateSession(res, newAccount, req);
+            const sessionResponse = await createOrUpdateSession(res, { id: newAccountDoc._id.toHexString(), ...newAccount }, req);
 
             if ('error' in sessionResponse && sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl, 
-                    sessionResponse.code, 
+                redirectWithError(res, frontendRedirectUrl,
+                    sessionResponse.code,
                     sessionResponse.message);
                 return;
             }
-            
+
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
             redirectWithSuccess(res, redirectTo, {
-                accountId: newAccount.id,
+                accountId: newAccountDoc._id.toHexString(),
                 name: newAccount.userDetails.name
             });
             return;
@@ -230,7 +227,7 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
             const models = await db.getModels();
 
             // Find and update the user in the accounts database
-            const dbUser = await models.accounts.OAuthAccount.findOne({ id: user.id });
+            const dbUser = await models.accounts.OAuthAccount.findOne({ _id: user.id });
             if (!dbUser) {
                 redirectWithError(res, frontendRedirectUrl, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
                 return;
@@ -253,11 +250,12 @@ router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
             await clearSignInState(stateDetails.state);
 
             // Create or update session with the signed-in account using SessionManager
-            const sessionResponse = await createOrUpdateSession(res, dbUser, req);
+            const { _id, ...rest } = dbUser;
+            const sessionResponse = await createOrUpdateSession(res, { id: _id, ...rest }, req);
 
             if ('error' in sessionResponse && sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl, 
-                    sessionResponse.code, 
+                redirectWithError(res, frontendRedirectUrl,
+                    sessionResponse.code,
                     sessionResponse.message);
                 return;
             }
@@ -411,7 +409,7 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
             try {
                 const models = await db.getModels();
 
-                const dbUser = await models.accounts.OAuthAccount.findOne({ id: accountId });
+                const dbUser = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
                 if (!dbUser) {
                     redirectWithError(res, redirect, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
@@ -434,7 +432,6 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                 }
 
                 // Use SessionManager to update the token
-
                 await updateUserTokens(accountId, {
                     accessToken: result.tokenDetails.accessToken,
                     tokenCreatedAt: new Date().toISOString()
@@ -452,8 +449,9 @@ router.get('/callback/permission/:provider', async (req: Request, res: Response,
                 };
                 dbUser.updated = new Date().toISOString();
                 await dbUser.save();
-                
-                await createOrUpdateSession(res, dbUser, req);
+
+                const { _id, ...rest } = dbUser;
+                await createOrUpdateSession(res, { id: _id, ...rest }, req);
 
                 console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirect}`);
 
@@ -489,7 +487,7 @@ router.get(
         try {
             // Get the user's account details
             const models = await db.getModels();
-            const account = await models.accounts.OAuthAccount.findOne({ id: accountId });
+            const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
             if (!account || !account.userDetails.email) {
                 return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found or missing email');
@@ -498,9 +496,9 @@ router.get(
             const userEmail = account.userDetails.email;
 
             const scopeLevels = scopeLevel.split(',');
-            
+
             // Get the scopes - handle both single and multiple scopes
-            const scopes = scopeLevels.map(level => 
+            const scopes = scopeLevels.map(level =>
                 getGoogleScope(service as GoogleServiceName, level)
             );
 

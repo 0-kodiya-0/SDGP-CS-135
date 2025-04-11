@@ -6,20 +6,17 @@ import { OAuthAccount, OAuthAccountDTO, OAuthProviders } from "./Account.types";
 export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDTO | null => {
   if (!doc) return null;
 
-  // Convert to plain object and create a new object without MongoDB-specific fields
-  const mongoDoc = doc.toObject ? doc.toObject() : doc;
-
   // Create a new object with only the properties we want
   const account: OAuthAccountDTO = {
-    id: mongoDoc.id,
-    created: mongoDoc.created,
-    updated: mongoDoc.updated,
-    accountType: mongoDoc.accountType,
-    status: mongoDoc.status,
-    provider: mongoDoc.provider,
-    userDetails: mongoDoc.userDetails,
-    security: mongoDoc.security,
-    // device: mongoDoc.device
+    id: doc._id.toHexString(),
+    created: doc.created,
+    updated: doc.updated,
+    accountType: doc.accountType,
+    status: doc.status,
+    provider: doc.provider,
+    userDetails: doc.userDetails,
+    security: doc.security,
+    // device: doc.device
   };
 
   return account;
@@ -35,5 +32,5 @@ export const findUser = async (email: string | undefined, provider: OAuthProvide
     provider
   });
 
-  return doc;
+  return doc ? { id: doc._id.toHexString(), ...doc } : null;
 };

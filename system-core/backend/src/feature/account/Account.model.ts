@@ -43,7 +43,6 @@ const SecuritySettingsSchema = new Schema({
 
 // OAuth Account Schema
 const OAuthAccountSchema = new Schema({
-    id: { type: String, required: true, unique: true },
     created: { type: String, required: true },
     updated: { type: String, required: true },
     accountType: {
@@ -73,8 +72,7 @@ const OAuthAccountSchema = new Schema({
 // Create an index on email field for faster queries
 OAuthAccountSchema.index({ 'userDetails.email': 1, 'provider': 1 }, { unique: true });
 
-export interface OAuthAccountDocument extends Document, Omit<OAuthAccount, 'id' | '_id'> {
-    id: string;
+export interface OAuthAccountDocument extends Document, Omit<OAuthAccount, 'id'> {
     // MongoDB adds _id by default, we'll use our custom id field
     _id: mongoose.Types.ObjectId;
 }

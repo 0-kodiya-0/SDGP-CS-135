@@ -8,7 +8,6 @@ import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { router as accountRoutes } from './feature/account';
 import { router as googleRoutes } from './feature/google';
-import { router as workspaceRoutes } from './feature/workspace';
 import db from './config/db';
 import { authenticateSession } from './services/session';
 import socketConfig from './config/socket.config';
@@ -58,7 +57,6 @@ app.use('/oauth', oauthRoutes);
 app.use('/account', authenticateSession, accountRoutes);
 app.use('/google', authenticateSession, googleRoutes);
 app.use('/chat', authenticateSession, chatRoutes);
-app.use('/workspace', authenticateSession, workspaceRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

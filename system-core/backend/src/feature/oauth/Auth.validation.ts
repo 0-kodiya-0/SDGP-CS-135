@@ -101,7 +101,7 @@ export async function verifyTokenOwnership(
         const models = await db.getModels();
 
         // Get the account that should own this token
-        const account = await models.accounts.OAuthAccount.findOne({ id: accountId });
+        const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
         if (!account) {
             return { isValid: false, reason: 'Account not found' };

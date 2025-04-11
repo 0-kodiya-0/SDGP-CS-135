@@ -52,11 +52,10 @@ export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenD
 //     throw new Error("Invalid Device object");
 // }
 
-export function validateBaseAccount(obj?: Partial<BaseAccount>): obj is BaseAccount {
+export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj is Omit<BaseAccount, "id"> {
     if (
         obj !== null &&
         typeof obj === "object" &&
-        typeof obj.id === "string" &&
         typeof obj.created === "string" &&
         typeof obj.updated === "string" &&
         // validateDevice(obj.device) &&
@@ -72,7 +71,7 @@ export function validateBaseAccount(obj?: Partial<BaseAccount>): obj is BaseAcco
     throw new Error("Invalid BaseAccount object");
 }
 
-export function validateOAuthAccount(obj?: Partial<OAuthAccount>): obj is OAuthAccount {
+export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): obj is Omit<OAuthAccount, "id"> {
     if (
         obj !== null &&
         validateBaseAccount(obj as OAuthAccount) &&

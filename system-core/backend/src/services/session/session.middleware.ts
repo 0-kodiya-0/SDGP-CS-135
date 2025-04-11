@@ -100,7 +100,7 @@ export const validateAccountAccess = async (req: Request, res: Response, next: N
     try {
         const models = await db.getModels();
 
-        const account = await models.accounts.OAuthAccount.findOne({ id: accountId });
+        const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
 
         if (!account) {
             sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found');
