@@ -1,6 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import { AuthType, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
-import { OAuthAccount, OAuthProviders } from '../account/Account.types';
+import { OAuthProviders } from '../account/Account.types';
 
 // Cache options with TTL (time to live) of 10 minutes (600,000 ms)
 const options = {
@@ -106,7 +106,6 @@ export const saveSignUpState = (
         state,
         oAuthResponse: providerResponse,
         redirectUrl,
-        accountDetails: {},
         expiresAt: expiresAt.toISOString(),
     };
 
@@ -133,23 +132,6 @@ export const removeSignUpState = (state: string): void => {
     signUpStateCache.delete(state);
 };
 
-// Add method to update sign up state with account details
-export const updateSignUpStateDetails = (state: string, accountDetails: Partial<OAuthAccount>): boolean => {
-    const stateData = signUpStateCache.get(state);
-
-    if (!stateData) {
-        return false;
-    }
-
-    stateData.accountDetails = {
-        ...stateData.accountDetails,
-        ...accountDetails
-    };
-
-    signUpStateCache.set(state, stateData);
-    return true;
-};
-
 // Methods for permission state
 export const savePermissionState = (
     state: string,
@@ -157,7 +139,7 @@ export const savePermissionState = (
     accountId: string,
     service: string,
     scopeLevel: string,
-    redirect: string
+    redirectUrl: string
 ): void => {
     const expiresAt = new Date(Date.now() + options.ttl);
 
@@ -168,7 +150,7 @@ export const savePermissionState = (
         accountId,
         service,
         scopeLevel,
-        redirect,
+        redirectUrl,
         expiresAt: expiresAt.toISOString(),
     };
 

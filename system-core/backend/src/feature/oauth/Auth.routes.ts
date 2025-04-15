@@ -1,36 +1,33 @@
 import express, { Response, Request, NextFunction } from 'express';
 import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
-import { validateOAuthAccount, userExists } from '../account/Account.validation';
-import { validateSignUpState, validateSignInState, validateOAuthState, validatePermissionState, verifyTokenOwnership } from './Auth.validation';
+import { validateOAuthAccount } from '../account/Account.validation';
+import { validateSignUpState, validateSignInState, validateOAuthState, validatePermissionState, verifyTokenOwnership, validateProvider, validateState } from './Auth.validation';
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState, generatePermissionState } from './Auth.utils';
 import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
-import { sendError } from '../../utils/response';
-import { ApiErrorCode } from '../../types/response.types';
-import { validateStateMiddleware, validateProviderMiddleware } from './Auth.middleware';
+import { ApiErrorCode, AuthError, BadRequestError, NotFoundError, RedirectError, RedirectSuccess } from '../../types/response.types';
 import passport from 'passport';
 import db from '../../config/db';
-import { findUser } from '../account/Account.utils';
+import { findUserByEmail, findUserById, userEmailExists, userIdExists } from '../account/Account.utils';
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
-import { getRedirectUrl, redirectWithError, redirectWithSuccess } from '../../utils/redirect';
-import { GoogleTokenService } from '../google/services/token';
-import { createOrUpdateSession, updateUserTokens } from '../../services/session';
+// import { getRedirectUrl } from '../../utils/redirect';
+import { createOrUpdateSession, updateDbUserTokens } from '../../services/session';
+import { asyncHandler } from '../../utils/response';
+import { getTokenInfo } from '../google/services/token';
 
 export const router = express.Router();
 
 /**
  * Common Google authentication route for all auth types
  */
-router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/auth/google', asyncHandler(async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { state } = req.query;
 
-    const stateDetails = await validateStateMiddleware(state as string,
+    await validateState(state as string,
         (state) => validateOAuthState(state, OAuthProviders.Google),
         res
     );
-
-    if (!stateDetails) return;
 
     // Default Google authentication options
     const authOptions: AuthenticateOptionsGoogle = {
@@ -42,91 +39,27 @@ router.get('/auth/google', async (req: AuthRequest, res: Response, next: NextFun
 
     // Pass control to passport middleware
     passport.authenticate('google', authOptions)(req, res, next);
-});
+}));
 
-// router.get('/auth/microsoft', async (req: AuthRequest, res: Response, next: NextFunction) => {
-//     const { state } = req.query;
+router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Response, next: NextFunction) => {
+    const frontendRedirectUrl = req.query.redirectUrl as string;
 
-//     const stateDetails = await validateStateMiddleware(state as string,
-//         (state) => validateOAuthState(state, OAuthProviders.Microsoft),
-//         res
-//     );
+    const provider = req.params.provider as OAuthProviders;
 
-//     if (!stateDetails) return;
-
-//     passport.authenticate('microsoft', {
-//         scope: ['user.read'],
-//         session: false,
-//         state: state as string
-//     })(req, res, next);
-// });
-
-// router.get('/auth/facebook', async (req: AuthRequest, res: Response, next: NextFunction) => {
-//     const { state } = req.query;
-
-//     const stateDetails = await validateStateMiddleware(state as string,
-//         (state) => validateOAuthState(state, OAuthProviders.Facebook),
-//         res
-//     );
-
-//     if (!stateDetails) return;
-
-//     passport.authenticate('facebook', {
-//         scope: ['email'],
-//         session: false,
-//         state: state as string
-//     })(req, res, next);
-// });
-
-// router.post('/signup/add/:details', async (req: SignUpDetailsAddRequest, res: Response) => {
-//     const { details } = req.params;
-//     const { state } = req.query;
-
-//     const stateDetails = await validateStateMiddleware(state as string, validateSignUpState, res) as SignUpState;
-//     if (!stateDetails) return;
-
-//     try {
-//         switch (details) {
-//             case 'device': {
-//                 const success = validateDevice(req.body);
-//                 if (!success) {
-//                     sendError(res, 400, ApiErrorCode.INVALID_DETAILS, 'Invalid device details');
-//                     return;
-//                 }
-
-//                 const models = await db.getModels();
-
-//                 // Update the state document with the device details
-//                 await models.auth.SignUpState.updateOne(
-//                     { state: stateDetails.state },
-//                     { $set: { 'accountDetails.device': req.body } }
-//                 );
-
-//                 sendSuccess(res, 201, { message: 'Device details added successfully' });
-//                 break;
-//             }
-//             default:
-//                 sendError(res, 404, ApiErrorCode.INVALID_DETAILS, 'Unsupported details type');
-//         }
-//     } catch (error) {
-//         console.error(error);
-//         sendError(res, 500, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
-//     }
-// });
-
-router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
-    const frontendRedirectUrl = getRedirectUrl(req, '/');
-
-    const error = req.query.error;
-    if (error) {
-        redirectWithError(res, frontendRedirectUrl, error as ApiErrorCode, 'Error during signup process');
-        return;
+    if (!frontendRedirectUrl) {
+        throw new BadRequestError("Missing redirectUrl query parameter");
     }
+
+    if (!validateProvider(provider, res)) {
+        throw new RedirectError(ApiErrorCode.INVALID_PROVIDER, frontendRedirectUrl, 'Invalid provider');
+    };
 
     const reqState = req.query.state;
     if (reqState && typeof reqState === 'string') {
-        const stateDetails = await validateStateMiddleware(reqState, validateSignUpState, res) as SignUpState;
-        if (!stateDetails) return;
+        const stateDetails = await validateState(reqState, validateSignUpState, res) as SignUpState;
+        if (!stateDetails || !stateDetails.oAuthResponse.email) {
+            throw new BadRequestError('Invalid or missing state details', 400, ApiErrorCode.INVALID_STATE);
+        }
 
         try {
             const models = await db.getModels();
@@ -136,7 +69,7 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
                 updated: new Date().toISOString(),
                 accountType: AccountType.OAuth,
                 status: AccountStatus.Active,
-                provider: stateDetails.oAuthResponse.provider,
+                provider,
                 userDetails: {
                     name: stateDetails.oAuthResponse.name,
                     email: stateDetails.oAuthResponse.email,
@@ -150,10 +83,17 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
                 }
             };
 
+            const accessTokenInfo = await getTokenInfo(stateDetails.oAuthResponse.tokenDetails.accessToken);
+
+            if (!accessTokenInfo.expires_in) {
+                throw new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Error getting token detail from provider');
+            }
+
+            newAccount.tokenDetails.expireAt = accessTokenInfo.expires_in;
+
             const success = validateOAuthAccount(newAccount);
             if (!success) {
-                redirectWithError(res, frontendRedirectUrl, ApiErrorCode.MISSING_DATA, 'Missing required account data');
-                return;
+                throw new RedirectError(ApiErrorCode.MISSING_DATA, frontendRedirectUrl, 'Missing required account data');
             }
 
             await clearSignUpState(stateDetails.state);
@@ -161,373 +101,269 @@ router.get('/signup/:provider?', async (req: SignUpRequest, res: Response) => {
             const newAccountDoc = await models.accounts.OAuthAccount.create(newAccount);
 
             // Create session with the new account using SessionManager
-            const sessionResponse = await createOrUpdateSession(res, { id: newAccountDoc._id.toHexString(), ...newAccount }, req);
-
-            if ('error' in sessionResponse && sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl,
-                    sessionResponse.code,
-                    sessionResponse.message);
-                return;
-            }
+            await createOrUpdateSession(res, newAccountDoc._id.toHexString(), req);
 
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
-            redirectWithSuccess(res, redirectTo, {
+
+            next(new RedirectSuccess({
                 accountId: newAccountDoc._id.toHexString(),
                 name: newAccount.userDetails.name
-            });
+            }, redirectTo));
             return;
         } catch (error) {
             console.log(error);
-            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Database operation failed');
-            return;
+            throw new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Database operation failed');
         }
     }
 
-    const { provider } = req.params;
-    if (!validateProviderMiddleware(provider, res)) return;
+    const generatedState = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_UP, frontendRedirectUrl);
+    const authUrls: AuthUrls = {
+        [OAuthProviders.Google]: `../auth/google?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Microsoft]: `../auth/microsoft?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Facebook]: `../auth/facebook?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+    };
 
-    try {
-        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_UP, frontendRedirectUrl);
-        const authUrls: AuthUrls = {
-            [OAuthProviders.Google]: `../auth/google?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        };
+    next(new RedirectSuccess(null, authUrls[provider as OAuthProviders]));
+}));
 
-        res.redirect(authUrls[provider as OAuthProviders]);
-    } catch (error) {
-        console.error(error);
-        redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
+router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Response, next: NextFunction) => {
+    const frontendRedirectUrl = req.query.redirectUrl as string;
+
+    const provider = req.params.provider as OAuthProviders;
+    const { state } = req.query;
+
+    if (!frontendRedirectUrl) {
+        throw new BadRequestError("Missing redirectUrl query parameter");
     }
-});
 
-router.get('/signin/:provider?', async (req: SignInRequest, res: Response) => {
-    const frontendRedirectUrl = getRedirectUrl(req, '/');
-
-    const { state, error } = req.query;
-
-    if (error) {
-        redirectWithError(res, frontendRedirectUrl, error as ApiErrorCode, 'Error during signin process');
-        return;
-    }
+    if (!validateProvider(provider, res)) {
+        throw new BadRequestError('Invalid provider');
+    };
 
     if (state && typeof state === 'string') {
-        const stateDetails = await validateStateMiddleware(state, validateSignInState, res) as SignInState;
-        if (!stateDetails) return;
+        const stateDetails = await validateState(state, validateSignInState, res) as SignInState;
+        if (!stateDetails || !stateDetails.oAuthResponse.email) {
+            throw new BadRequestError('Invalid or missing state details', 400, ApiErrorCode.INVALID_STATE);
+        }
 
-        const user = await findUser(stateDetails.oAuthResponse.email, stateDetails.oAuthResponse.provider);
+        const user = await findUserByEmail(stateDetails.oAuthResponse.email);
 
         if (!user) {
-            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.USER_NOT_FOUND, "User details not found");
-            return;
+            throw new RedirectError(ApiErrorCode.USER_NOT_FOUND, frontendRedirectUrl, 'User details not found');
         }
 
         try {
-            const models = await db.getModels();
-
-            // Find and update the user in the accounts database
-            const dbUser = await models.accounts.OAuthAccount.findOne({ _id: user.id });
-            if (!dbUser) {
-                redirectWithError(res, frontendRedirectUrl, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
-                return;
-            }
-
-            // Get detailed token info from Google
-            const googleTokenService = GoogleTokenService.getInstance();
-            const tokenInfo = await googleTokenService.tokenDetailsToInfo(stateDetails.oAuthResponse.tokenDetails);
-
-            // Update the user's token details with expiration info
-            dbUser.tokenDetails = {
-                ...stateDetails.oAuthResponse.tokenDetails,
-                tokenCreatedAt: new Date().toISOString(),
-                expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
-                scope: tokenInfo.scope
-            };
-            dbUser.updated = new Date().toISOString();
-            await dbUser.save();
-
             await clearSignInState(stateDetails.state);
 
-            // Create or update session with the signed-in account using SessionManager
-            const { _id, ...rest } = dbUser;
-            const sessionResponse = await createOrUpdateSession(res, { id: _id, ...rest }, req);
+            await createOrUpdateSession(res, user.id, req);
 
-            if ('error' in sessionResponse && sessionResponse.error) {
-                redirectWithError(res, frontendRedirectUrl,
-                    sessionResponse.code,
-                    sessionResponse.message);
-                return;
-            }
+            await updateDbUserTokens(user.id, provider, stateDetails.oAuthResponse.tokenDetails.accessToken);
 
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
-            redirectWithSuccess(res, redirectTo, {
+
+            next(new RedirectSuccess({
                 accountId: user.id,
                 name: user.userDetails.name
-            });
+            }, redirectTo));
             return;
         } catch (error) {
-            console.log(error)
-            redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
-            return;
+            console.log(error);
+            throw new RedirectError(ApiErrorCode.DATABASE_ERROR, frontendRedirectUrl, 'Failed to validate state');
         }
     }
 
-    const { provider } = req.params;
-    if (!validateProviderMiddleware(provider, res)) return;
+    const generatedState = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_IN, frontendRedirectUrl);
+    const authUrls: AuthUrls = {
+        [OAuthProviders.Google]: `../auth/google?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Microsoft]: `../auth/microsoft?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Facebook]: `../auth/facebook?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+    };
 
-    try {
-        const state = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_IN, frontendRedirectUrl);
-        const authUrls: AuthUrls = {
-            [OAuthProviders.Google]: `../auth/google?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-            [OAuthProviders.Microsoft]: `../auth/microsoft?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-            [OAuthProviders.Facebook]: `../auth/facebook?state=${state}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        };
+    next(new RedirectSuccess(null, authUrls[provider as OAuthProviders]));
+}));
 
-        res.redirect(authUrls[provider as OAuthProviders]);
-    } catch (error) {
-        console.error(error);
-        redirectWithError(res, frontendRedirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to generate state');
-    }
-});
-
-router.get('/callback/:provider', async (req: OAuthCallBackRequest, res: Response, next: NextFunction) => {
+router.get('/callback/:provider', asyncHandler(async (req: OAuthCallBackRequest, res: Response, next: NextFunction) => {
     const provider = req.params.provider;
     const stateFromProvider = req.query.state;
 
-    if (!validateProviderMiddleware(provider, res)) return;
+    if (!validateProvider(provider, res)) {
+        throw new BadRequestError('Invalid provider');
+    };
 
-    const stateDetails = await validateStateMiddleware(
+    const stateDetails = await validateState(
         stateFromProvider,
         (state) => validateOAuthState(state, provider as OAuthProviders),
         res
     ) as OAuthState;
-    if (!stateDetails) return;
 
     // Extract redirect URL from state
     const redirectUrl = stateDetails.redirectUrl || '/';
 
-    try {
-        await clearOAuthState(stateDetails.state);
+    await clearOAuthState(stateDetails.state);
 
-        passport.authenticate(provider as OAuthProviders, { session: false }, async (err: Error | null, userData: ProviderResponse) => {
+    passport.authenticate(provider as OAuthProviders, { session: false }, async (err: Error | null, userData: ProviderResponse) => {
+        try {
             if (err) {
-                redirectWithError(res, redirectUrl, ApiErrorCode.AUTH_FAILED, 'Authentication failed');
-                return;
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Authentication failed'));
             }
+
             if (!userData) {
-                redirectWithError(res, redirectUrl, ApiErrorCode.AUTH_FAILED, 'Authentication failed - no user data');
-                return;
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Authentication failed - no user data'));
             }
 
             const userEmail = userData.email;
             if (!userEmail) {
-                redirectWithError(res, redirectUrl, ApiErrorCode.MISSING_EMAIL, 'Missing email parameter');
-                return;
+                return next(new RedirectError(ApiErrorCode.MISSING_EMAIL, redirectUrl, 'Missing email parameter'));
             }
 
-            try {
-                // Get token details from Google to have accurate expiration info
-                const googleTokenService = GoogleTokenService.getInstance();
-                const tokenInfo = await googleTokenService.getTokenInfo(userData.tokenDetails.accessToken);
+            const exists = await userEmailExists(userEmail);
 
-                // Update the token details with expiration info
-                userData.tokenDetails = {
-                    ...userData.tokenDetails,
-                    expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
-                    scope: tokenInfo.scope
-                };
-
-                const exists = await userExists(userEmail, provider as OAuthProviders);
-
-                if (stateDetails.authType === AuthType.SIGN_UP) {
-                    if (exists) {
-                        redirectWithError(res, redirectUrl, ApiErrorCode.USER_EXISTS);
-                        return;
-                    }
-                    const state = await generateSignupState(userData, redirectUrl);
-                    res.redirect(`../signup?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`);
-                } else {
-                    if (!exists) {
-                        redirectWithError(res, redirectUrl, ApiErrorCode.USER_NOT_FOUND);
-                        return;
-                    }
-                    const state = await generateSignInState(userData, redirectUrl);
-                    res.redirect(`../signin?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`);
+            if (stateDetails.authType === AuthType.SIGN_UP) {
+                if (exists) {
+                    return next(new RedirectError(ApiErrorCode.USER_EXISTS, redirectUrl));
                 }
-            } catch (error) {
-                console.error(error);
-                redirectWithError(res, redirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to process authentication');
+                const state = await generateSignupState(userData, redirectUrl);
+                next(new RedirectSuccess(null, `../signup/${provider}?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`));
+            } else {
+                if (!exists) {
+                    return next(new RedirectError(ApiErrorCode.USER_NOT_FOUND, redirectUrl));
+                }
+                const state = await generateSignInState(userData, redirectUrl);
+                next(new RedirectSuccess(null, `../signin/${provider}?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`));
             }
-        })(req, res, next);
-    } catch (error) {
-        console.error(error);
-        redirectWithError(res, redirectUrl, ApiErrorCode.DATABASE_ERROR, 'Failed to validate state');
-    }
-});
+
+        } catch (error) {
+            console.error(error);
+            next(new RedirectError(ApiErrorCode.SERVER_ERROR, redirectUrl, 'Failed to process authentication'));
+        }
+    })(req, res, next);
+}));
 
 /**
  * Dedicated callback route for permission requests - focused only on token handling
  */
-router.get('/callback/permission/:provider', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/callback/permission/:provider', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const provider = req.params.provider;
     const stateFromProvider = req.query.state as string;
     const error = req.query.error as string;
 
     if (error) {
         console.error(`Permission error returned from provider: ${error}`);
-        return sendError(res, 400, ApiErrorCode.AUTH_FAILED, `Permission request failed: ${error}`);
+        throw new AuthError(`Permission request failed: ${error}`);
     }
 
-    if (!validateProviderMiddleware(provider, res)) return;
+    if (!validateProvider(provider, res)) {
+        throw new BadRequestError('Invalid provider');
+    };
 
-    try {
-        const permissionDetails = await validateStateMiddleware(
-            stateFromProvider,
-            (state) => validatePermissionState(state, provider as OAuthProviders),
-            res
-        ) as PermissionState;
-        if (!permissionDetails) return;
+    const permissionDetails = await validateState(
+        stateFromProvider,
+        (state) => validatePermissionState(state, provider as OAuthProviders),
+        res
+    ) as PermissionState;
 
-        // Get the details we need from the permission state
-        const { accountId, service, scopeLevel, redirect } = permissionDetails;
+    // Get the details we need from the permission state
+    const { accountId, service, scopeLevel, redirectUrl } = permissionDetails;
 
-        // Use the permission-specific passport strategy
-        passport.authenticate(`${provider}-permission`, { session: false }, async (err: Error | null, result: ProviderResponse) => {
+    // Use the permission-specific passport strategy
+    passport.authenticate(`${provider}-permission`, { session: false }, async (err: Error | null, result: ProviderResponse) => {
+        try {
             if (err) {
                 console.error('Permission token exchange error:', err);
-                redirectWithError(res, redirect, ApiErrorCode.AUTH_FAILED, 'Permission token exchange failed');
-                return;
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission token exchange failed'));
             }
 
             if (!result || !result.tokenDetails || !result.tokenDetails.accessToken) {
-                redirectWithError(res, redirect, ApiErrorCode.AUTH_FAILED, 'Permission request failed - no token received');
-                return;
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission request failed - no token received'));
             }
 
-            try {
-                const models = await db.getModels();
+            const exists = await userIdExists(accountId);
 
-                const dbUser = await models.accounts.OAuthAccount.findOne({ _id: accountId });
-
-                if (!dbUser) {
-                    redirectWithError(res, redirect, ApiErrorCode.USER_NOT_FOUND, "User record not found in database");
-                    return;
-                }
-
-                console.log(`Processing permission callback for account ${accountId}, service ${service}, scope ${scopeLevel}`);
-
-                // Verify that the token belongs to the correct user account
-                const token = await verifyTokenOwnership(result.tokenDetails.accessToken, accountId);
-
-                if (!token.isValid) {
-                    console.error('Token ownership verification failed:', token.reason);
-                    return redirectWithError(
-                        res,
-                        redirect,
-                        ApiErrorCode.AUTH_FAILED,
-                        'Permission was granted with an incorrect account. Please try again and ensure you use the correct Google account.'
-                    );
-                }
-
-                // Use SessionManager to update the token
-                await updateUserTokens(accountId, {
-                    accessToken: result.tokenDetails.accessToken,
-                    tokenCreatedAt: new Date().toISOString()
-                });
-
-                const googleTokenService = GoogleTokenService.getInstance();
-                const tokenInfo = await googleTokenService.tokenDetailsToInfo(result.tokenDetails);
-
-                dbUser.tokenDetails = {
-                    ...result.tokenDetails,
-                    refreshToken: dbUser.tokenDetails.refreshToken,
-                    tokenCreatedAt: new Date().toISOString(),
-                    expiresAt: new Date(tokenInfo.expiresAt).toISOString(),
-                    scope: tokenInfo.scope
-                };
-                dbUser.updated = new Date().toISOString();
-                await dbUser.save();
-
-                const { _id, ...rest } = dbUser;
-                await createOrUpdateSession(res, { id: _id, ...rest }, req);
-
-                console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirect}`);
-
-                // Redirect back to the original URL
-                return redirectWithSuccess(res, redirect, {
-                    service,
-                    scopeLevel,
-                    success: true
-                });
-            } catch (error) {
-                console.error('Error updating token:', error);
-                redirectWithError(res, redirect, ApiErrorCode.SERVER_ERROR, 'Failed to update token');
-            }
-        })(req, res, next);
-    } catch (error) {
-        console.error('Permission callback error:', error);
-        // Use a default URL if we can't determine the redirect
-        redirectWithError(res, '/', ApiErrorCode.DATABASE_ERROR, 'Failed to process permission callback');
-    }
-});
-
-router.get(
-    '/permission/:service/:scopeLevel',
-    async (req: Request, res: Response, next: NextFunction) => {
-        const service = req.params.service as string;
-        const scopeLevel = req.params.scopeLevel as string;
-        const { accountId, redirectUrl: redirect } = req.query;
-
-        if (!redirect || typeof redirect !== 'string') {
-            return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Redirect URL is required for permission requests');
-        }
-
-        try {
-            // Get the user's account details
-            const models = await db.getModels();
-            const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
-
-            if (!account || !account.userDetails.email) {
-                return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, 'Account not found or missing email');
+            if (!exists) {
+                return next(new RedirectError(ApiErrorCode.USER_NOT_FOUND, redirectUrl, 'User record not found in database'));
             }
 
-            const userEmail = account.userDetails.email;
+            console.log(`Processing permission callback for account ${accountId}, service ${service}, scope ${scopeLevel}`);
 
-            const scopeLevels = scopeLevel.split(',');
+            // Verify that the token belongs to the correct user account
+            const token = await verifyTokenOwnership(result.tokenDetails.accessToken, accountId);
 
-            // Get the scopes - handle both single and multiple scopes
-            const scopes = scopeLevels.map(level =>
-                getGoogleScope(service as GoogleServiceName, level)
-            );
+            if (!token.isValid) {
+                console.error('Token ownership verification failed:', token.reason);
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission was granted with an incorrect account. Please try again and ensure you use the correct Google account.'));
+            }
 
-            // Generate state and save permission state
-            const state = await generatePermissionState(
-                OAuthProviders.Google,
-                redirect as string,
-                accountId as string,
+            // Use SessionManager to update the token
+            await updateDbUserTokens(accountId, provider as OAuthProviders, result.tokenDetails.accessToken, result.tokenDetails.refreshToken);
+
+            await createOrUpdateSession(res, accountId, req);
+
+            console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirectUrl}`);
+
+            next(new RedirectSuccess({
                 service,
-                scopeLevel
-            );
-
-            // CRITICAL: These options force Google to use the specified account
-            const authOptions: AuthenticateOptionsGoogle = {
-                scope: scopes,
-                accessType: 'offline',
-                loginHint: userEmail,     // Pre-select the account
-                state,
-                includeGrantedScopes: true
-            };
-
-            console.log(`Initiating permission request for service: ${service}, scope: ${scopeLevel}, account: ${userEmail}`);
-
-            // Redirect to Google authorization page
-            passport.authenticate('google-permission', authOptions)(req, res, next);
+                scopeLevel,
+                success: true
+            }, redirectUrl));
         } catch (error) {
-            console.error('Error initiating permission request:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Failed to initiate permission request';
-            sendError(res, 400, ApiErrorCode.INVALID_REQUEST, errorMessage);
+            console.error('Error updating token:', error);
+            next(new RedirectError(ApiErrorCode.SERVER_ERROR, redirectUrl, 'Failed to update token'));
         }
+    })(req, res, next);
+}));
+
+router.get('/permission/:service/:scopeLevel', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const service = req.params.service as string;
+    const scopeLevel = req.params.scopeLevel as string;
+    const { accountId, redirectUrl } = req.query;
+
+    if (!redirectUrl || typeof redirectUrl !== 'string') {
+        throw new BadRequestError('Redirect URL is required for permission requests');
     }
-);
+
+    if (!accountId) {
+        throw new BadRequestError('Account id is required for permission requests');
+    }
+
+    // Get the user's account details
+    const account = await findUserById(accountId as string);
+
+    if (!account || !account.userDetails.email) {
+        throw new NotFoundError('Account not found or missing email', 404, ApiErrorCode.USER_NOT_FOUND);
+    }
+
+    const userEmail = account.userDetails.email;
+
+    const scopeLevels = scopeLevel.split(',');
+
+    // Get the scopes - handle both single and multiple scopes
+    const scopes = scopeLevels.map(level =>
+        getGoogleScope(service as GoogleServiceName, level)
+    );
+
+    // Generate state and save permission state
+    const state = await generatePermissionState(
+        OAuthProviders.Google,
+        redirectUrl as string,
+        accountId as string,
+        service,
+        scopeLevel
+    );
+
+    // CRITICAL: These options force Google to use the specified account
+    const authOptions: AuthenticateOptionsGoogle = {
+        scope: scopes,
+        accessType: 'offline',
+        prompt: 'consent',
+        loginHint: userEmail,     // Pre-select the account
+        state,
+        includeGrantedScopes: true
+    };
+
+    console.log(`Initiating permission request for service: ${service}, scope: ${scopeLevel}, account: ${userEmail}`);
+
+    // Redirect to Google authorization page
+    passport.authenticate('google-permission', authOptions)(req, res, next);
+}));

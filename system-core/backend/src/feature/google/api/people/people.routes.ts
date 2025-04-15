@@ -1,6 +1,6 @@
 import express from 'express';
-import { PeopleController } from './people.controller';
 import { googleApiAuth } from '../../middleware';
+import { addContactsToGroup, createContact, createContactGroup, deleteContact, deleteContactGroup, getContact, getContactGroup, listContactGroups, listContacts, removeContactsFromGroup, searchContacts, updateContact, updateContactGroup } from './people.controller';
 
 const router = express.Router({ mergeParams: true });
 
@@ -8,80 +8,80 @@ const router = express.Router({ mergeParams: true });
 router.get(
   '/contacts',
   googleApiAuth('people', 'readonly'),
-  PeopleController.listContacts
+  listContacts
 );
 
 router.get(
   '/contacts/search',
   googleApiAuth('people', 'readonly'),
-  PeopleController.searchContacts
+  searchContacts
 );
 
 router.get(
   '/contacts/:resourceName',
   googleApiAuth('people', 'readonly'),
-  PeopleController.getContact
+  getContact
 );
 
 router.post(
   '/contacts',
   googleApiAuth('people', 'full'),
-  PeopleController.createContact
+  createContact
 );
 
 router.put(
   '/contacts/:resourceName',
   googleApiAuth('people', 'full'),
-  PeopleController.updateContact
+  updateContact
 );
 
 router.delete(
   '/contacts/:resourceName',
   googleApiAuth('people', 'full'),
-  PeopleController.deleteContact
+  deleteContact
 );
 
 // Contact groups endpoints
 router.get(
   '/contactGroups',
   googleApiAuth('people', 'readonly'),
-  PeopleController.listContactGroups
+  listContactGroups
 );
 
 router.get(
   '/contactGroups/:resourceName',
   googleApiAuth('people', 'readonly'),
-  PeopleController.getContactGroup
+  getContactGroup
 );
 
 router.post(
   '/contactGroups',
   googleApiAuth('people', 'full'),
-  PeopleController.createContactGroup
+  createContactGroup
 );
 
 router.put(
   '/contactGroups/:resourceName',
   googleApiAuth('people', 'full'),
-  PeopleController.updateContactGroup
+  updateContactGroup
 );
 
 router.delete(
   '/contactGroups/:resourceName',
   googleApiAuth('people', 'full'),
-  PeopleController.deleteContactGroup
+  deleteContactGroup
 );
 
 router.post(
   '/contactGroups/:resourceName/members/add',
   googleApiAuth('people', 'full'),
-  PeopleController.addContactsToGroup
+  addContactsToGroup
 );
 
 router.post(
   '/contactGroups/:resourceName/members/remove',
   googleApiAuth('people', 'full'),
-  PeopleController.removeContactsFromGroup
+  removeContactsFromGroup
 );
 
 export default router;

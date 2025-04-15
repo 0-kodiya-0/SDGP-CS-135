@@ -25,6 +25,6 @@ router.use('/:accountId/meet', meetRoutes);
 
 router.use('/:accountId/people', peopleRoutes);
 
-router.use('/:accountId', tokenRoutes);
+router.use('/:accountId/token', tokenRoutes);
 
 export { router };

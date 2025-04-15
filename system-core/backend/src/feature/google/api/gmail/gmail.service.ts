@@ -27,148 +27,113 @@ export class GmailService {
      * List messages in the user's mailbox
      */
     async listMessages(params: GetMessagesParams = {}): Promise<GmailMessageList> {
-        try {
-            const response = await this.gmail.users.messages.list({
-                userId: 'me',
-                maxResults: params.maxResults || 20,
-                pageToken: params.pageToken,
-                labelIds: params.labelIds,
-                q: params.q,
-                includeSpamTrash: params.includeSpamTrash
-            });
+        const response = await this.gmail.users.messages.list({
+            userId: 'me',
+            maxResults: params.maxResults || 20,
+            pageToken: params.pageToken,
+            labelIds: params.labelIds,
+            q: params.q,
+            includeSpamTrash: params.includeSpamTrash
+        });
 
-            return {
-                items: response.data.messages || [],
-                nextPageToken: response.data.nextPageToken || undefined
-            };
-        } catch (error) {
-            console.error('Error listing Gmail messages:', error);
-            throw error;
-        }
+        return {
+            items: response.data.messages || [],
+            nextPageToken: response.data.nextPageToken || undefined
+        };
     }
 
     /**
      * Get a specific message by ID
      */
     async getMessage(params: GetMessageParams): Promise<GmailMessage> {
-        try {
-            const response = await this.gmail.users.messages.get({
-                userId: 'me',
-                id: params.id,
-                format: params.format
-            });
+        const response = await this.gmail.users.messages.get({
+            userId: 'me',
+            id: params.id,
+            format: params.format
+        });
 
-            return response.data;
-        } catch (error) {
-            console.error(`Error getting Gmail message ${params.id}:`, error);
-            throw error;
-        }
+        return response.data;
     }
 
     /**
      * Send an email
      */
     async sendMessage(params: SendMessageParams): Promise<GmailMessage> {
-        try {
-            // Create the email content
-            const message = this.createMimeMessage(params);
+        // Create the email content
+        const message = this.createMimeMessage(params);
 
-            // Encode the message in base64url format
-            const encodedMessage = Buffer.from(message)
-                .toString('base64')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
+        // Encode the message in base64url format
+        const encodedMessage = Buffer.from(message)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
 
-            // Send the email
-            const response = await this.gmail.users.messages.send({
-                userId: 'me',
-                requestBody: {
-                    raw: encodedMessage
-                }
-            });
+        // Send the email
+        const response = await this.gmail.users.messages.send({
+            userId: 'me',
+            requestBody: {
+                raw: encodedMessage
+            }
+        });
 
-            return response.data;
-        } catch (error) {
-            console.error('Error sending Gmail message:', error);
-            throw error;
-        }
+        return response.data;
     }
 
     /**
      * List all labels
      */
     async listLabels(): Promise<GmailLabelList> {
-        try {
-            const response = await this.gmail.users.labels.list({
-                userId: 'me'
-            });
+        const response = await this.gmail.users.labels.list({
+            userId: 'me'
+        });
 
-            return {
-                items: response.data.labels || []
-            };
-        } catch (error) {
-            console.error('Error listing Gmail labels:', error);
-            throw error;
-        }
+        return {
+            items: response.data.labels || []
+        };
     }
 
     /**
      * Create a new label
      */
     async createLabel(params: CreateLabelParams): Promise<GmailLabel> {
-        try {
-            const response = await this.gmail.users.labels.create({
-                userId: 'me',
-                requestBody: {
-                    name: params.name,
-                    labelListVisibility: params.labelListVisibility,
-                    messageListVisibility: params.messageListVisibility
-                }
-            });
+        const response = await this.gmail.users.labels.create({
+            userId: 'me',
+            requestBody: {
+                name: params.name,
+                labelListVisibility: params.labelListVisibility,
+                messageListVisibility: params.messageListVisibility
+            }
+        });
 
-            return response.data;
-        } catch (error) {
-            console.error('Error creating Gmail label:', error);
-            throw error;
-        }
+        return response.data;
     }
 
     /**
      * Update an existing label
      */
     async updateLabel(params: UpdateLabelParams): Promise<GmailLabel> {
-        try {
-            const response = await this.gmail.users.labels.update({
-                userId: 'me',
-                id: params.id,
-                requestBody: {
-                    name: params.name,
-                    labelListVisibility: params.labelListVisibility,
-                    messageListVisibility: params.messageListVisibility
-                }
-            });
+        const response = await this.gmail.users.labels.update({
+            userId: 'me',
+            id: params.id,
+            requestBody: {
+                name: params.name,
+                labelListVisibility: params.labelListVisibility,
+                messageListVisibility: params.messageListVisibility
+            }
+        });
 
-            return response.data;
-        } catch (error) {
-            console.error(`Error updating Gmail label ${params.id}:`, error);
-            throw error;
-        }
+        return response.data;
     }
 
     /**
      * Delete a label
      */
     async deleteLabel(id: string): Promise<void> {
-        try {
-            await this.gmail.users.labels.delete({
-                userId: 'me',
-                id
-            });
-        } catch (error) {
-            console.error(`Error deleting Gmail label ${id}:`, error);
-            throw error;
-        }
+        await this.gmail.users.labels.delete({
+            userId: 'me',
+            id
+        });
     }
 
     /**

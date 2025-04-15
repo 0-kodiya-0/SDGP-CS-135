@@ -1,7 +1,7 @@
 import express from 'express';
-import { DriveController } from './drive.controller';
 import multer from 'multer';
 import { googleApiAuth } from '../../middleware';
+import { createFile, createFolder, deleteFile, deletePermission, downloadFile, getFile, listFiles, listPermissions, searchFiles, shareFile, updateFile, uploadFile } from './drive.controller';
 
 // Set up multer for file uploads
 const upload = multer({
@@ -17,75 +17,75 @@ const router = express.Router({ mergeParams: true });
 router.get(
     '/files',
     googleApiAuth('drive', 'readonly'),
-    DriveController.listFiles
+    listFiles
 );
 
 router.get(
     '/files/search',
     googleApiAuth('drive', 'readonly'),
-    DriveController.searchFiles
+    searchFiles
 );
 
 router.get(
     '/files/:fileId',
     googleApiAuth('drive', 'readonly'),
-    DriveController.getFile
+    getFile
 );
 
 router.get(
     '/files/:fileId/download',
     googleApiAuth('drive', 'readonly'),
-    DriveController.downloadFile
+    downloadFile
 );
 
 router.post(
     '/files',
     googleApiAuth('drive', 'file'),
-    DriveController.createFile
+    createFile
 );
 
 router.post(
     '/files/upload',
     googleApiAuth('drive', 'file'),
     upload.single('file'),
-    DriveController.uploadFile
+    uploadFile
 );
 
 router.post(
     '/folders',
     googleApiAuth('drive', 'file'),
-    DriveController.createFolder
+    createFolder
 );
 
 router.put(
     '/files/:fileId',
     googleApiAuth('drive', 'file'),
-    DriveController.updateFile
+    updateFile
 );
 
 router.delete(
     '/files/:fileId',
     googleApiAuth('drive', 'file'),
-    DriveController.deleteFile
+    deleteFile
 );
 
 // Permissions endpoints
 router.get(
     '/files/:fileId/permissions',
     googleApiAuth('drive', 'readonly'),
-    DriveController.listPermissions
+    listPermissions
 );
 
 router.post(
     '/files/:fileId/permissions',
     googleApiAuth('drive', 'file'),
-    DriveController.shareFile
+    shareFile
 );
 
 router.delete(
     '/files/:fileId/permissions/:permissionId',
     googleApiAuth('drive', 'file'),
-    DriveController.deletePermission
+    deletePermission
 );
 
 export default router;

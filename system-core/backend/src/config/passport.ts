@@ -26,8 +26,7 @@ const setupPassport = () => {
                 imageUrl: profile.photos?.[0].value,
                 tokenDetails: {
                     accessToken,
-                    refreshToken: refreshToken || '',
-                    tokenCreatedAt: new Date().toISOString()
+                    refreshToken: refreshToken || ''
                 }
             };
 
@@ -62,8 +61,7 @@ const setupPassport = () => {
                 // The important part: the new token with expanded scopes
                 tokenDetails: {
                     accessToken,
-                    refreshToken: refreshToken || '',
-                    tokenCreatedAt: new Date().toISOString()
+                    refreshToken: refreshToken || ''
                 }
             };
 

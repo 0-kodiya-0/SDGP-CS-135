@@ -1,4 +1,5 @@
 import db from '../../config/db';
+import { ChatValidationError } from '../../types/response.types';
 import { MessageDocument, ConversationDocument } from './chat.model';
 import mongoose from 'mongoose';
 
@@ -21,7 +22,7 @@ export async function getOrCreatePrivateConversation(user1Id: string, user2Id: s
 
   // Prevent creating conversations with self
   if (user1Id === user2Id) {
-    throw new Error('Cannot create a conversation with yourself');
+    throw new ChatValidationError('Cannot create a conversation with yourself');
   }
 
   const participants = [user1Id, user2Id].sort(); // Sort to ensure consistent order
@@ -75,7 +76,7 @@ export async function createGroupConversation(name: string, participants: string
 
   // Ensure at least 2 participants for a group
   if (uniqueParticipants.length < 2) {
-    throw new Error('Group conversations require at least 2 participants');
+    throw new ChatValidationError('Group conversations require at least 2 participants');
   }
 
   const timestamp = new Date().toISOString();
@@ -107,7 +108,7 @@ export async function sendMessage(conversationId: string, sender: string, conten
     ).session(session);
 
     if (!conversation) {
-      throw new Error('Conversation not found or user is not a participant');
+      throw new ChatValidationError('Conversation not found or user is not a participant');
     }
 
     // Create message
@@ -230,7 +231,7 @@ export async function removeUserFromGroup(conversationId: string, userId: string
 
   // Prevent removing the last participant
   if (conversation.participants.length <= 2) {
-    throw new Error('Cannot remove user from a group with only 2 participants');
+    throw new ChatValidationError('Cannot remove user from a group with only 2 participants');
   }
 
   const timestamp = new Date().toISOString();
@@ -261,7 +262,7 @@ export async function deleteConversation(conversationId: string, userId: string)
     ).session(session);
 
     if (!conversation) {
-      throw new Error('Conversation not found or user is not a participant');
+      throw new ChatValidationError('Conversation not found or user is not a participant');
     }
 
     // Delete all messages in the conversation

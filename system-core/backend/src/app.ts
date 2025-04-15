@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import cors from 'cors';
-import express, { NextFunction, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import passport from 'passport';
 import cookieParser from 'cookie-parser';
 import setupPassport from './config/passport';
@@ -12,6 +12,7 @@ import db from './config/db';
 import { authenticateSession } from './services/session';
 import socketConfig from './config/socket.config';
 import { chatRoutes, ChatSocketHandler } from './feature/chat';
+import { applyErrorHandlers } from './utils/response';
 
 dotenv.config();
 
@@ -58,12 +59,7 @@ app.use('/account', authenticateSession, accountRoutes);
 app.use('/google', authenticateSession, googleRoutes);
 app.use('/chat', authenticateSession, chatRoutes);
 
-// Error handling
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Something went wrong!' } });
-    next();
-});
+applyErrorHandlers(app);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

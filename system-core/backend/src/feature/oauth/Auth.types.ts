@@ -1,4 +1,4 @@
-import { OAuthAccount, OAuthProviders, TokenDetails } from "../account/Account.types";
+import { OAuthProviders, TokenDetails } from "../account/Account.types";
 
 export enum AuthType {
     SIGN_UP = 'signup',
@@ -11,12 +11,12 @@ export interface OAuthState {
     provider: OAuthProviders;
     authType: AuthType;
     expiresAt: string;
-    redirectUrl?: string; // New field to store redirection URL
+    redirectUrl?: string;
 }
 
 // Add a new type for permission requests
 export interface PermissionState extends OAuthState {
-    redirect: string;
+    redirectUrl: string;
     accountId: string;
     service: string;
     scopeLevel: string;
@@ -25,7 +25,6 @@ export interface PermissionState extends OAuthState {
 export interface SignUpState {
     state: string;
     oAuthResponse: ProviderResponse;
-    accountDetails: Partial<OAuthAccount>;
     expiresAt: string;
     redirectUrl?: string; // New field to store redirection URL
 }
@@ -50,6 +49,6 @@ export interface ProviderResponse {
     name: string;
     email?: string;
     imageUrl?: string;
-    tokenDetails: TokenDetails;
+    tokenDetails: Omit<TokenDetails, "expireAt" | "tokenCreatedAt">,
     permissionState?: PermissionState | null;
 }

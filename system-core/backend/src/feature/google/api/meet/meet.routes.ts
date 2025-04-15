@@ -1,6 +1,6 @@
 import express from 'express';
-import { MeetController } from './meet.controller';
 import { googleApiAuth } from '../../middleware';
+import { addParticipant, checkAvailability, createMeeting, deleteMeeting, getMeeting, listMeetings, removeParticipant, updateMeeting } from './meet.controller';
 
 const router = express.Router({ mergeParams: true });
 
@@ -8,51 +8,51 @@ const router = express.Router({ mergeParams: true });
 router.get(
     '/meetings',
     googleApiAuth('meet', 'readonly'),
-    MeetController.listMeetings
+    listMeetings
 );
 
 router.get(
     '/meetings/:meetingId',
     googleApiAuth('meet', 'readonly'),
-    MeetController.getMeeting
+    getMeeting
 );
 
 router.post(
     '/meetings',
     googleApiAuth('meet', 'full'),
-    MeetController.createMeeting
+    createMeeting
 );
 
 router.put(
     '/meetings/:meetingId',
     googleApiAuth('meet', 'full'),
-    MeetController.updateMeeting
+    updateMeeting
 );
 
 router.delete(
     '/meetings/:meetingId',
     googleApiAuth('meet', 'full'),
-    MeetController.deleteMeeting
+    deleteMeeting
 );
 
 // Participants endpoints
 router.post(
     '/meetings/:meetingId/participants',
     googleApiAuth('meet', 'full'),
-    MeetController.addParticipant
+    addParticipant
 );
 
 router.delete(
     '/meetings/:meetingId/participants',
     googleApiAuth('meet', 'full'),
-    MeetController.removeParticipant
+    removeParticipant
 );
 
 // Availability endpoint
 router.post(
     '/availability',
     googleApiAuth('meet', 'readonly'),
-    MeetController.checkAvailability
+    checkAvailability
 );
 
 export default router;

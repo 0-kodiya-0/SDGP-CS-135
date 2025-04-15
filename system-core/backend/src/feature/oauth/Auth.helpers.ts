@@ -68,7 +68,6 @@ export const toSignUpState = (doc: any): SignUpState | null => {
             ...doc.oAuthResponse,
             provider: toProvider(doc.oAuthResponse.provider)
         },
-        accountDetails: doc.accountDetails || {},
         expiresAt: toISOString(doc.expiresAt)
     };
 };

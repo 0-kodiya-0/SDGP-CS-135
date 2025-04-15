@@ -1,10 +1,5 @@
+import { AccountValidationError } from "../../types/response.types";
 import { UserDetails, TokenDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
-import { findUser } from "./Account.utils";
-
-export const userExists = async (email: string, provider: OAuthProviders): Promise<boolean> => {
-    const user = await findUser(email, provider);
-    return user !== null;
-};
 
 export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDetails {
     return (
@@ -21,7 +16,9 @@ export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenD
         obj !== null &&
         typeof obj === "object" &&
         typeof obj.accessToken === "string" &&
-        typeof obj.refreshToken === "string"
+        typeof obj.refreshToken === "string" && 
+        typeof obj.expireAt === "number" &&
+        typeof obj.tokenCreatedAt === "number"
     );
 }
 
@@ -49,7 +46,7 @@ export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenD
 //     ) {
 //         return true;
 //     }
-//     throw new Error("Invalid Device object");
+//     throw new AccountValidationError("Invalid Device object");
 // }
 
 export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj is Omit<BaseAccount, "id"> {
@@ -68,7 +65,7 @@ export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj
         return true;
     }
 
-    throw new Error("Invalid BaseAccount object");
+    throw new AccountValidationError("Invalid BaseAccount object");
 }
 
 export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): obj is Omit<OAuthAccount, "id"> {
@@ -83,5 +80,5 @@ export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): o
     ) {
         return true;
     }
-    throw new Error("Invalid OAuthAccount object");
+    throw new AccountValidationError("Invalid OAuthAccount object");
 }

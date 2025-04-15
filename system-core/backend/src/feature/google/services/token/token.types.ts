@@ -1,10 +1,7 @@
 export interface TokenInfo {
     accessToken: string;
     refreshToken?: string;
-    expiresAt: number;
     scope: string;
-    email?: string;
-    verified?: boolean;
 }
 
 export interface TokenScopeInfo {

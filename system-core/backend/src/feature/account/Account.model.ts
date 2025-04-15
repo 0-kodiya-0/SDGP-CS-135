@@ -31,7 +31,8 @@ const UserDetailsSchema = new Schema({
 const TokenDetailsSchema = new Schema({
     accessToken: { type: String, required: true },
     refreshToken: { type: String, required: true },
-    tokenCreatedAt: { type: String }
+    expireAt: { type: Number, required: true },
+    tokenCreatedAt: { type: Number, required: true }
 }, { _id: false });
 
 // Security settings schema

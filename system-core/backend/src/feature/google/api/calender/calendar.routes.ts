@@ -1,6 +1,6 @@
 import express from 'express';
-import { CalendarController } from './calendar.controller';
 import { googleApiAuth } from '../../middleware';
+import { createCalendar, createEvent, deleteCalendar, deleteEvent, getEvent, listCalendars, listEvents, updateCalendar, updateEvent } from './calendar.controller';
 
 const router = express.Router({ mergeParams: true });
 
@@ -8,56 +8,56 @@ const router = express.Router({ mergeParams: true });
 router.get(
   '/calendars',
   googleApiAuth('calendar', 'readonly'),
-  CalendarController.listCalendars
+  listCalendars
 );
 
 router.post(
   '/calendars',
   googleApiAuth('calendar', 'full'),
-  CalendarController.createCalendar
+  createCalendar
 );
 
 router.put(
   '/calendars/:calendarId',
   googleApiAuth('calendar', 'full'),
-  CalendarController.updateCalendar
+  updateCalendar
 );
 
 router.delete(
   '/calendars/:calendarId',
   googleApiAuth('calendar', 'full'),
-  CalendarController.deleteCalendar
+  deleteCalendar
 );
 
 // Events endpoints
 router.get(
   '/events',
   googleApiAuth('calendar', 'readonly'),
-  CalendarController.listEvents
+  listEvents
 );
 
 router.get(
   '/events/:eventId',
   googleApiAuth('calendar', 'readonly'),
-  CalendarController.getEvent
+  getEvent
 );
 
 router.post(
   '/events',
   googleApiAuth('calendar', 'events'),
-  CalendarController.createEvent
+  createEvent
 );
 
 router.put(
   '/events/:eventId',
   googleApiAuth('calendar', 'events'),
-  CalendarController.updateEvent
+  updateEvent
 );
 
 router.delete(
   '/events/:eventId',
   googleApiAuth('calendar', 'events'),
-  CalendarController.deleteEvent
+  deleteEvent
 );
 
 export default router;

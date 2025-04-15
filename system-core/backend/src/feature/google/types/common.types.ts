@@ -1,4 +1,3 @@
-// Extended Request interface to include Google auth data
 import { Request } from 'express';
 import { Auth } from 'googleapis';
 

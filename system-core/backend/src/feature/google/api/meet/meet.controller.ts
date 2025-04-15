@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import {
     CreateMeetingParams,
     GetMeetingParams,
@@ -6,285 +6,216 @@ import {
     DeleteMeetingParams,
     ListMeetingsParams
 } from './meet.types';
-import { ApiErrorCode } from '../../../../types/response.types';
-import { sendError, sendSuccess } from '../../../../utils/response';
-import { handleGoogleApiError } from '../../middleware';
+import { BadRequestError, JsonSuccess } from '../../../../types/response.types';
+import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { MeetService } from './meet.service';
+import { Auth } from 'googleapis';
 
 /**
- * Controller for Meet API endpoints
+ * Create a new Google Meet meeting
  */
-export class MeetController {
-    /**
-     * Create a new Google Meet meeting
-     */
-    static async createMeeting(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+export const createMeeting = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const {
+        summary, description, startTime, endTime, timeZone,
+        attendees, notifyAttendees, guestsCanModify,
+        guestsCanInviteOthers, guestsCanSeeOtherGuests
+    } = req.body;
 
-        try {
-            const {
-                summary, description, startTime, endTime, timeZone,
-                attendees, notifyAttendees, guestsCanModify,
-                guestsCanInviteOthers, guestsCanSeeOtherGuests
-            } = req.body;
-
-            if (!summary || !startTime || !endTime) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Summary, start time, and end time are required');
-            }
-
-            // Create meeting params
-            const params: CreateMeetingParams = {
-                summary,
-                description,
-                startTime,
-                endTime,
-                timeZone,
-                attendees,
-                sendUpdates: notifyAttendees ? 'all' : 'none',
-                guestsCanModify,
-                guestsCanInviteOthers,
-                guestsCanSeeOtherGuests
-            };
-
-            // Create service and create meeting
-            const meetService = new MeetService(req.googleAuth);
-            const meeting = await meetService.createMeeting(params);
-
-            sendSuccess(res, 201, { meeting });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!summary || !startTime || !endTime) {
+        throw new BadRequestError('Summary, start time, and end time are required');
     }
 
-    /**
-     * Get a specific Google Meet meeting
-     */
-    static async getMeeting(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create meeting params
+    const params: CreateMeetingParams = {
+        summary,
+        description,
+        startTime,
+        endTime,
+        timeZone,
+        attendees,
+        sendUpdates: notifyAttendees ? 'all' : 'none',
+        guestsCanModify,
+        guestsCanInviteOthers,
+        guestsCanSeeOtherGuests
+    };
 
-        try {
-            const meetingId = req.params.meetingId;
+    // Create service and create meeting
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meeting = await meetService.createMeeting(params);
 
-            if (!meetingId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Meeting ID is required');
-            }
+    next(new JsonSuccess({ meeting }, 201));
+});
 
-            // Get meeting params
-            const params: GetMeetingParams = {
-                meetingId
-            };
+/**
+ * Get a specific Google Meet meeting
+ */
+export const getMeeting = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const meetingId = req.params.meetingId;
 
-            // Create service and get meeting
-            const meetService = new MeetService(req.googleAuth);
-            const meeting = await meetService.getMeeting(params);
-
-            sendSuccess(res, 200, { meeting });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!meetingId) {
+        throw new BadRequestError('Meeting ID is required');
     }
 
-    /**
-     * Update an existing Google Meet meeting
-     */
-    static async updateMeeting(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Get meeting params
+    const params: GetMeetingParams = {
+        meetingId
+    };
 
-        try {
-            const meetingId = req.params.meetingId;
+    // Create service and get meeting
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meeting = await meetService.getMeeting(params);
 
-            if (!meetingId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Meeting ID is required');
-            }
+    next(new JsonSuccess({ meeting }));
+});
 
-            const {
-                summary, description, startTime, endTime, timeZone,
-                attendees, notifyAttendees, guestsCanModify,
-                guestsCanInviteOthers, guestsCanSeeOtherGuests
-            } = req.body;
+/**
+ * Update an existing Google Meet meeting
+ */
+export const updateMeeting = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const meetingId = req.params.meetingId;
 
-            // Update meeting params
-            const params: UpdateMeetingParams = {
-                meetingId,
-                summary,
-                description,
-                startTime,
-                endTime,
-                timeZone,
-                attendees,
-                sendUpdates: notifyAttendees ? 'all' : 'none',
-                guestsCanModify,
-                guestsCanInviteOthers,
-                guestsCanSeeOtherGuests
-            };
-
-            // Create service and update meeting
-            const meetService = new MeetService(req.googleAuth);
-            const meeting = await meetService.updateMeeting(params);
-
-            sendSuccess(res, 200, { meeting });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!meetingId) {
+        throw new BadRequestError('Meeting ID is required');
     }
 
-    /**
-     * Delete a Google Meet meeting
-     */
-    static async deleteMeeting(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const {
+        summary, description, startTime, endTime, timeZone,
+        attendees, notifyAttendees, guestsCanModify,
+        guestsCanInviteOthers, guestsCanSeeOtherGuests
+    } = req.body;
 
-        try {
-            const meetingId = req.params.meetingId;
+    // Update meeting params
+    const params: UpdateMeetingParams = {
+        meetingId,
+        summary,
+        description,
+        startTime,
+        endTime,
+        timeZone,
+        attendees,
+        sendUpdates: notifyAttendees ? 'all' : 'none',
+        guestsCanModify,
+        guestsCanInviteOthers,
+        guestsCanSeeOtherGuests
+    };
 
-            if (!meetingId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Meeting ID is required');
-            }
+    // Create service and update meeting
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meeting = await meetService.updateMeeting(params);
 
-            const notifyAttendees = req.query.notifyAttendees === 'true';
+    next(new JsonSuccess({ meeting }));
+});
 
-            // Delete meeting params
-            const params: DeleteMeetingParams = {
-                meetingId,
-                sendUpdates: notifyAttendees ? 'all' : 'none'
-            };
+/**
+ * Delete a Google Meet meeting
+ */
+export const deleteMeeting = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const meetingId = req.params.meetingId;
 
-            // Create service and delete meeting
-            const meetService = new MeetService(req.googleAuth);
-            await meetService.deleteMeeting(params);
-
-            sendSuccess(res, 200, { message: 'Meeting deleted successfully' });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!meetingId) {
+        throw new BadRequestError('Meeting ID is required');
     }
 
-    /**
-     * List Google Meet meetings
-     */
-    static async listMeetings(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const notifyAttendees = req.query.notifyAttendees === 'true';
 
-        try {
-            // Extract query parameters
-            const params: ListMeetingsParams = {
-                maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
-                pageToken: req.query.pageToken as string,
-                timeMin: req.query.timeMin as string,
-                timeMax: req.query.timeMax as string,
-                q: req.query.q as string,
-                singleEvents: req.query.singleEvents === 'true',
-                orderBy: req.query.orderBy as 'startTime' | 'updated'
-            };
+    // Delete meeting params
+    const params: DeleteMeetingParams = {
+        meetingId,
+        sendUpdates: notifyAttendees ? 'all' : 'none'
+    };
 
-            // Create service and list meetings
-            const meetService = new MeetService(req.googleAuth);
-            const meetings = await meetService.listMeetings(params);
+    // Create service and delete meeting
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    await meetService.deleteMeeting(params);
 
-            sendSuccess(res, 200, {
-                meetings: meetings.items,
-                nextPageToken: meetings.nextPageToken
-            });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    next(new JsonSuccess({ message: 'Meeting deleted successfully' }));
+});
+
+/**
+ * List Google Meet meetings
+ */
+export const listMeetings = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    // Extract query parameters
+    const params: ListMeetingsParams = {
+        maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
+        pageToken: req.query.pageToken as string,
+        timeMin: req.query.timeMin as string,
+        timeMax: req.query.timeMax as string,
+        q: req.query.q as string,
+        singleEvents: req.query.singleEvents === 'true',
+        orderBy: req.query.orderBy as 'startTime' | 'updated'
+    };
+
+    // Create service and list meetings
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meetings = await meetService.listMeetings(params);
+
+    next(new JsonSuccess({
+        meetings: meetings.items,
+        nextPageToken: meetings.nextPageToken
+    }));
+});
+
+/**
+ * Check if a user is available during a proposed meeting time
+ */
+export const checkAvailability = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const { email, startTime, endTime } = req.body;
+
+    if (!email || !startTime || !endTime) {
+        throw new BadRequestError('Email, start time, and end time are required');
     }
 
-    /**
-     * Check if a user is available during a proposed meeting time
-     */
-    static async checkAvailability(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create service and check availability
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const isAvailable = await meetService.checkAvailability(email, startTime, endTime);
 
-        try {
-            const { email, startTime, endTime } = req.body;
+    next(new JsonSuccess({ isAvailable }));
+});
 
-            if (!email || !startTime || !endTime) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Email, start time, and end time are required');
-            }
+/**
+ * Add a participant to an existing meeting
+ */
+export const addParticipant = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const meetingId = req.params.meetingId;
 
-            // Create service and check availability
-            const meetService = new MeetService(req.googleAuth);
-            const isAvailable = await meetService.checkAvailability(email, startTime, endTime);
-
-            sendSuccess(res, 200, { isAvailable });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!meetingId) {
+        throw new BadRequestError('Meeting ID is required');
     }
 
-    /**
-     * Add a participant to an existing meeting
-     */
-    static async addParticipant(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const { email, optional } = req.body;
 
-        try {
-            const meetingId = req.params.meetingId;
-
-            if (!meetingId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Meeting ID is required');
-            }
-
-            const { email, optional } = req.body;
-
-            if (!email) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Email is required');
-            }
-
-            // Create service and add participant
-            const meetService = new MeetService(req.googleAuth);
-            const meeting = await meetService.addParticipant(meetingId, email, optional);
-
-            sendSuccess(res, 200, { meeting });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!email) {
+        throw new BadRequestError('Email is required');
     }
 
-    /**
-     * Remove a participant from an existing meeting
-     */
-    static async removeParticipant(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create service and add participant
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meeting = await meetService.addParticipant(meetingId, email, optional);
 
-        try {
-            const meetingId = req.params.meetingId;
+    next(new JsonSuccess({ meeting }));
+});
 
-            if (!meetingId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Meeting ID is required');
-            }
+/**
+ * Remove a participant from an existing meeting
+ */
+export const removeParticipant = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const meetingId = req.params.meetingId;
 
-            const { email } = req.body;
-
-            if (!email) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Email is required');
-            }
-
-            // Create service and remove participant
-            const meetService = new MeetService(req.googleAuth);
-            const meeting = await meetService.removeParticipant(meetingId, email);
-
-            sendSuccess(res, 200, { meeting });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!meetingId) {
+        throw new BadRequestError('Meeting ID is required');
     }
-}
+
+    const { email } = req.body;
+
+    if (!email) {
+        throw new BadRequestError('Email is required');
+    }
+
+    // Create service and remove participant
+    const meetService = new MeetService(req.googleAuth as Auth.OAuth2Client);
+    const meeting = await meetService.removeParticipant(meetingId, email);
+
+    next(new JsonSuccess({ meeting }));
+});

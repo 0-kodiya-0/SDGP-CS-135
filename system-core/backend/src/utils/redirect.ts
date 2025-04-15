@@ -1,5 +1,6 @@
 import { Response, Request } from "express";
 import { ApiErrorCode } from "../types/response.types";
+import * as path from "path";
 
 // Redirect types
 export enum RedirectType {
@@ -26,35 +27,70 @@ export const createRedirectUrl = (
     options: RedirectOptions,
     originalUrl?: string
 ): string => {
-    // Create a URL object for proper handling of parameters
-    const url = new URL(baseUrl.startsWith('http') ? baseUrl : `http://localhost:8080${baseUrl}`);
-    const pathname = url.pathname;
-    const isAbsoluteUrl = baseUrl.startsWith('http');
-
-    // Add status parameter
-    url.searchParams.append('status', options.type);
-
-    // Add code and message for errors
-    if (options.type === RedirectType.ERROR && options.code) {
-        url.searchParams.append('errorCode', options.code);
-
-        if (options.message) {
-            url.searchParams.append('errorMessage', encodeURIComponent(options.message));
+    let finalUrl = '';
+    const queryParams = new URLSearchParams();
+    
+    // Check if it's an absolute URL (starts with http:// or https://)
+    const isAbsoluteUrl = baseUrl.startsWith('http://') || baseUrl.startsWith('https://');
+    
+    if (isAbsoluteUrl) {
+        // For absolute URLs, we can use the URL constructor
+        try {
+            const urlObj = new URL(baseUrl);
+            finalUrl = urlObj.origin + urlObj.pathname;
+            
+            // Copy existing query parameters if any
+            urlObj.searchParams.forEach((value, key) => {
+                queryParams.append(key, value);
+            });
+        } catch (error) {
+            console.error('Error parsing absolute URL:', error);
+            finalUrl = baseUrl;
+        }
+    } else {
+        // For relative URLs (including '../' notation), just use the path directly
+        // We'll normalize it to handle '../' paths correctly
+        finalUrl = path.normalize(baseUrl).split('?')[0];
+        
+        // Extract any existing query parameters
+        const queryIndex = baseUrl.indexOf('?');
+        if (queryIndex !== -1) {
+            const queryString = baseUrl.substring(queryIndex + 1);
+            new URLSearchParams(queryString).forEach((value, key) => {
+                queryParams.append(key, value);
+            });
         }
     }
-
+    
+    // Add status parameter
+    queryParams.append('status', options.type);
+    
+    // Add code and message for errors
+    if (options.type === RedirectType.ERROR && options.code) {
+        queryParams.append('errorCode', options.code);
+        
+        if (options.message) {
+            queryParams.append('errorMessage', encodeURIComponent(options.message));
+        }
+    }
+    
     // Add data for success
     if (options.type === RedirectType.SUCCESS && options.data) {
-        url.searchParams.append('data', encodeURIComponent(JSON.stringify(options.data)));
+        queryParams.append('data', encodeURIComponent(JSON.stringify(options.data)));
     }
-
+    
     // For permission redirects, include original URL
-    if (options.type === RedirectType.PERMISSION && originalUrl) {
-        url.searchParams.append('redirectAfterPermission', encodeURIComponent(originalUrl));
+    if (originalUrl) {
+        queryParams.append('redirectUrl', encodeURIComponent(path.normalize(originalUrl)));
     }
-
-    // Return properly formatted URL
-    return isAbsoluteUrl ? url.toString() : `${pathname}${url.search}`;
+    
+    // Construct the final URL with query parameters
+    const queryString = queryParams.toString();
+    if (queryString) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString;
+    }
+    
+    return finalUrl;
 };
 
 /**
@@ -76,13 +112,14 @@ export const handleRedirect = (
 export const redirectWithSuccess = (
     res: Response,
     path: string,
-    data?: Record<string, any>
+    originalUrl?: string,
+    data?: Record<string, any>,
 ): void => {
     handleRedirect(res, path, {
         path,
         type: RedirectType.SUCCESS,
         data
-    });
+    }, originalUrl);
 };
 
 /**
@@ -92,6 +129,7 @@ export const redirectWithError = (
     res: Response,
     path: string,
     code: ApiErrorCode,
+    originalUrl?: string,
     message?: string
 ): void => {
     handleRedirect(res, path, {
@@ -99,7 +137,7 @@ export const redirectWithError = (
         type: RedirectType.ERROR,
         code,
         message
-    });
+    }, originalUrl);
 };
 
 /**

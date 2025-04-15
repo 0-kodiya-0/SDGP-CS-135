@@ -1,9 +1,47 @@
+import { Response } from "express";
 import { OAuthProviders } from "../account/Account.types";
 import { OAuthState, PermissionState, SignInState, SignUpState } from "./Auth.types";
 import { getOAuthState, getSignInState, getSignUpState, getPermissionState } from "./Auth.cache";
 import db from "../../config/db";
 import { google } from "googleapis";
-import { GoogleAuthClient } from "../google/config/client";
+import { BadRequestError, ApiErrorCode } from "../../types/response.types";
+import { StateDetails } from "./Auth.dto";
+
+type ValidateState = (
+    state: string | undefined,
+    validate: (state: string) => Promise<StateDetails>,
+    res: Response
+) => Promise<StateDetails | undefined>;
+
+// validate state parameter
+export const validateState: ValidateState = async (state, validate) => {
+    if (!state || typeof state !== 'string') {
+        throw new BadRequestError('Missing state parameter', 400, ApiErrorCode.INVALID_STATE);
+    }
+
+    const stateDetails = await validate(state);
+
+    if (!stateDetails) {
+        throw new BadRequestError('Invalid or expired state parameter', 400, ApiErrorCode.INVALID_STATE);
+    }
+
+    return stateDetails;
+};
+
+type ValidateProvider = (provider: string | undefined, res: Response) => boolean
+
+//  to validate provider parameter
+export const validateProvider: ValidateProvider = (provider) => {
+    if (!provider || typeof provider !== 'string') {
+        throw new BadRequestError('Missing or invalid provider parameter', 400, ApiErrorCode.INVALID_PROVIDER);
+    }
+
+    if (!Object.values(OAuthProviders).includes(provider as OAuthProviders)) {
+        throw new BadRequestError('Invalid provider', 400, ApiErrorCode.INVALID_PROVIDER);
+    }
+
+    return true;
+};
 
 /**
  * Validates an OAuth state for a specific provider
@@ -115,8 +153,11 @@ export async function verifyTokenOwnership(
         }
 
         // Get user information from the token
-        const googleAuth = GoogleAuthClient.getInstance().getBaseClient();
-
+        const googleAuth = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET
+        );
+        
         googleAuth.setCredentials({ access_token: accessToken });
 
         // Get the user info using the oauth2 API

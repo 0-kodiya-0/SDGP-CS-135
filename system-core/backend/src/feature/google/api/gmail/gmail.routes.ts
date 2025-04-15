@@ -1,6 +1,6 @@
 import express from 'express';
 import { googleApiAuth } from '../../middleware';
-import { GmailController } from './gmail.controller';
+import { createLabel, deleteLabel, getMessage, listLabels, listMessages, sendMessage, updateLabel } from './gmail.controller';
 
 const router = express.Router({ mergeParams: true });
 
@@ -8,44 +8,44 @@ const router = express.Router({ mergeParams: true });
 router.get(
     '/messages',
     googleApiAuth('gmail', 'readonly'),
-    GmailController.listMessages
+    listMessages
 );
 
 router.get(
     '/messages/:messageId',
     googleApiAuth('gmail', 'readonly'),
-    GmailController.getMessage
+    getMessage
 );
 
 router.post(
     '/messages',
     googleApiAuth('gmail', 'send'),
-    GmailController.sendMessage
+    sendMessage
 );
 
 // Labels endpoints
 router.get(
     '/labels',
     googleApiAuth('gmail', 'readonly'),
-    GmailController.listLabels
+    listLabels
 );
 
 router.post(
     '/labels',
     googleApiAuth('gmail', 'full'),
-    GmailController.createLabel
+    createLabel
 );
 
 router.put(
     '/labels/:labelId',
     googleApiAuth('gmail', 'full'),
-    GmailController.updateLabel
+    updateLabel
 );
 
 router.delete(
     '/labels/:labelId',
     googleApiAuth('gmail', 'full'),
-    GmailController.deleteLabel
+    deleteLabel
 );
 
 export default router;

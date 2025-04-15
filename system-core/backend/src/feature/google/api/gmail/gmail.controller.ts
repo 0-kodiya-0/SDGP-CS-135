@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import {
     GetMessagesParams,
     GetMessageParams,
@@ -6,232 +6,171 @@ import {
     CreateLabelParams,
     UpdateLabelParams
 } from './gmail.types';
-import { ApiErrorCode } from '../../../../types/response.types';
-import { sendError, sendSuccess } from '../../../../utils/response';
-import { handleGoogleApiError } from '../../middleware';
+import { BadRequestError, JsonSuccess } from '../../../../types/response.types';
+import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { GmailService } from './gmail.service';
+import { Auth } from 'googleapis';
 
 /**
- * Controller for Gmail API endpoints
+ * List messages in the user's mailbox
  */
-export class GmailController {
-    /**
-     * List messages in the user's mailbox
-     */
-    static async listMessages(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
-    
-        try {
-            const params: GetMessagesParams = {
-                maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 20,
-                pageToken: req.query.pageToken as string,
-                q: req.query.q as string,
-                labelIds: req.query.labelIds ? (req.query.labelIds as string).split(',') : undefined,
-                includeSpamTrash: req.query.includeSpamTrash === 'true'
-            };
-    
-            const gmailService = new GmailService(req.googleAuth);
-    
-            // Fetch the initial list of message IDs
-            const messageList = await gmailService.listMessages(params);
-    
-            // Fetch metadata headers in parallel for faster load
-            const metadataPromises = messageList.items.map(async (msg) => {
-                const messageMetadata = await gmailService.getMessage({
-                    id: msg.id!,
-                    format: 'metadata'
-                });
-                return messageMetadata;
-            });
-    
-            const messagesWithMetadata = await Promise.all(metadataPromises);
-    
-            sendSuccess(res, 200, {
-                messages: messagesWithMetadata,
-                nextPageToken: messageList.nextPageToken
-            });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+export const listMessages = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const params: GetMessagesParams = {
+        maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 20,
+        pageToken: req.query.pageToken as string,
+        q: req.query.q as string,
+        labelIds: req.query.labelIds ? (req.query.labelIds as string).split(',') : undefined,
+        includeSpamTrash: req.query.includeSpamTrash === 'true'
+    };
+
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+
+    // Fetch the initial list of message IDs
+    const messageList = await gmailService.listMessages(params);
+
+    // Fetch metadata headers in parallel for faster load
+    const metadataPromises = messageList.items.map(async (msg) => {
+        const messageMetadata = await gmailService.getMessage({
+            id: msg.id!,
+            format: 'metadata'
+        });
+        return messageMetadata;
+    });
+
+    const messagesWithMetadata = await Promise.all(metadataPromises);
+
+    next(new JsonSuccess({
+        messages: messagesWithMetadata,
+        nextPageToken: messageList.nextPageToken
+    }));
+});
+
+/**
+ * Get a specific message by ID
+ */
+export const getMessage = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const messageId = req.params.messageId;
+
+    if (!messageId) {
+        throw new BadRequestError('Message ID is required');
     }
 
-    /**
-     * Get a specific message by ID
-     */
-    static async getMessage(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Extract query parameters
+    const params: GetMessageParams = {
+        id: messageId,
+        format: req.query.format as ('minimal' | 'full' | 'raw' | 'metadata') || 'full'
+    };
 
-        try {
-            const messageId = req.params.messageId;
+    // Create service and get message
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    const message = await gmailService.getMessage(params);
 
-            if (!messageId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Message ID is required');
-            }
+    next(new JsonSuccess({ message }));
+});
 
-            // Extract query parameters
-            const params: GetMessageParams = {
-                id: messageId,
-                format: req.query.format as ('minimal' | 'full' | 'raw' | 'metadata') || 'full'
-            };
+/**
+ * Send a new email
+ */
+export const sendMessage = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const { to, subject, body, cc, bcc, attachments, isHtml } = req.body;
 
-            // Create service and get message
-            const gmailService = new GmailService(req.googleAuth);
-            const message = await gmailService.getMessage(params);
-
-            sendSuccess(res, 200, { message });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!to || !subject || body === undefined) {
+        throw new BadRequestError('To, subject, and body are required');
     }
 
-    /**
-     * Send a new email
-     */
-    static async sendMessage(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create message payload
+    const params: SendMessageParams = {
+        to,
+        subject,
+        body,
+        cc,
+        bcc,
+        attachments,
+        isHtml: isHtml === true
+    };
 
-        try {
-            const { to, subject, body, cc, bcc, attachments, isHtml } = req.body;
+    // Create service and send message
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    const result = await gmailService.sendMessage(params);
 
-            if (!to || !subject || body === undefined) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'To, subject, and body are required');
-            }
+    next(new JsonSuccess({ message: result }));
+});
 
-            // Create message payload
-            const params: SendMessageParams = {
-                to,
-                subject,
-                body,
-                cc,
-                bcc,
-                attachments,
-                isHtml: isHtml === true
-            };
+/**
+ * List all labels
+ */
+export const listLabels = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    const labels = await gmailService.listLabels();
 
-            // Create service and send message
-            const gmailService = new GmailService(req.googleAuth);
-            const result = await gmailService.sendMessage(params);
+    next(new JsonSuccess({ labels: labels.items }));
+});
 
-            sendSuccess(res, 200, { message: result });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+/**
+ * Create a new label
+ */
+export const createLabel = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const { name, labelListVisibility, messageListVisibility } = req.body;
+
+    if (!name) {
+        throw new BadRequestError('Label name is required');
     }
 
-    /**
-     * List all labels
-     */
-    static async listLabels(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create label payload
+    const params: CreateLabelParams = {
+        name,
+        labelListVisibility,
+        messageListVisibility
+    };
 
-        try {
-            const gmailService = new GmailService(req.googleAuth);
-            const labels = await gmailService.listLabels();
+    // Create service and create label
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    const label = await gmailService.createLabel(params);
 
-            sendSuccess(res, 200, { labels: labels.items });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    next(new JsonSuccess({ label }, 201));
+});
+
+/**
+ * Update an existing label
+ */
+export const updateLabel = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const labelId = req.params.labelId;
+
+    if (!labelId) {
+        throw new BadRequestError('Label ID is required');
     }
 
-    /**
-     * Create a new label
-     */
-    static async createLabel(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const { name, labelListVisibility, messageListVisibility } = req.body;
 
-        try {
-            const { name, labelListVisibility, messageListVisibility } = req.body;
+    // Create update payload
+    const params: UpdateLabelParams = {
+        id: labelId,
+        name,
+        labelListVisibility,
+        messageListVisibility
+    };
 
-            if (!name) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Label name is required');
-            }
+    // Create service and update label
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    const label = await gmailService.updateLabel(params);
 
-            // Create label payload
-            const params: CreateLabelParams = {
-                name,
-                labelListVisibility,
-                messageListVisibility
-            };
+    next(new JsonSuccess({ label }));
+});
 
-            // Create service and create label
-            const gmailService = new GmailService(req.googleAuth);
-            const label = await gmailService.createLabel(params);
+/**
+ * Delete a label
+ */
+export const deleteLabel = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const labelId = req.params.labelId;
 
-            sendSuccess(res, 201, { label });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!labelId) {
+        throw new BadRequestError('Label ID is required');
     }
 
-    /**
-     * Update an existing label
-     */
-    static async updateLabel(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create service and delete label
+    const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
+    await gmailService.deleteLabel(labelId);
 
-        try {
-            const labelId = req.params.labelId;
-
-            if (!labelId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Label ID is required');
-            }
-
-            const { name, labelListVisibility, messageListVisibility } = req.body;
-
-            // Create update payload
-            const params: UpdateLabelParams = {
-                id: labelId,
-                name,
-                labelListVisibility,
-                messageListVisibility
-            };
-
-            // Create service and update label
-            const gmailService = new GmailService(req.googleAuth);
-            const label = await gmailService.updateLabel(params);
-
-            sendSuccess(res, 200, { label });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
-    }
-
-    /**
-     * Delete a label
-     */
-    static async deleteLabel(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
-
-        try {
-            const labelId = req.params.labelId;
-
-            if (!labelId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Label ID is required');
-            }
-
-            // Create service and delete label
-            const gmailService = new GmailService(req.googleAuth);
-            await gmailService.deleteLabel(labelId);
-
-            sendSuccess(res, 200, { message: 'Label deleted successfully' });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
-    }
-}
+    next(new JsonSuccess({ message: 'Label deleted successfully' }));
+});

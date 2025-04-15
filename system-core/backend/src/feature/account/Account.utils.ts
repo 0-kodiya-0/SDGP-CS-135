@@ -1,6 +1,6 @@
 import db from "../../config/db";
 import { OAuthAccountDocument } from "./Account.model";
-import { OAuthAccount, OAuthAccountDTO, OAuthProviders } from "./Account.types";
+import { OAuthAccount, OAuthAccountDTO } from "./Account.types";
 
 // Convert Mongoose document to OAuthAccount type
 export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDTO | null => {
@@ -22,15 +22,42 @@ export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDT
   return account;
 };
 
-export const findUser = async (email: string | undefined, provider: OAuthProviders): Promise<OAuthAccount | null> => {
-  if (!email) return null;
-
+export const findUserByEmail = async (email: string): Promise<OAuthAccount | null> => {
   const models = await db.getModels();
 
   const doc = await models.accounts.OAuthAccount.findOne({
-    'userDetails.email': email,
-    provider
+    'userDetails.email': email
   });
 
-  return doc ? { id: doc._id.toHexString(), ...doc } : null;
+  return doc ? { id: doc._id.toHexString(), ...doc.toObject() } : null;
+};
+
+export const findUserById = async (id: string): Promise<OAuthAccount | null> => {
+  const models = await db.getModels();
+
+  const doc = await models.accounts.OAuthAccount.findOne({
+    _id: id
+  });
+
+  return doc ? { id: doc._id.toHexString(), ...doc.toObject() } : null;
+};
+
+export const userEmailExists = async (email: string): Promise<boolean> => {
+  const models = await db.getModels();
+
+  const doc = await models.accounts.OAuthAccount.exists({
+    'userDetails.email': email
+  });
+
+  return doc ? true : false;
+};
+
+export const userIdExists = async (id: string): Promise<boolean> => {
+  const models = await db.getModels();
+
+  const doc = await models.accounts.OAuthAccount.exists({
+    _id: id
+  });
+
+  return doc ? true : false;
 };

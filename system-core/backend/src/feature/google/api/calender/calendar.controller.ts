@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import {
     GetEventsParams,
     GetEventParams,
@@ -9,332 +9,255 @@ import {
     CreateCalendarParams,
     UpdateCalendarParams
 } from './calendar.types';
-import { ApiErrorCode } from '../../../../types/response.types';
-import { sendError, sendSuccess } from '../../../../utils/response';
-import { handleGoogleApiError, } from '../../middleware';
+import { BadRequestError, JsonSuccess } from '../../../../types/response.types';
+import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { CalendarService } from './calendar.service';
+import { Auth } from 'googleapis';
 
 /**
- * Controller for Calendar API endpoints
+ * List events from a calendar
  */
-export class CalendarController {
-    /**
-     * List events from a calendar
-     */
-    static async listEvents(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+export const listEvents = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    // Extract query parameters
+    const params: GetEventsParams = {
+        calendarId: req.query.calendarId as string,
+        maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
+        pageToken: req.query.pageToken as string,
+        timeMin: req.query.timeMin as string,
+        timeMax: req.query.timeMax as string,
+        singleEvents: req.query.singleEvents === 'true',
+        orderBy: req.query.orderBy as ('startTime' | 'updated'),
+        q: req.query.q as string
+    };
 
-        try {
-            // Extract query parameters
-            const params: GetEventsParams = {
-                calendarId: req.query.calendarId as string,
-                maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
-                pageToken: req.query.pageToken as string,
-                timeMin: req.query.timeMin as string,
-                timeMax: req.query.timeMax as string,
-                singleEvents: req.query.singleEvents === 'true',
-                orderBy: req.query.orderBy as ('startTime' | 'updated'),
-                q: req.query.q as string
-            };
+    // Create service and get events
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const events = await calendarService.listEvents(params);
 
-            // Create service and get events
-            const calendarService = new CalendarService(req.googleAuth);
-            const events = await calendarService.listEvents(params);
+    next(new JsonSuccess({
+        events: events.items,
+        nextPageToken: events.nextPageToken
+    }));
+});
 
-            sendSuccess(res, 200, {
-                events: events.items,
-                nextPageToken: events.nextPageToken
-            });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+/**
+ * Get a specific event by ID
+ */
+export const getEvent = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const eventId = req.params.eventId;
+
+    if (!eventId) {
+        throw new BadRequestError('Event ID is required');
     }
 
-    /**
-     * Get a specific event by ID
-     */
-    static async getEvent(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Extract parameters
+    const params: GetEventParams = {
+        calendarId: req.query.calendarId as string,
+        eventId
+    };
 
-        try {
-            const eventId = req.params.eventId;
+    // Create service and get event
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const event = await calendarService.getEvent(params);
 
-            if (!eventId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Event ID is required');
-            }
+    next(new JsonSuccess({ event }));
+});
 
-            // Extract parameters
-            const params: GetEventParams = {
-                calendarId: req.query.calendarId as string,
-                eventId
-            };
+/**
+ * Create a new event
+ */
+export const createEvent = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const {
+        calendarId, summary, description, location,
+        start, end, attendees, recurrence, reminders,
+        colorId, transparency, visibility, conferenceData
+    } = req.body;
 
-            // Create service and get event
-            const calendarService = new CalendarService(req.googleAuth);
-            const event = await calendarService.getEvent(params);
-
-            sendSuccess(res, 200, { event });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!summary || !start || !end) {
+        throw new BadRequestError('Summary, start, and end are required');
     }
 
-    /**
-     * Create a new event
-     */
-    static async createEvent(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create event payload
+    const params: CreateEventParams = {
+        calendarId,
+        summary,
+        description,
+        location,
+        start,
+        end,
+        attendees,
+        recurrence,
+        reminders,
+        colorId,
+        transparency,
+        visibility,
+        conferenceData
+    };
 
-        try {
-            const {
-                calendarId, summary, description, location,
-                start, end, attendees, recurrence, reminders,
-                colorId, transparency, visibility, conferenceData
-            } = req.body;
+    // Create service and create event
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const event = await calendarService.createEvent(params);
 
-            if (!summary || !start || !end) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Summary, start, and end are required');
-            }
+    next(new JsonSuccess({ event }, 201));
+});
 
-            // Create event payload
-            const params: CreateEventParams = {
-                calendarId,
-                summary,
-                description,
-                location,
-                start,
-                end,
-                attendees,
-                recurrence,
-                reminders,
-                colorId,
-                transparency,
-                visibility,
-                conferenceData
-            };
+/**
+ * Update an existing event
+ */
+export const updateEvent = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const eventId = req.params.eventId;
 
-            // Create service and create event
-            const calendarService = new CalendarService(req.googleAuth);
-            const event = await calendarService.createEvent(params);
-
-            sendSuccess(res, 201, { event });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!eventId) {
+        throw new BadRequestError('Event ID is required');
     }
 
-    /**
-     * Update an existing event
-     */
-    static async updateEvent(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const {
+        calendarId, summary, description, location,
+        start, end, attendees, recurrence, reminders,
+        colorId, transparency, visibility, conferenceData,
+        sendUpdates
+    } = req.body;
 
-        try {
-            const eventId = req.params.eventId;
+    // Create update payload
+    const params: UpdateEventParams = {
+        eventId,
+        calendarId,
+        summary,
+        description,
+        location,
+        start,
+        end,
+        attendees,
+        recurrence,
+        reminders,
+        colorId,
+        transparency,
+        visibility,
+        conferenceData,
+        sendUpdates
+    };
 
-            if (!eventId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Event ID is required');
-            }
+    // Create service and update event
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const event = await calendarService.updateEvent(params);
 
-            const {
-                calendarId, summary, description, location,
-                start, end, attendees, recurrence, reminders,
-                colorId, transparency, visibility, conferenceData,
-                sendUpdates
-            } = req.body;
+    next(new JsonSuccess({ event }));
+});
 
-            // Create update payload
-            const params: UpdateEventParams = {
-                eventId,
-                calendarId,
-                summary,
-                description,
-                location,
-                start,
-                end,
-                attendees,
-                recurrence,
-                reminders,
-                colorId,
-                transparency,
-                visibility,
-                conferenceData,
-                sendUpdates
-            };
+/**
+ * Delete an event
+ */
+export const deleteEvent = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const eventId = req.params.eventId;
 
-            // Create service and update event
-            const calendarService = new CalendarService(req.googleAuth);
-            const event = await calendarService.updateEvent(params);
-
-            sendSuccess(res, 200, { event });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!eventId) {
+        throw new BadRequestError('Event ID is required');
     }
 
-    /**
-     * Delete an event
-     */
-    static async deleteEvent(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const calendarId = req.query.calendarId as string;
+    const sendUpdates = req.query.sendUpdates as ('all' | 'externalOnly' | 'none');
 
-        try {
-            const eventId = req.params.eventId;
+    // Create delete params
+    const params: DeleteEventParams = {
+        eventId,
+        calendarId,
+        sendUpdates
+    };
 
-            if (!eventId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Event ID is required');
-            }
+    // Create service and delete event
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    await calendarService.deleteEvent(params);
 
-            const calendarId = req.query.calendarId as string;
-            const sendUpdates = req.query.sendUpdates as ('all' | 'externalOnly' | 'none');
+    next(new JsonSuccess({ message: 'Event deleted successfully' }));
+});
 
-            // Create delete params
-            const params: DeleteEventParams = {
-                eventId,
-                calendarId,
-                sendUpdates
-            };
+/**
+ * List available calendars
+ */
+export const listCalendars = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    // Extract query parameters
+    const params: GetCalendarsParams = {
+        maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
+        pageToken: req.query.pageToken as string
+    };
 
-            // Create service and delete event
-            const calendarService = new CalendarService(req.googleAuth);
-            await calendarService.deleteEvent(params);
+    // Create service and get calendars
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const calendars = await calendarService.listCalendars(params);
 
-            sendSuccess(res, 200, { message: 'Event deleted successfully' });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    next(new JsonSuccess({
+        calendars: calendars.items,
+        nextPageToken: calendars.nextPageToken
+    }));
+});
+
+/**
+ * Create a new calendar
+ */
+export const createCalendar = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const { summary, description, location, timeZone } = req.body;
+
+    if (!summary) {
+        throw new BadRequestError('Calendar summary (name) is required');
     }
 
-    /**
-     * List available calendars
-     */
-    static async listCalendars(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create calendar payload
+    const params: CreateCalendarParams = {
+        summary,
+        description,
+        location,
+        timeZone
+    };
 
-        try {
-            // Extract query parameters
-            const params: GetCalendarsParams = {
-                maxResults: req.query.maxResults ? parseInt(req.query.maxResults as string) : 100,
-                pageToken: req.query.pageToken as string
-            };
+    // Create service and create calendar
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const calendar = await calendarService.createCalendar(params);
 
-            // Create service and get calendars
-            const calendarService = new CalendarService(req.googleAuth);
-            const calendars = await calendarService.listCalendars(params);
+    next(new JsonSuccess({ calendar }, 201));
+});
 
-            sendSuccess(res, 200, {
-                calendars: calendars.items,
-                nextPageToken: calendars.nextPageToken
-            });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+/**
+ * Update an existing calendar
+ */
+export const updateCalendar = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const calendarId = req.params.calendarId;
+
+    if (!calendarId) {
+        throw new BadRequestError('Calendar ID is required');
     }
 
-    /**
-     * Create a new calendar
-     */
-    static async createCalendar(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    const { summary, description, location, timeZone } = req.body;
 
-        try {
-            const { summary, description, location, timeZone } = req.body;
+    // Create update payload
+    const params: UpdateCalendarParams = {
+        calendarId,
+        summary,
+        description,
+        location,
+        timeZone
+    };
 
-            if (!summary) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Calendar summary (name) is required');
-            }
+    // Create service and update calendar
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    const calendar = await calendarService.updateCalendar(params);
 
-            // Create calendar payload
-            const params: CreateCalendarParams = {
-                summary,
-                description,
-                location,
-                timeZone
-            };
+    next(new JsonSuccess({ calendar }));
+});
 
-            // Create service and create calendar
-            const calendarService = new CalendarService(req.googleAuth);
-            const calendar = await calendarService.createCalendar(params);
+/**
+ * Delete a calendar
+ */
+export const deleteCalendar = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
+    const calendarId = req.params.calendarId;
 
-            sendSuccess(res, 201, { calendar });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
+    if (!calendarId) {
+        throw new BadRequestError('Calendar ID is required');
     }
 
-    /**
-     * Update an existing calendar
-     */
-    static async updateCalendar(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
+    // Create service and delete calendar
+    const calendarService = new CalendarService(req.googleAuth as Auth.OAuth2Client);
+    await calendarService.deleteCalendar(calendarId);
 
-        try {
-            const calendarId = req.params.calendarId;
-
-            if (!calendarId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Calendar ID is required');
-            }
-
-            const { summary, description, location, timeZone } = req.body;
-
-            // Create update payload
-            const params: UpdateCalendarParams = {
-                calendarId,
-                summary,
-                description,
-                location,
-                timeZone
-            };
-
-            // Create service and update calendar
-            const calendarService = new CalendarService(req.googleAuth);
-            const calendar = await calendarService.updateCalendar(params);
-
-            sendSuccess(res, 200, { calendar });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
-    }
-
-    /**
-     * Delete a calendar
-     */
-    static async deleteCalendar(req: GoogleApiRequest, res: Response): Promise<void> {
-        if (!req.googleAuth) {
-            return sendError(res, 401, ApiErrorCode.AUTH_FAILED, 'Google authentication required');
-        }
-
-        try {
-            const calendarId = req.params.calendarId;
-
-            if (!calendarId) {
-                return sendError(res, 400, ApiErrorCode.MISSING_DATA, 'Calendar ID is required');
-            }
-
-            // Create service and delete calendar
-            const calendarService = new CalendarService(req.googleAuth);
-            await calendarService.deleteCalendar(calendarId);
-
-            sendSuccess(res, 200, { message: 'Calendar deleted successfully' });
-        } catch (error) {
-            handleGoogleApiError(req, res, error);
-        }
-    }
-}
+    next(new JsonSuccess({ message: 'Calendar deleted successfully' }));
+});

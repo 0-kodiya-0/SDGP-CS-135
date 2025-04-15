@@ -42,7 +42,7 @@ export const generateSignInState = async (
 
 export const generatePermissionState = async (
     provider: OAuthProviders,
-    redirect: string,
+    redirectUrl: string,
     accountId: string,
     service: string,
     scopeLevel: string
@@ -56,7 +56,7 @@ export const generatePermissionState = async (
         accountId,
         service,
         scopeLevel,
-        redirect
+        redirectUrl
     );
 
     return state;
