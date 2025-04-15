@@ -16,7 +16,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AccountsResponse {
-    accounts: string[];
+    data: {
+        accounts: string[];
+    }
 }
 
 // Function to fetch account IDs from the API
@@ -27,9 +29,9 @@ const fetchAccountIds = async (): Promise<string[] | null> => {
             { withCredentials: true }
         );
 
-        if (response.data.accounts) {
+        if (response.data.data.accounts) {
             console.log("Successfully fetched accounts");
-            return response.data.accounts;
+            return response.data.data.accounts;
         } else {
             console.error('Failed to fetch accounts');
             return null;

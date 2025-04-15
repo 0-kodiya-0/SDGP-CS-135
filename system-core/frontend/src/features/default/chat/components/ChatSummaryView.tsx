@@ -49,16 +49,20 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   const { addTab, tabs } = useTabStore();
 
   // Set up polling for unread count and conversations
-  useEffect(() => {
-    if (accountId) {
-      const intervalId = setInterval(() => {
-        fetchUnreadCount();
-        fetchConversations();
-      }, 30000); // Poll every 30 seconds
+  // useEffect(() => {
+  //   if (accountId) {
+  //     const intervalId = setInterval(() => {
+  //       fetchUnreadCount();
+  //       fetchConversations();
+  //     }, 30000); // Poll every 30 seconds
 
-      return () => clearInterval(intervalId);
-    }
-  }, [accountId]);
+  //     return () => clearInterval(intervalId);
+  //   }
+  // }, [accountId]);
+
+  useEffect(() => {
+    console.log(conversationSearchQuery);
+  }, [conversationSearchQuery])
 
   // Get participant name from conversation
   const getConversationName = useCallback(async (conversation: Conversation) => {

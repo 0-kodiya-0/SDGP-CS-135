@@ -55,7 +55,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   useEffect(() => {
     if (!accountId) return;
 
-    const socket = io(`${API_BASE_URL}/chat`, {
+    const socket = io(`${API_BASE_URL}/socket.io`, {
       withCredentials: true,
     });
     socketRef.current = socket;
@@ -95,9 +95,9 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
     socket.on('user_typing', (data) => {
       if (data.userId === accountId) return;
-      
+
       const displayName = participantNames[data.userId] || `User ${data.userId.slice(0, 6)}...`;
-      
+
       setTyping(prev => {
         if (prev.some(user => user.userId === data.userId)) {
           return prev;
@@ -109,7 +109,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       if (typingTimeoutRef.current[data.userId]) {
         clearTimeout(typingTimeoutRef.current[data.userId]);
       }
-      
+
       typingTimeoutRef.current[data.userId] = setTimeout(() => {
         setTyping(prev => prev.filter(user => user.userId !== data.userId));
       }, 3000);
@@ -117,7 +117,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
     socket.on('user_stopped_typing', (data) => {
       setTyping(prev => prev.filter(user => user.userId !== data.userId));
-      
+
       if (typingTimeoutRef.current[data.userId]) {
         clearTimeout(typingTimeoutRef.current[data.userId]);
         delete typingTimeoutRef.current[data.userId];
@@ -127,8 +127,8 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     socket.on('messages_read', (data) => {
       // Update read status for messages when they're read by other users
       if (data.userId !== accountId) {
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
             msg.sender === accountId && !msg.read ? { ...msg, read: true } : msg
           )
         );
@@ -172,6 +172,37 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     }
   }, [conversationId]);
 
+  // Fetch participant names using the useContacts approach
+  const fetchParticipantNames = useCallback(async (participantIds: string[]) => {
+    if (!accountId) return;
+
+    const participants: Record<string, string> = {};
+
+    // Hypothetical implementation - in a real app you would use the useContacts hook
+    // This is a simplified version for demo purposes
+    for (const participantId of participantIds) {
+      if (participantId === accountId) {
+        participants[participantId] = 'You';
+        continue;
+      }
+
+      try {
+        // Mock implementation - in real app you'd use the contacts/user data API
+        const response = await axios.get(
+          `${API_BASE_URL}/account/${participantId}/email`,
+          { withCredentials: true }
+        );
+
+        participants[participantId] = response.data.email || `User ${participantId.slice(0, 6)}...`;
+      } catch (err) {
+        console.error(`Error fetching user ${participantId} info:`, err);
+        participants[participantId] = `User ${participantId.slice(0, 6)}...`;
+      }
+    }
+
+    setParticipantNames(participants);
+  }, [accountId]);
+
   // Fetch conversation data
   const fetchConversationData = useCallback(async () => {
     if (!accountId || !conversationId) return;
@@ -182,11 +213,11 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       const response = await axios.get(`${API_BASE_URL}/chat/${accountId}/conversations`, {
         withCredentials: true
       });
-      
-      const currentConversation = response.data.find((conv: Conversation) => 
+
+      const currentConversation = response.data.find((conv: Conversation) =>
         conv._id === conversationId
       );
-      
+
       if (currentConversation) {
         setConversation(currentConversation);
         // Fetch participant names
@@ -200,38 +231,21 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     } finally {
       setLoading(false);
     }
-  }, [accountId, conversationId]);
+  }, [accountId, conversationId, fetchParticipantNames]);
 
-  // Fetch participant names using the useContacts approach
-  const fetchParticipantNames = async (participantIds: string[]) => {
-    if (!accountId) return;
-    
-    const participants: Record<string, string> = {};
-    
-    // Hypothetical implementation - in a real app you would use the useContacts hook
-    // This is a simplified version for demo purposes
-    for (const participantId of participantIds) {
-      if (participantId === accountId) {
-        participants[participantId] = 'You';
-        continue;
-      }
-      
-      try {
-        // Mock implementation - in real app you'd use the contacts/user data API
-        const response = await axios.get(
-          `${API_BASE_URL}/account/${participantId}/email`,
-          { withCredentials: true }
-        );
-        
-        participants[participantId] = response.data.email || `User ${participantId.slice(0, 6)}...`;
-      } catch (err) {
-        console.error(`Error fetching user ${participantId} info:`, err);
-        participants[participantId] = `User ${participantId.slice(0, 6)}...`;
-      }
-    }
-    
-    setParticipantNames(participants);
-  };
+  // Mark messages as read
+  const markMessagesAsRead = useCallback(() => {
+    if (!accountId || !conversationId || !socketRef.current) return;
+
+    socketRef.current.emit('mark_read', conversationId);
+
+    // Also update local state
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.sender !== accountId && !msg.read ? { ...msg, read: true } : msg
+      )
+    );
+  }, [accountId, conversationId]);
 
   // Fetch messages for current conversation
   const fetchMessages = useCallback(async () => {
@@ -243,9 +257,9 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/messages`,
         { withCredentials: true }
       );
-      
+
       setMessages(response.data);
-      
+
       // Mark messages as read
       if (response.data.length > 0) {
         markMessagesAsRead();
@@ -256,47 +270,16 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     } finally {
       setLoading(false);
     }
-  }, [accountId, conversationId]);
-
-  // Mark messages as read
-  const markMessagesAsRead = useCallback(() => {
-    if (!accountId || !conversationId || !socketRef.current) return;
-    
-    socketRef.current.emit('mark_read', conversationId);
-    
-    // Also update local state
-    setMessages(prevMessages => 
-      prevMessages.map(msg => 
-        msg.sender !== accountId && !msg.read ? { ...msg, read: true } : msg
-      )
-    );
-  }, [accountId, conversationId]);
-
-  // Send message
-  const sendMessage = useCallback(() => {
-    if (!accountId || !conversationId || !messageText.trim() || !socketRef.current) return;
-    
-    // Stop typing indicator
-    handleStopTyping();
-    
-    // Emit message to server
-    socketRef.current.emit('send_message', {
-      conversationId,
-      content: messageText.trim()
-    });
-    
-    // Clear message input
-    setMessageText('');
-  }, [accountId, conversationId, messageText]);
+  }, [accountId, conversationId, markMessagesAsRead]);
 
   // Handle typing indicators
   const handleTyping = useCallback(() => {
     if (!accountId || !conversationId || !socketRef.current) return;
-    
+
     // Don't send typing events too frequently
     if (!userTypingTimeoutRef.current) {
       socketRef.current.emit('typing_start', conversationId);
-      
+
       userTypingTimeoutRef.current = setTimeout(() => {
         userTypingTimeoutRef.current = null;
       }, 2000);
@@ -305,14 +288,31 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
   const handleStopTyping = useCallback(() => {
     if (!accountId || !conversationId || !socketRef.current) return;
-    
+
     socketRef.current.emit('typing_stop', conversationId);
-    
+
     if (userTypingTimeoutRef.current) {
       clearTimeout(userTypingTimeoutRef.current);
       userTypingTimeoutRef.current = null;
     }
   }, [accountId, conversationId]);
+
+  // Send message
+  const sendMessage = useCallback(() => {
+    if (!accountId || !conversationId || !messageText.trim() || !socketRef.current) return;
+
+    // Stop typing indicator
+    handleStopTyping();
+
+    // Emit message to server
+    socketRef.current.emit('send_message', {
+      conversationId,
+      content: messageText.trim()
+    });
+
+    // Clear message input
+    setMessageText('');
+  }, [accountId, conversationId, handleStopTyping, messageText]);
 
   // Auto-scroll to new messages
   useEffect(() => {
@@ -347,8 +347,8 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         ) : (
           <div>
             <h2 className="font-semibold text-lg">
-              {conversation?.type === 'group' 
-                ? conversation.name 
+              {conversation?.type === 'group'
+                ? conversation.name
                 : participantNames[conversation?.participants?.find(id => id !== accountId) || ''] || 'Loading...'}
             </h2>
             <div className="text-sm text-gray-500">
@@ -359,7 +359,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       </div>
 
       {/* Message container */}
-      <div 
+      <div
         ref={messageContainerRef}
         className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4"
       >
@@ -374,16 +374,15 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         ) : (
           <>
             {messages.map(message => (
-              <div 
-                key={message._id} 
+              <div
+                key={message._id}
                 className={`flex ${message.sender === accountId ? 'justify-end' : 'justify-start'}`}
               >
-                <div 
-                  className={`rounded-lg px-4 py-2 max-w-xs md:max-w-md ${
-                    message.sender === accountId 
-                      ? 'bg-blue-500 text-white' 
+                <div
+                  className={`rounded-lg px-4 py-2 max-w-xs md:max-w-md ${message.sender === accountId
+                      ? 'bg-blue-500 text-white'
                       : 'bg-white border text-gray-800'
-                  }`}
+                    }`}
                 >
                   {message.sender !== accountId && (
                     <div className="text-xs text-gray-600 mb-1">
@@ -397,11 +396,11 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
                       <span className="ml-1">
                         {message.read ? (
                           <svg className="h-3 w-3 text-blue-200" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm1.41 1.41L15 12.81l-2.59-2.59-1.41 1.41L15 15.41l6.41-6.41-1.41-1.41z"/>
+                            <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm1.41 1.41L15 12.81l-2.59-2.59-1.41 1.41L15 15.41l6.41-6.41-1.41-1.41z" />
                           </svg>
                         ) : (
                           <svg className="h-3 w-3 text-blue-200" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                           </svg>
                         )}
                       </span>
@@ -417,8 +416,8 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         {/* Typing indicator */}
         {typing.length > 0 && (
           <div className="flex items-center text-sm text-gray-500 italic">
-            {typing.length === 1 
-              ? `${typing[0].displayName} is typing...` 
+            {typing.length === 1
+              ? `${typing[0].displayName} is typing...`
               : `${typing.length} people are typing...`
             }
             <div className="flex ml-2">
@@ -457,44 +456,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         </div>
       </div>
 
-      {/* CSS for typing animation */}
-      <style jsx>{`
-        .dot-typing {
-          position: relative;
-          left: -9999px;
-          width: 6px;
-          height: 6px;
-          border-radius: 5px;
-          background-color: #9ca3af;
-          color: #9ca3af;
-          box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          animation: dotTyping 1.5s infinite linear;
-        }
 
-        @keyframes dotTyping {
-          0% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-          16.667% {
-            box-shadow: 9984px -5px 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-          33.333% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px -5px 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-          50% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px -5px 0 0 #9ca3af;
-          }
-          66.667% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-          83.333% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-          100% {
-            box-shadow: 9984px 0 0 0 #9ca3af, 9994px 0 0 0 #9ca3af, 10004px 0 0 0 #9ca3af;
-          }
-        }
-      `}</style>
     </div>
   );
 };
