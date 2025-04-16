@@ -140,7 +140,7 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
             withCredentials: true,
         });
 
-        return response.data;
+        return response.data.data;
     } catch (error: any) {
         console.log(error)
         // Handle specific API error responses

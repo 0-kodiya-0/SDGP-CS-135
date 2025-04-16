@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL, SOCKET_URL } from '../../../../conf/axios';
+import { API_BASE_URL } from '../../../../conf/axios';
 
 interface ChatDetailViewProps {
   accountId: string;
@@ -29,6 +29,13 @@ interface Conversation {
   };
 }
 
+interface Participant {
+  _id: string;
+  email: string;
+  name?: string;
+  imageUrl: string;
+}
+
 interface UserTyping {
   userId: string;
   displayName: string;
@@ -40,7 +47,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   const [loading, setLoading] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+  const [participants, setParticipants] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState<UserTyping[]>([]);
 
@@ -51,25 +58,110 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch participant names directly from the API
+  const fetchParticipants = useCallback(async (conversationType: string | undefined) => {
+    if (!accountId || !conversationId || !conversationType) return;
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/participants?conversationType=${conversationType}`,
+        { withCredentials: true }
+      );
+
+      const participantsData = response.data.data;
+      const participantsMap: Record<string, string> = {};
+
+      if (conversationType === "private") {
+        participantsMap[participantsData._id] = participantsData.name || participantsData.email || `User ${participantsData._id.slice(0, 6)}...`;
+      } else {
+        participantsData.forEach((participant: Participant) => {
+          if (participant._id === accountId) {
+            participantsMap[participant._id] = 'You';
+          } else {
+            participantsMap[participant._id] = participant.name || participant.email || `User ${participant._id.slice(0, 6)}...`;
+          }
+        });
+      }
+
+      setParticipants(participantsMap);
+    } catch (err) {
+      console.error('Error fetching participants:', err);
+      setError('Failed to load participant information');
+    }
+  }, [accountId, conversationId]);
+
+  // Fetch conversation data
+  const fetchConversationData = useCallback(async () => {
+    if (!accountId || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}`,
+        { withCredentials: true }
+      );
+
+      setConversation(response.data.data);
+    } catch (err) {
+      console.error('Error fetching conversation:', err);
+      setError('Failed to load conversation details');
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, conversationId]);
+
+  // Fetch messages for current conversation
+  const fetchMessages = useCallback(async () => {
+    if (!accountId || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/messages`,
+        { withCredentials: true }
+      );
+
+      setMessages(response.data.data);
+
+      // Mark messages as read
+      if (response.data.data.length > 0 && socketRef.current?.connected) {
+        socketRef.current.emit('mark_read', conversationId);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      setError('Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, conversationId]);
+
   // Initialize socket connection
   useEffect(() => {
     if (!accountId) return;
 
-    const socket = io(`http://localhost:3000`, {
+    const socket = io(`http://localhost:8080`, {
       withCredentials: true,
-      transports: ['websocket']
+      path: '/socket.io',
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
     });
+
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Socket connected');
-      // Authenticate with the server
+      console.log('Socket connected with ID:', socket.id);
       socket.emit('authenticate', accountId);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message);
+      setError(`Connection error: ${error.message}`);
     });
 
     socket.on('authenticated', () => {
       console.log('Socket authenticated');
-      // Join conversation room if available
       if (conversationId) {
         socket.emit('join_conversation', conversationId);
       }
@@ -88,6 +180,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         }
         return [...prevMessages, data];
       });
+
       // Mark messages as read if they're not from current user
       if (data.sender !== accountId) {
         socket.emit('mark_read', data.conversationId);
@@ -97,7 +190,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     socket.on('user_typing', (data) => {
       if (data.userId === accountId) return;
 
-      const displayName = participantNames[data.userId] || `User ${data.userId.slice(0, 6)}...`;
+      const displayName = participants[data.userId] || `User ${data.userId.slice(0, 6)}...`;
 
       setTyping(prev => {
         if (prev.some(user => user.userId === data.userId)) {
@@ -106,7 +199,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         return [...prev, { userId: data.userId, displayName }];
       });
 
-      // Clear typing indicator after 3 seconds
       if (typingTimeoutRef.current[data.userId]) {
         clearTimeout(typingTimeoutRef.current[data.userId]);
       }
@@ -126,7 +218,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     });
 
     socket.on('messages_read', (data) => {
-      // Update read status for messages when they're read by other users
       if (data.userId !== accountId) {
         setMessages(prevMessages =>
           prevMessages.map(msg =>
@@ -141,7 +232,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     });
 
     return () => {
-      // Clean up socket connection and leave conversation room
       if (conversationId && socket.connected) {
         socket.emit('leave_conversation', conversationId);
       }
@@ -149,14 +239,14 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     };
   }, [accountId]);
 
-  // Join/leave conversation room when conversationId changes
+  // Load conversation data and messages when conversationId changes
   useEffect(() => {
     const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
+    if (!socket || !accountId || !conversationId) return;
 
     // Clean up previous conversation
-    if (conversation && conversation._id) {
-      socket.emit('leave_conversation', conversation._id);
+    if (socket.connected) {
+      socket.emit('leave_conversation', conversationId);
     }
 
     // Reset states for new conversation
@@ -165,119 +255,29 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     setConversation(null);
     setError(null);
 
-    // Join new conversation if available
-    if (conversationId) {
+    // Join new conversation
+    if (socket.connected) {
       socket.emit('join_conversation', conversationId);
-      fetchConversationData();
-      fetchMessages();
-    }
-  }, [conversationId, socketRef.current?.connected]);
-
-  // Fetch participant names using the useContacts approach
-  const fetchParticipantNames = useCallback(async (participantIds: string[]) => {
-    if (!accountId) return;
-
-    const participants: Record<string, string> = {};
-
-    // Hypothetical implementation - in a real app you would use the useContacts hook
-    // This is a simplified version for demo purposes
-    for (const participantId of participantIds) {
-      if (participantId === accountId) {
-        participants[participantId] = 'You';
-        continue;
-      }
-
-      try {
-        // Mock implementation - in real app you'd use the contacts/user data API
-        const response = await axios.get(
-          `${API_BASE_URL}/account/${participantId}/email`,
-          { withCredentials: true }
-        );
-
-        participants[participantId] = response.data.data.email || `User ${participantId.slice(0, 6)}...`;
-      } catch (err) {
-        console.error(`Error fetching user ${participantId} info:`, err);
-        participants[participantId] = `User ${participantId.slice(0, 6)}...`;
-      }
     }
 
-    setParticipantNames(participants);
-  }, [accountId]);
+    // Load conversation data and messages
+    fetchConversationData().catch(err => {
+      console.error('Error initializing conversation:', err);
+    });
 
-  // Fetch conversation data
-  const fetchConversationData = useCallback(async () => {
-    if (!accountId || !conversationId) return;
+  }, [conversationId, accountId]);
 
-    setLoading(true);
-    try {
-      // Get conversations to find the current one
-      const response = await axios.get(`${API_BASE_URL}/chat/${accountId}/conversations`, {
-        withCredentials: true
-      });
-
-      const currentConversation = response.data.data.find((conv: Conversation) =>
-        conv._id === conversationId
-      );
-
-      if (currentConversation) {
-        setConversation(currentConversation);
-        // Fetch participant names
-        fetchParticipantNames(currentConversation.participants);
-      } else {
-        setError('Conversation not found');
-      }
-    } catch (err) {
-      console.error('Error fetching conversation:', err);
-      setError('Failed to load conversation details');
-    } finally {
-      setLoading(false);
-    }
-  }, [accountId, conversationId, fetchParticipantNames]);
-
-  // Mark messages as read
-  const markMessagesAsRead = useCallback(() => {
-    if (!accountId || !conversationId || !socketRef.current) return;
-
-    socketRef.current.emit('mark_read', conversationId);
-
-    // Also update local state
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.sender !== accountId && !msg.read ? { ...msg, read: true } : msg
-      )
-    );
-  }, [accountId, conversationId]);
-
-  // Fetch messages for current conversation
-  const fetchMessages = useCallback(async () => {
-    if (!accountId || !conversationId) return;
-
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/messages`,
-        { withCredentials: true }
-      );
-
-      setMessages(response.data.data);
-
-      // Mark messages as read
-      if (response.data.data.length > 0) {
-        markMessagesAsRead();
-      }
-    } catch (err) {
-      console.error('Error fetching messages:', err);
-      setError('Failed to load messages');
-    } finally {
-      setLoading(false);
-    }
-  }, [accountId, conversationId, markMessagesAsRead]);
+  useEffect(() => {
+    if (!conversation?.type) return;
+    fetchParticipants(conversation.type).then(() => {
+      fetchMessages()
+    })
+  }, [conversation]);
 
   // Handle typing indicators
   const handleTyping = useCallback(() => {
-    if (!accountId || !conversationId || !socketRef.current) return;
+    if (!accountId || !conversationId || !socketRef.current?.connected) return;
 
-    // Don't send typing events too frequently
     if (!userTypingTimeoutRef.current) {
       socketRef.current.emit('typing_start', conversationId);
 
@@ -288,7 +288,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   }, [accountId, conversationId]);
 
   const handleStopTyping = useCallback(() => {
-    if (!accountId || !conversationId || !socketRef.current) return;
+    if (!accountId || !conversationId || !socketRef.current?.connected) return;
 
     socketRef.current.emit('typing_stop', conversationId);
 
@@ -300,18 +300,15 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
   // Send message
   const sendMessage = useCallback(() => {
-    if (!accountId || !conversationId || !messageText.trim() || !socketRef.current) return;
+    if (!accountId || !conversationId || !messageText.trim() || !socketRef.current?.connected) return;
 
-    // Stop typing indicator
     handleStopTyping();
 
-    // Emit message to server
     socketRef.current.emit('send_message', {
       conversationId,
       content: messageText.trim()
     });
 
-    // Clear message input
     setMessageText('');
   }, [accountId, conversationId, handleStopTyping, messageText]);
 
@@ -330,47 +327,39 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
   if (!conversationId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6 bg-gray-50 text-gray-600">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">No conversation selected</h2>
-          <p>Select a conversation from the list or start a new one</p>
-        </div>
+      <div className="flex items-center justify-center h-full bg-gray-50 text-gray-500">
+        <p>Select a conversation to start chatting</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Conversation header */}
-      <div className="px-4 py-3 bg-white border-b flex items-center justify-between shadow-sm">
-        {loading ? (
-          <div className="animate-pulse h-6 w-40 bg-gray-200 rounded"></div>
+      <div className="px-4 py-3 bg-white shadow-sm flex items-center">
+        {loading && !conversation ? (
+          <div className="h-5 w-32 bg-gray-200 animate-pulse rounded"></div>
         ) : (
-          <div>
-            <h2 className="font-semibold text-lg">
-              {conversation?.type === 'group'
-                ? conversation.name
-                : participantNames[conversation?.participants?.find(id => id !== accountId) || ''] || 'Loading...'}
-            </h2>
-            <div className="text-sm text-gray-500">
-              {conversation?.type === 'group' && `${conversation.participants.length} participants`}
-            </div>
-          </div>
+          <h2 className="font-medium text-gray-800">
+            {conversation?.type === 'group'
+              ? conversation.name
+              : participants[conversation?.participants?.find(id => id !== accountId) || ''] || 'Loading...'}
+          </h2>
         )}
       </div>
 
       {/* Message container */}
       <div
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4"
+        className="flex-1 overflow-y-auto p-3 space-y-3"
       >
         {loading && messages.length === 0 ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+          <div className="flex justify-center items-center h-16">
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex justify-center items-center h-full text-gray-500">
-            No messages yet. Start the conversation!
+          <div className="flex justify-center items-center h-16 text-gray-400 text-sm">
+            No messages yet
           </div>
         ) : (
           <>
@@ -380,28 +369,28 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
                 className={`flex ${message.sender === accountId ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`rounded-lg px-4 py-2 max-w-xs md:max-w-md ${message.sender === accountId
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white border text-gray-800'
+                  className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${message.sender === accountId
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white text-gray-800 shadow-sm'
                     }`}
                 >
-                  {message.sender !== accountId && (
-                    <div className="text-xs text-gray-600 mb-1">
-                      {participantNames[message.sender] || `User ${message.sender.slice(0, 6)}...`}
+                  {message.sender !== accountId && participants[message.sender] && (
+                    <div className="text-xs text-gray-500 mb-1">
+                      {participants[message.sender]}
                     </div>
                   )}
-                  <div>{message.content}</div>
-                  <div className="text-xs mt-1 flex justify-end items-center">
+                  <div className="text-sm">{message.content}</div>
+                  <div className="text-xs mt-1 flex justify-end items-center opacity-75">
                     {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     {message.sender === accountId && (
                       <span className="ml-1">
                         {message.read ? (
-                          <svg className="h-3 w-3 text-blue-200" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm1.41 1.41L15 12.81l-2.59-2.59-1.41 1.41L15 15.41l6.41-6.41-1.41-1.41z" />
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (
-                          <svg className="h-3 w-3 text-blue-200" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
                           </svg>
                         )}
                       </span>
@@ -416,14 +405,18 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
         {/* Typing indicator */}
         {typing.length > 0 && (
-          <div className="flex items-center text-sm text-gray-500 italic">
-            {typing.length === 1
-              ? `${typing[0].displayName} is typing...`
-              : `${typing.length} people are typing...`
-            }
-            <div className="flex ml-2">
-              <div className="dot-typing"></div>
-            </div>
+          <div className="flex items-center text-xs text-gray-500 p-2">
+            <span className="italic mr-2">
+              {typing.length === 1
+                ? `${typing[0].displayName} is typing...`
+                : `${typing.length} people are typing...`
+              }
+            </span>
+            <span className="flex space-x-1">
+              <span className="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+            </span>
           </div>
         )}
       </div>
@@ -431,14 +424,20 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       {/* Message input */}
       <div className="p-3 bg-white border-t">
         {error && (
-          <div className="bg-red-100 text-red-700 p-2 rounded mb-2 text-sm">
+          <div className="bg-red-50 text-red-600 p-2 rounded mb-2 text-xs">
             {error}
+            <button
+              className="ml-2 text-red-800"
+              onClick={() => setError(null)}
+            >
+              ✕
+            </button>
           </div>
         )}
-        <div className="flex items-center">
+        <div className="flex items-center bg-gray-50 rounded-lg overflow-hidden border">
           <textarea
-            className="flex-1 border rounded-l-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            rows={2}
+            className="flex-1 p-2 bg-transparent text-sm focus:outline-none resize-none"
+            rows={1}
             placeholder="Type a message..."
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
@@ -448,16 +447,27 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
             disabled={loading}
           />
           <button
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r-lg"
+            className="px-4 py-2 text-gray-500 hover:text-blue-500 transition-colors"
             onClick={sendMessage}
             disabled={!messageText.trim() || loading}
           >
-            Send
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+            </svg>
           </button>
         </div>
       </div>
-
-
     </div>
   );
 };

@@ -80,15 +80,15 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   useEffect(() => {
     const loadConversationNames = async () => {
       const names: Record<string, string> = {};
-      
+
       for (const conversation of conversations) {
         const name = await getConversationName(conversation);
         names[conversation._id] = name;
       }
-      
+
       setConversationNames(names);
     };
-    
+
     loadConversationNames();
   }, [conversations, getConversationName]);
 
@@ -141,9 +141,20 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     if (!groupName.trim() || selectedContacts.length === 0) return;
 
     // Extract participant IDs from resourceName
-    const participantIds = selectedContacts
-      .map(contact => contact.resourceName?.split('/').pop() || '')
-      .filter(id => id !== '');
+    let participantIds = await Promise.all(selectedContacts
+      .map(async (contact) => {
+        const emailAddresses = contact.emailAddresses?.find(v => v.metadata?.primary)?.value;
+        if (!emailAddresses) return;
+        return await searchAccounts(emailAddresses);
+      }));
+
+    participantIds = participantIds.map(account => {
+      if (!account || !account.accountId) return null;
+      return account.accountId;
+    }).filter(account => account !== null);
+
+
+    console.log(participantIds)
 
     const conversationId = await createGroupConversation(groupName, participantIds);
     if (conversationId) {

@@ -26,11 +26,7 @@ const AccountSelectionPage: React.FC = () => {
                 const accountPromises = accountIds.map(async (accountId) => {
                     try {
                         const response = await fetchAccountDetails(accountId);
-                        console.log(response)
-                        if (response.success) {
-                            return response.data
-                        }
-                        return null
+                        return response;
                     } catch {
                         return null
                     }

@@ -26,8 +26,14 @@ app.set('trust proxy', true);
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
-    credentials: true
+    origin: [
+        'http://localhost:5173', // Frontend direct
+        'http://localhost:8080', // Proxy
+        process.env.FRONTEND_URL || '',
+        process.env.PROXY_URL || ''
+    ].filter(Boolean), // Remove any empty strings
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // Initialize Passport

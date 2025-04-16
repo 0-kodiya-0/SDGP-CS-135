@@ -19,11 +19,24 @@ const validateTimestamp = (timestamp: string): boolean => {
 // Apply account access validation to all routes
 router.use("/:accountId", validateAccountAccess, validateTokenAccess);
 
-// Get user's conversations
 router.get('/:accountId/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
 
     const conversations = await chatService.getUserConversations(userId);
+    next(new JsonSuccess(conversations));
+}));
+
+router.get('/:accountId/conversations/:conversationId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.oauthAccount?.id as string;
+    const { conversationId } = req.params;
+
+    // Validate that user is a participant in the conversation
+    const hasAccess = await chatService.verifyConversationAccess(conversationId, userId);
+    if (!hasAccess) {
+        throw new AuthError('Access denied to this conversation', 403);
+    }
+
+    const conversations = await chatService.getUserConversation(conversationId);
     next(new JsonSuccess(conversations));
 }));
 
@@ -98,7 +111,7 @@ router.post('/:accountId/conversations/group', asyncHandler(async (req: Request,
     next(new JsonSuccess(conversation));
 }));
 
-router.get('/:accountId/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string, conversationType: string }>, res: Response, next: NextFunction) => {
+router.get('/:accountId/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const currentUserId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
     const { conversationType } = req.query;
@@ -109,8 +122,11 @@ router.get('/:accountId/conversations/:conversationId/participants', asyncHandle
 
     // Verify the current user is a participant
     if (conversationType === "private") {
-        const participantInfo = await chatService.getParticipantInformation(conversationId, currentUserId);
+        const participantInfo = await chatService.getPrivateParticipantInformation(conversationId, currentUserId);
         next(new JsonSuccess(participantInfo));
+    } else if (conversationType === "group") {
+        const participantsInfo = await chatService.getGroupParticipantsInformation(conversationId, currentUserId);
+        next(new JsonSuccess(participantsInfo));
     } else {
         throw new BadRequestError('Invalid conversation type');
     }

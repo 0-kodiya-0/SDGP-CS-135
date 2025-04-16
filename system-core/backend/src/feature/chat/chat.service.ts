@@ -1,7 +1,6 @@
 import db from '../../config/db';
 import { ChatValidationError } from '../../types/response.types';
 import { MessageDocument, ConversationDocument } from './chat.model';
-import mongoose from 'mongoose';
 
 // Verify if a user has access to a conversation
 export async function verifyConversationAccess(conversationId: string, userId: string): Promise<boolean> {
@@ -46,7 +45,8 @@ export async function getOrCreatePrivateConversation(user1Id: string, user2Id: s
   return conversation;
 }
 
-export async function getParticipantInformation(conversationId: string, userId: string) {
+// Updated service functions
+export async function getPrivateParticipantInformation(conversationId: string, userId: string) {
   const { chat, accounts } = await db.getModels();
 
   const conversation = await chat.Conversation.findOne({
@@ -64,7 +64,32 @@ export async function getParticipantInformation(conversationId: string, userId: 
 
   if (!account) return null;
 
-  return { name: account.userDetails.name, imageUrl: account.userDetails.imageUrl };
+  return { _id: account._id, name: account.userDetails.name, email: account.userDetails.email, imageUrl: account.userDetails.imageUrl };
+}
+
+export async function getGroupParticipantsInformation(conversationId: string, userId: string) {
+  const { chat, accounts } = await db.getModels();
+
+  const conversation = await chat.Conversation.findOne({
+    _id: conversationId,
+    type: 'group',
+    participants: { $in: [userId] }
+  });
+
+  if (!conversation) return null;
+
+  // Get information for all participants in the group
+  const participantIds = conversation.participants;
+  const participantsAccounts = await accounts.OAuthAccount.find({
+    _id: { $in: participantIds }
+  });
+
+  return participantsAccounts.map(account => ({
+    _id: account._id,
+    name: account.userDetails.name,
+    email: account.userDetails.email,
+    imageUrl: account.userDetails.imageUrl
+  }));
 }
 
 // Create a group conversation
@@ -169,6 +194,14 @@ export async function getUserConversations(userId: string): Promise<Conversation
   })
     .sort({ updatedAt: -1 })
     .exec();
+}
+
+export async function getUserConversation(conversationId: string): Promise<ConversationDocument | null> {
+  const { chat } = await db.getModels();
+
+  return await chat.Conversation.findOne({
+    _id: conversationId
+  });
 }
 
 // Mark messages as read
