@@ -5,12 +5,12 @@ import driveRoutes from './api/drive';
 import peopleRoutes from './api/people';
 import meetRoutes from './api/meet';
 import tokenRoutes from './api/token';
-import { validateAccountAccess } from '../../services/session';
+import { validateAccountAccess, validateTokenAccess } from '../../services/session';
 
 // Create the main router for all Google API services
 const router = express.Router();
 
-router.use('/:accountId', validateAccountAccess);
+router.use('/:accountId', validateAccountAccess, validateTokenAccess);
 
 /**
  * These imports will be uncommented as each service is implemented

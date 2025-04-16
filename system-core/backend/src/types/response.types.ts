@@ -61,7 +61,7 @@ export class BaseError<T> extends Error {
         public readonly code: ApiErrorCode,
         message: string,
         public readonly statusCode: number = 400,
-        public readonly details?: T
+        public readonly data?: T
     ) {
         super(message);
         this.name = this.constructor.name;
@@ -74,9 +74,9 @@ export class AuthError<T> extends BaseError<T> {
         message: string,
         statusCode: number = 401,
         code: ApiErrorCode = ApiErrorCode.AUTH_FAILED,
-        details?: T
+        data?: T
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, AuthError.prototype);
     }
 }
@@ -86,9 +86,9 @@ export class ValidationError<T> extends BaseError<T> {
         message: string,
         statusCode: number = 400,
         code: ApiErrorCode = ApiErrorCode.VALIDATION_ERROR,
-        details?: T
+        data?: T
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, NotFoundError.prototype);
     }
 }
@@ -108,9 +108,9 @@ export class ProviderValidationError<T extends object> extends ValidationError<T
         message: string,
         statusCode: number = 400,
         code: ApiErrorCode = ApiErrorCode.VALIDATION_ERROR,
-        details?: T
+        data?: T
     ) {
-        super(message, statusCode, code, { ...(details || {}), provider } as T & { provider: OAuthProviders });
+        super(message, statusCode, code, { ...(data || {}), provider } as T & { provider: OAuthProviders });
         Object.setPrototypeOf(this, ProviderValidationError.prototype);
     }
 }
@@ -120,9 +120,9 @@ export class NotFoundError<T> extends BaseError<T> {
         message: string,
         statusCode: number = 404,
         code: ApiErrorCode = ApiErrorCode.RESOURCE_NOT_FOUND,
-        details?: T
+        data?: T
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, NotFoundError.prototype);
     }
 }
@@ -132,9 +132,9 @@ export class BadRequestError<T> extends BaseError<T> {
         message: string,
         statusCode: number = 400,
         code: ApiErrorCode = ApiErrorCode.MISSING_DATA,
-        details?: T
+        data?: T
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, BadRequestError.prototype);
     }
 }
@@ -144,9 +144,9 @@ export class ServerError<T> extends BaseError<T> {
         message: string,
         statusCode: number = 500,
         code: ApiErrorCode = ApiErrorCode.SERVER_ERROR,
-        details?: T
+        data?: T
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, BadRequestError.prototype);
     }
 }
@@ -158,10 +158,11 @@ export class RedirectError<T> extends BaseError<T> {
         public readonly redirectPath: string,
         message: string = '',
         statusCode: number = 302,
-        details?: T,
-        public readonly originalUrl?: string
+        data?: T,
+        public readonly originalUrl?: string,
+        public readonly sendStatus?: boolean
     ) {
-        super(code, message, statusCode, details);
+        super(code, message, statusCode, data);
         Object.setPrototypeOf(this, RedirectError.prototype);
     }
 }
@@ -171,19 +172,24 @@ export class BaseSuccess<T> {
     constructor(
         public readonly data: T,
         public readonly statusCode: number = 200,
-    ) { }
+        public readonly message: string,
+    ) {
+        Object.setPrototypeOf(this, BaseSuccess.prototype);
+    }
 }
 
 // JSON success response
 export class JsonSuccess<T> extends BaseSuccess<T> {
-    constructor(data: T, statusCode: number = 200) {
-        super(data, statusCode);
+    constructor(data: T, statusCode: number = 200, message: string = '') {
+        super(data, statusCode, message);
+        Object.setPrototypeOf(this, JsonSuccess.prototype);
     }
 }
 
 // Redirect success response
 export class RedirectSuccess<T> extends BaseSuccess<T> {
-    constructor(data: T, public readonly redirectPath?: string, statusCode: number = 302, public readonly originalUrl?: string) {
-        super(data, statusCode);
+    constructor(data: T, public readonly redirectPath: string, statusCode: number = 302, message: string = '', public readonly originalUrl?: string, public readonly sendStatus?: boolean) {
+        super(data, statusCode, message);
+        Object.setPrototypeOf(this, RedirectSuccess.prototype);
     }
 }

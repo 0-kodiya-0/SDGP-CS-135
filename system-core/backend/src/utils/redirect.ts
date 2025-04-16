@@ -11,12 +11,11 @@ export enum RedirectType {
 
 // Interface for redirect options
 export interface RedirectOptions {
-    path: string;
     type: RedirectType;
     code?: ApiErrorCode;
     message?: string;
     data?: Record<string, any>;
-    preserveQueryParams?: boolean;
+    sendStatus?: boolean;
 }
 
 /**
@@ -29,16 +28,16 @@ export const createRedirectUrl = (
 ): string => {
     let finalUrl = '';
     const queryParams = new URLSearchParams();
-    
+
     // Check if it's an absolute URL (starts with http:// or https://)
     const isAbsoluteUrl = baseUrl.startsWith('http://') || baseUrl.startsWith('https://');
-    
+
     if (isAbsoluteUrl) {
         // For absolute URLs, we can use the URL constructor
         try {
             const urlObj = new URL(baseUrl);
             finalUrl = urlObj.origin + urlObj.pathname;
-            
+
             // Copy existing query parameters if any
             urlObj.searchParams.forEach((value, key) => {
                 queryParams.append(key, value);
@@ -48,10 +47,12 @@ export const createRedirectUrl = (
             finalUrl = baseUrl;
         }
     } else {
+        baseUrl = decodeURIComponent(baseUrl);
+
         // For relative URLs (including '../' notation), just use the path directly
         // We'll normalize it to handle '../' paths correctly
         finalUrl = path.normalize(baseUrl).split('?')[0];
-        
+
         // Extract any existing query parameters
         const queryIndex = baseUrl.indexOf('?');
         if (queryIndex !== -1) {
@@ -61,35 +62,44 @@ export const createRedirectUrl = (
             });
         }
     }
-    
+
     // Add status parameter
-    queryParams.append('status', options.type);
-    
+    if (options.sendStatus !== false) {
+        queryParams.append('status', options.type);
+    }
+
     // Add code and message for errors
-    if (options.type === RedirectType.ERROR && options.code) {
+    if (options.code) {
         queryParams.append('errorCode', options.code);
-        
+
         if (options.message) {
             queryParams.append('errorMessage', encodeURIComponent(options.message));
         }
     }
-    
+
     // Add data for success
-    if (options.type === RedirectType.SUCCESS && options.data) {
-        queryParams.append('data', encodeURIComponent(JSON.stringify(options.data)));
+    if (options.data) {
+        if (typeof options.data === "object" && options.data !== null) {
+            Object.keys(options.data).forEach(key => {
+                const value = options.data![key];
+                queryParams.append(key, encodeURIComponent(value));
+            });
+        } else {
+            queryParams.append('data', encodeURIComponent(JSON.stringify(options.data)));
+        }
     }
-    
+
     // For permission redirects, include original URL
     if (originalUrl) {
         queryParams.append('redirectUrl', encodeURIComponent(path.normalize(originalUrl)));
     }
-    
+
     // Construct the final URL with query parameters
     const queryString = queryParams.toString();
     if (queryString) {
         finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString;
     }
-    
+
     return finalUrl;
 };
 
@@ -112,14 +122,17 @@ export const handleRedirect = (
 export const redirectWithSuccess = (
     res: Response,
     path: string,
-    originalUrl?: string,
-    data?: Record<string, any>,
+    options: {
+        originalUrl?: string,
+        message?: string,
+        data?: Record<string, any>,
+        sendStatus?: boolean
+    }
 ): void => {
     handleRedirect(res, path, {
-        path,
         type: RedirectType.SUCCESS,
-        data
-    }, originalUrl);
+        ...options
+    }, options.originalUrl);
 };
 
 /**
@@ -129,15 +142,18 @@ export const redirectWithError = (
     res: Response,
     path: string,
     code: ApiErrorCode,
-    originalUrl?: string,
-    message?: string
+    options: {
+        originalUrl?: string,
+        message?: string,
+        data?: Record<string, any>,
+        sendStatus?: boolean
+    }
 ): void => {
     handleRedirect(res, path, {
-        path,
         type: RedirectType.ERROR,
         code,
-        message
-    }, originalUrl);
+        ...options
+    }, options.originalUrl);
 };
 
 /**

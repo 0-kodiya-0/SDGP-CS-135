@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as chatService from './chat.service';
-import { validateAccountAccess } from '../../services/session';
+import { validateAccountAccess, validateTokenAccess } from '../../services/session';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError, AuthError, JsonSuccess } from '../../types/response.types';
 import { asyncHandler } from '../../utils/response';
@@ -17,7 +17,7 @@ const validateTimestamp = (timestamp: string): boolean => {
 };
 
 // Apply account access validation to all routes
-router.use("/:accountId", validateAccountAccess);
+router.use("/:accountId", validateAccountAccess, validateTokenAccess);
 
 // Get user's conversations
 router.get('/:accountId/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {

@@ -37,7 +37,6 @@ setupPassport();
 // Initialize Socket.IO with the HTTP server
 const io = socketConfig.initializeSocketIO(httpServer);
 // Initialize chat socket handler
-new ChatSocketHandler(io);
 
 // Initialize database connections and models
 db.initializeDB().then(() => {
@@ -52,6 +51,8 @@ app.use((req, res, next) => {
     console.log(`[BACKEND] ${req.method} ${req.url}`);
     next();
 });
+
+new ChatSocketHandler(io);
 
 // Routes - Using API paths that match the proxy configuration
 app.use('/oauth', oauthRoutes);

@@ -49,8 +49,8 @@ export const useChat = (accountId: string): UseChatReturn => {
                 { withCredentials: true }
             );
 
-            if (response.data) {
-                setConversations(response.data);
+            if (response.data.data) {
+                setConversations(response.data.data);
                 setError(null);
             }
         } catch (error) {
@@ -69,8 +69,8 @@ export const useChat = (accountId: string): UseChatReturn => {
                 { withCredentials: true }
             );
 
-            if (response.data) {
-                return response.data;
+            if (response.data.data) {
+                return response.data.data;
             } else {
                 setError("No participant information was found");
                 return null;
@@ -91,8 +91,8 @@ export const useChat = (accountId: string): UseChatReturn => {
                 { withCredentials: true }
             );
 
-            if (response.data && response.data.count !== undefined) {
-                setUnreadCount(response.data.count);
+            if (response.data.data && response.data.data.count !== undefined) {
+                setUnreadCount(response.data.data.count);
             }
         } catch (error) {
             console.error('Failed to fetch unread count:', error);
@@ -110,9 +110,9 @@ export const useChat = (accountId: string): UseChatReturn => {
                 { withCredentials: true }
             );
 
-            if (response.data) {
+            if (response.data.data) {
                 await fetchConversations();
-                return response.data._id;
+                return response.data.data._id;
             }
             return null;
         } catch (error) {
@@ -139,9 +139,9 @@ export const useChat = (accountId: string): UseChatReturn => {
                 { withCredentials: true }
             );
 
-            if (response.data) {
+            if (response.data.data) {
                 await fetchConversations();
-                return response.data._id;
+                return response.data.data._id;
             }
             return null;
         } catch (error) {

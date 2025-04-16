@@ -91,7 +91,7 @@ router.get('/:accountId/refreshToken', validateAccountAccess, asyncHandler(async
         throw new ServerError("Invalid account provider type found");
     }
 
-    next(new RedirectSuccess(null, redirectUrl as string));
+    next(new RedirectSuccess(null, redirectUrl as string, undefined, undefined, undefined, false));
 }));
 
 router.use('/:accountId', validateAccountAccess, validateTokenAccess);

@@ -37,6 +37,12 @@ export const initializeSocketIO = (httpServer: HttpServer): SocketIOServer => {
         connectTimeout: 45000
     });
 
+    io.engine.on("connection_error", (err) => {
+        console.log(err.code);     // 3
+        console.log(err.message);  // "Bad request"
+        console.log(err.context);  // { name: 'TRANSPORT_MISMATCH', transport: 'websocket', previousTransport: 'polling' }
+    });
+
     console.log('Socket.IO initialized');
     return io;
 };

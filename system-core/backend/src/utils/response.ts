@@ -43,6 +43,25 @@ export const sendError = <T>(res: Response, status: number, code: ApiErrorCode, 
     res.status(status).send(createErrorResponse(code, message));
 };
 
+
+export const asyncHandler = (
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    fn: Function
+): RequestHandler => {
+    return (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    };
+};
+
+export const asyncHandlerWithErr = (
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    fn: Function
+): ErrorRequestHandler => {
+    return (err, req, res, next) => {
+        Promise.resolve(fn(err, req, res, next)).catch(next);
+    };
+};
+
 // MongoDB Error Handler
 export const mongoErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
     // Check if error is a MongoDB or Mongoose error
@@ -197,24 +216,6 @@ export const apiRequestErrorHandler = (err: any, req: Request, res: Response, ne
     next(err);
 };
 
-export const asyncHandler = (
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    fn: Function
-): RequestHandler => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
-};
-
-export const asyncHandlerWithErr = (
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    fn: Function
-): ErrorRequestHandler => {
-    return (err, req, res, next) => {
-        Promise.resolve(fn(err, req, res, next)).catch(next);
-    };
-};
-
 // Success response middleware
 export const successHandler = (result: any, req: Request, res: Response, next: NextFunction) => {
     // Skip if not a success response or is an error
@@ -225,7 +226,16 @@ export const successHandler = (result: any, req: Request, res: Response, next: N
 
     // Handle BaseSuccess responses
     if (result instanceof RedirectSuccess) {
-        redirectWithSuccess(res, result.redirectPath!, result.originalUrl, result.data);
+        redirectWithSuccess(
+            res,
+            result.redirectPath,
+            {
+                originalUrl: result.originalUrl,
+                message: result.message,
+                data: result.data,
+                sendStatus: result.sendStatus
+            }
+        );
         return;
     }
 
@@ -261,8 +271,12 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
             res,
             err.redirectPath,
             err.code,
-            err.originalUrl,
-            err.message,
+            {
+                originalUrl: err.originalUrl,
+                message: err.message,
+                data: err.data,
+                sendStatus: err.sendStatus
+            }
         );
         return;
     }
@@ -281,8 +295,8 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
         res.status(err.statusCode).json(createErrorResponse(
             err.code,
             typeof err.message === "object" ?
-                { ...err.message as object, details: err.details } :
-                { message: err.message, details: err.details }
+                { ...err.message as object, data: err.data } :
+                { message: err.message, data: err.data }
         ));
         return;
     }

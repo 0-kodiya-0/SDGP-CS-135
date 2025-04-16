@@ -95,7 +95,7 @@ export async function sendMessage(conversationId: string, sender: string, conten
   const timestamp = new Date().toISOString();
 
   // Start a session for transaction
-  const session = await mongoose.startSession();
+  const session = await chat.Conversation.startSession();
   let message;
 
   try {
@@ -250,7 +250,7 @@ export async function deleteConversation(conversationId: string, userId: string)
   const { chat } = await db.getModels();
 
   // Start a session for transaction
-  const session = await mongoose.startSession();
+  const session = await chat.Conversation.startSession();
 
   try {
     session.startTransaction();

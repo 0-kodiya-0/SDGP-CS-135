@@ -1,5 +1,5 @@
 import express, { Response, Request, NextFunction } from 'express';
-import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
+import { OAuthAccount, AccountType, AccountStatus, OAuthProviders, TokenDetails } from '../account/Account.types';
 import { validateOAuthAccount } from '../account/Account.validation';
 import { validateSignUpState, validateSignInState, validateOAuthState, validatePermissionState, verifyTokenOwnership, validateProvider, validateState } from './Auth.validation';
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
@@ -75,7 +75,7 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
                     email: stateDetails.oAuthResponse.email,
                     imageUrl: stateDetails.oAuthResponse.imageUrl
                 },
-                tokenDetails: stateDetails.oAuthResponse.tokenDetails,
+                tokenDetails: stateDetails.oAuthResponse.tokenDetails as TokenDetails,
                 security: {
                     twoFactorEnabled: false,
                     sessionTimeout: 3600,
@@ -119,12 +119,12 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
 
     const generatedState = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_UP, frontendRedirectUrl);
     const authUrls: AuthUrls = {
-        [OAuthProviders.Google]: `../auth/google?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        [OAuthProviders.Microsoft]: `../auth/microsoft?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        [OAuthProviders.Facebook]: `../auth/facebook?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Google]: '../auth/google',
+        [OAuthProviders.Microsoft]: '../auth/microsoft',
+        [OAuthProviders.Facebook]: '../auth/facebook',
     };
 
-    next(new RedirectSuccess(null, authUrls[provider as OAuthProviders]));
+    next(new RedirectSuccess({ state: generatedState }, authUrls[provider as OAuthProviders], 302, undefined, frontendRedirectUrl));
 }));
 
 router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Response, next: NextFunction) => {
@@ -176,12 +176,12 @@ router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Re
 
     const generatedState = await generateOAuthState(provider as OAuthProviders, AuthType.SIGN_IN, frontendRedirectUrl);
     const authUrls: AuthUrls = {
-        [OAuthProviders.Google]: `../auth/google?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        [OAuthProviders.Microsoft]: `../auth/microsoft?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
-        [OAuthProviders.Facebook]: `../auth/facebook?state=${generatedState}&redirectUrl=${encodeURIComponent(frontendRedirectUrl || '')}`,
+        [OAuthProviders.Google]: '../auth/google',
+        [OAuthProviders.Microsoft]: '../auth/microsoft',
+        [OAuthProviders.Facebook]: '../auth/facebook',
     };
 
-    next(new RedirectSuccess(null, authUrls[provider as OAuthProviders]));
+    next(new RedirectSuccess({ state: generatedState }, authUrls[provider as OAuthProviders], 302, undefined, frontendRedirectUrl));
 }));
 
 router.get('/callback/:provider', asyncHandler(async (req: OAuthCallBackRequest, res: Response, next: NextFunction) => {
@@ -225,13 +225,19 @@ router.get('/callback/:provider', asyncHandler(async (req: OAuthCallBackRequest,
                     return next(new RedirectError(ApiErrorCode.USER_EXISTS, redirectUrl));
                 }
                 const state = await generateSignupState(userData, redirectUrl);
-                next(new RedirectSuccess(null, `../signup/${provider}?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`));
+                next(new RedirectSuccess({ state },
+                    `../signup/${provider}`,
+                    302,
+                    "User authenticated by provider", redirectUrl));
             } else {
                 if (!exists) {
                     return next(new RedirectError(ApiErrorCode.USER_NOT_FOUND, redirectUrl));
                 }
                 const state = await generateSignInState(userData, redirectUrl);
-                next(new RedirectSuccess(null, `../signin/${provider}?state=${state}&redirectUrl=${encodeURIComponent(redirectUrl)}`));
+                next(new RedirectSuccess({ state },
+                    `../signin/${provider}`,
+                    302,
+                    "User authenticated by provider", redirectUrl));
             }
 
         } catch (error) {

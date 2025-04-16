@@ -16,3 +16,14 @@ export function getAbsoluteUrl(req: Request, path: string): string {
     // Combine to get full URL
     return `${protocol}://${host}/api/v1${path}`;
 }
+
+export function removeRootUrl(url: string) {
+    const segments = url.split('/').filter(segment => segment);
+    segments.shift(); // Remove root segment
+
+    // Handle query parameters manually
+    const queryIndex = url.indexOf('?');
+    const queryString = queryIndex !== -1 ? url.substring(queryIndex) : '';
+
+    return '/' + segments.join('/') + queryString;
+}

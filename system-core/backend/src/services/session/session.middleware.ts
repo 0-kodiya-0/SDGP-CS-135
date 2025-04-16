@@ -6,6 +6,7 @@ import { asyncHandler } from '../../utils/response';
 import { isAccessTokenExpired } from '../../feature/google/services/token';
 import { OAuthAccount } from '../../feature/account/Account.types';
 import { validateOAuthAccount } from '../../feature/account/Account.validation';
+import { removeRootUrl } from '../../utils/url';
 
 /**
  * Middleware to verify JWT token from cookies and add session to request
@@ -67,11 +68,13 @@ export const validateTokenAccess = asyncHandler(async (req: Request, res: Respon
     const account = req.oauthAccount as OAuthAccount;
 
     if (isAccessTokenExpired(account.tokenDetails.expireAt, account.tokenDetails.tokenCreatedAt)) {
+        const root = req.originalUrl.split('/')[1];
+
         throw new RedirectError(
             ApiErrorCode.TOKEN_INVALID,
             `../account/${req.oauthAccount?._id.toHexString()}/refreshToken`,
             "Access token expired",
-            302, {}, `..${req.originalUrl}`);
+            302, {}, root === "account" ? `..${removeRootUrl(req.originalUrl as string)}` : `..${req.originalUrl}`);
     }
 
     next();

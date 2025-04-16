@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL } from '../../../../conf/axios';
+import { API_BASE_URL, SOCKET_URL } from '../../../../conf/axios';
 
 interface ChatDetailViewProps {
   accountId: string;
@@ -55,8 +55,9 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   useEffect(() => {
     if (!accountId) return;
 
-    const socket = io(`${API_BASE_URL}/socket.io`, {
+    const socket = io(`http://localhost:3000`, {
       withCredentials: true,
+      transports: ['websocket']
     });
     socketRef.current = socket;
 
@@ -170,7 +171,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       fetchConversationData();
       fetchMessages();
     }
-  }, [conversationId]);
+  }, [conversationId, socketRef.current?.connected]);
 
   // Fetch participant names using the useContacts approach
   const fetchParticipantNames = useCallback(async (participantIds: string[]) => {
@@ -193,7 +194,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
           { withCredentials: true }
         );
 
-        participants[participantId] = response.data.email || `User ${participantId.slice(0, 6)}...`;
+        participants[participantId] = response.data.data.email || `User ${participantId.slice(0, 6)}...`;
       } catch (err) {
         console.error(`Error fetching user ${participantId} info:`, err);
         participants[participantId] = `User ${participantId.slice(0, 6)}...`;
@@ -214,7 +215,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         withCredentials: true
       });
 
-      const currentConversation = response.data.find((conv: Conversation) =>
+      const currentConversation = response.data.data.find((conv: Conversation) =>
         conv._id === conversationId
       );
 
@@ -258,10 +259,10 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
         { withCredentials: true }
       );
 
-      setMessages(response.data);
+      setMessages(response.data.data);
 
       // Mark messages as read
-      if (response.data.length > 0) {
+      if (response.data.data.length > 0) {
         markMessagesAsRead();
       }
     } catch (err) {

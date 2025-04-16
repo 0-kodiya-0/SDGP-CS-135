@@ -19,11 +19,8 @@ app.use((req, res, next) => {
 const apiProxy = createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
-    ws: true, // Enable WebSocket proxying
+    // ws: true, // Enable WebSocket proxying
     logLevel: 'debug',
-    pathRewrite: {
-        '^/socket.io': '/socket.io', // No rewrite needed, just explicit declaration
-    },
     on : {
         proxyReq: (proxyReq, req, res) => {
             // Preserve the original host in X-Forwarded-Host
@@ -36,22 +33,51 @@ const apiProxy = createProxyMiddleware({
                 proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
             }
         },
-        proxyReqWs: (proxyReq, req, socket, options, head) => {
-            // Add headers for WebSocket requests too
-            if (req.headers.host) {
-                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
-            }
+        // proxyReqWs: (proxyReq, req, socket, options, head) => {
+        //     // Add headers for WebSocket requests too
+        //     if (req.headers.host) {
+        //         proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+        //     }
             
-            // You can add more WebSocket-specific headers here if needed
-            console.log('[PROXY] WebSocket connection proxied');
-        },
+        //     // You can add more WebSocket-specific headers here if needed
+        //     console.log('[PROXY] WebSocket connection proxied');
+        // },
         error: (err, req, res) => {
-            console.error('[PROXY] Error:', err);
+            console.error('[PROXY] Error:', err, req.url);
             if (res.writeHead && !res.headersSent) {
                 res.writeHead(500);
                 res.end('Proxy error: ' + err.message);
             }
         }   
+    }
+});
+
+// Create a dedicated Socket.IO proxy with explicit configuration
+const socketIOProxy = createProxyMiddleware({
+    target: BACKEND_URL,
+    changeOrigin: true,
+    ws: true,
+    logLevel: 'debug',
+    pathRewrite: null, // Explicitly do not rewrite paths
+    on: {
+        proxyReq: (proxyReq, req, res) => {
+            console.log('[PROXY-SOCKET] Original URL:', req.url);
+            console.log('[PROXY-SOCKET] Target URL:', proxyReq.path);
+            if (req.headers.host) {
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+            }
+            
+            if (!req.headers['x-forwarded-proto']) {
+                proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
+            }
+        },
+        error: (err, req, res) => {
+            console.error('[PROXY-SOCKET] Error:', err);
+            if (res.writeHead && !res.headersSent) {
+                res.writeHead(500);
+                res.end('Socket.IO proxy error: ' + err.message);
+            }
+        }
     }
 });
 
@@ -84,7 +110,7 @@ const frontendProxy = createProxyMiddleware({
 
 // Apply proxies - order matters! More specific routes first
 app.use('/api/v1', apiProxy);
-app.use('/socket.io', apiProxy); // Explicitly handle socket.io paths
+app.use('/socket.io', socketIOProxy);
 app.use('/', frontendProxy);
 
 // Start the proxy server
