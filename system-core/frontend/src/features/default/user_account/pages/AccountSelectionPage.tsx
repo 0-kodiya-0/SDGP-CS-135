@@ -5,15 +5,17 @@ import { fetchAccountDetails } from '../utils/account.utils';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from '../components/UserAvatar';
 import { Account } from '../types/types.data';
-
+import { useAccountStore } from '../store/account.store';
 
 const AccountSelectionPage: React.FC = () => {
-    const { accountIds, isLoading, logoutAll } = useAuth();
+    const { isLoading, logoutAll } = useAuth();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loadingAccounts, setLoadingAccounts] = useState(true);
     const [preferredAccountId, setPreferredAccountId] = useState<string | null>(
         localStorage.getItem('preferredAccountId')
     );
+    const { accountIds } = useAccountStore(); // Get account IDs from store
+
     const navigate = useNavigate();
 
     // Fetch details for all accounts from the account IDs

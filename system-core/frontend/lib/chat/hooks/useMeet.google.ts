@@ -60,7 +60,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.get<ApiResponse<{ meeting: MeetingData }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings/${meetingId}`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings/${meetingId}`,
                 { withCredentials: true }
             );
 
@@ -106,7 +106,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ isAvailable: boolean }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/availability`,
+                `${API_BASE_URL}/${accountId}/google/meet/availability`,
                 { email, startTime, endTime },
                 { withCredentials: true }
             );
@@ -150,7 +150,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.delete<ApiResponse<{ meeting: MeetingData }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings/${meetingId}/participants`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings/${meetingId}/participants`,
                 {
                     withCredentials: true,
                     data: { email } // Body for DELETE request
@@ -203,7 +203,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ meeting: MeetingData }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings/${meetingId}/participants`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings/${meetingId}/participants`,
                 { email, optional },
                 { withCredentials: true }
             );
@@ -273,7 +273,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
                 meetings: MeetingData[];
                 nextPageToken?: string;
             }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -326,7 +326,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings/${meetingId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings/${meetingId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -372,7 +372,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.put<ApiResponse<{ meeting: MeetingData }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings/${meetingId}`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings/${meetingId}`,
                 params,
                 { withCredentials: true }
             );
@@ -417,7 +417,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ meeting: MeetingData }>>(
-                `${API_BASE_URL}/google/${accountId}/meet/meetings`,
+                `${API_BASE_URL}/${accountId}/google/meet/meetings`,
                 params,
                 { withCredentials: true }
             );

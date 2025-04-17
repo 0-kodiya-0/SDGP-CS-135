@@ -52,7 +52,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
                 nextPageToken?: string,
                 syncToken?: string
             }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -92,7 +92,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.get<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups/${resourceName}`,
                 { withCredentials: true }
             );
 
@@ -132,7 +132,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups`,
                 { name },
                 { withCredentials: true }
             );
@@ -175,7 +175,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.put<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups/${resourceName}`,
                 { name, etag },
                 { withCredentials: true }
             );
@@ -220,7 +220,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             if (deleteContacts) queryParams.append('deleteContacts', 'true');
 
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups/${resourceName}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -261,7 +261,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members/add`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups/${resourceName}/members/add`,
                 { resourceNames: contactResourceNames },
                 { withCredentials: true }
             );
@@ -303,7 +303,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ group: ContactGroupType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contactGroups/${resourceName}/members/remove`,
+                `${API_BASE_URL}/${accountId}/google/people/contactGroups/${resourceName}/members/remove`,
                 { resourceNames: contactResourceNames },
                 { withCredentials: true }
             );

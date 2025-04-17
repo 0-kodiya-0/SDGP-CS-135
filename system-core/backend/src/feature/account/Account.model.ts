@@ -28,12 +28,12 @@ const UserDetailsSchema = new Schema({
 }, { _id: false });
 
 // Token details schema
-const TokenDetailsSchema = new Schema({
-    accessToken: { type: String, required: true },
-    refreshToken: { type: String, required: true },
-    expireAt: { type: Number, required: true },
-    tokenCreatedAt: { type: Number, required: true }
-}, { _id: false });
+// const TokenDetailsSchema = new Schema({
+//     accessToken: { type: String, required: true },
+//     refreshToken: { type: String, required: true },
+//     expireAt: { type: Number, required: true },
+//     tokenCreatedAt: { type: Number, required: true }
+// }, { _id: false });
 
 // Security settings schema
 const SecuritySettingsSchema = new Schema({
@@ -63,7 +63,7 @@ const OAuthAccountSchema = new Schema({
         required: true
     },
     userDetails: { type: UserDetailsSchema, required: true },
-    tokenDetails: { type: TokenDetailsSchema, required: true },
+    // tokenDetails: { type: TokenDetailsSchema, required: true },
     security: { type: SecuritySettingsSchema, required: true }
 }, {
     timestamps: true,

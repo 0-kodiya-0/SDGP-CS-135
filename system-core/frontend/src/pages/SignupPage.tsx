@@ -1,9 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../features/default/user_account';
 
 const SignupPage: React.FC = () => {
-    const { isLoading } = useAuth();
     const location = useLocation();
 
     // Get current path to return to after auth
@@ -13,14 +11,6 @@ const SignupPage: React.FC = () => {
         // Include redirect parameter that points to the auth callback with return path
         window.location.href = `/api/v1/oauth/signup/google?redirectUrl=${encodeURIComponent(`/auth/callback?returnTo=${returnPath}`)}`;
     };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center">

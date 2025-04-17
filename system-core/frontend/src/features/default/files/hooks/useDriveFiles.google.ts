@@ -56,7 +56,7 @@ export const useDriveFiles = (accountId: string) => {
             if (params.fields) queryParams.append('fields', params.fields);
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
-            const url = `${API_BASE_URL}/google/${accountId}/drive/files?${queryParams.toString()}`;
+            const url = `${API_BASE_URL}/${accountId}/google/drive/files?${queryParams.toString()}`;
             console.log("Making API request to:", url);
 
             const response = await axios.get(
@@ -134,7 +134,7 @@ export const useDriveFiles = (accountId: string) => {
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
             const response = await axios.get(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -180,7 +180,7 @@ export const useDriveFiles = (accountId: string) => {
             }
 
             const response = await axios.post<{ folder: DriveFile }>(
-                `${API_BASE_URL}/google/${accountId}/drive/folders`,
+                `${API_BASE_URL}/${accountId}/google/drive/folders`,
                 params,
                 { withCredentials: true }
             );
@@ -219,7 +219,7 @@ export const useDriveFiles = (accountId: string) => {
             }
 
             const response = await axios.post<{ file: DriveFile }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files`,
+                `${API_BASE_URL}/${accountId}/google/drive/files`,
                 params,
                 { withCredentials: true }
             );
@@ -276,7 +276,7 @@ export const useDriveFiles = (accountId: string) => {
             }
 
             const response = await axios.post<{ file: DriveFile }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files/upload`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/upload`,
                 formData,
                 {
                     withCredentials: true,
@@ -321,7 +321,7 @@ export const useDriveFiles = (accountId: string) => {
             }
 
             const response = await axios.put<{ file: DriveFile }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}`,
                 params,
                 { withCredentials: true }
             );
@@ -372,7 +372,7 @@ export const useDriveFiles = (accountId: string) => {
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
             await axios.delete(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -424,7 +424,7 @@ export const useDriveFiles = (accountId: string) => {
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
             const response = await axios.get<{ files: DriveFile[], nextPageToken?: string }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files/search?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/search?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -456,7 +456,7 @@ export const useDriveFiles = (accountId: string) => {
         const queryParams = new URLSearchParams();
         if (acknowledgeAbuse) queryParams.append('acknowledgeAbuse', 'true');
 
-        return `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}/download?${queryParams.toString()}`;
+        return `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}/download?${queryParams.toString()}`;
     }, [accountId]);
 
     const getExportUrl = (fileId: string): string => {

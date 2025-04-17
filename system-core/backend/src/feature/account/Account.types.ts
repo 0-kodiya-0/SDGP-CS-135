@@ -75,10 +75,10 @@ export interface OAuthAccount extends BaseAccount {
     accountType: AccountType.OAuth;
     provider: OAuthProviders;
     security: OAuthSecuritySettings;
-    tokenDetails: TokenDetails;
+    // tokenDetails: TokenDetails;
 }
 
-export type OAuthAccountDTO = Omit<OAuthAccount, "tokenDetails">
+export type OAuthAccountDTO = OAuthAccount
 
 export type Rename<T, K extends keyof T, NewKey extends string> =
     Omit<T, K> & { [P in NewKey]: T[K] };

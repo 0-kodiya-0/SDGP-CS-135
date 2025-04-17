@@ -38,7 +38,7 @@ export const useChat = (accountId: string): UseChatReturn => {
         try {
             setLoading(true);
             const response = await axios.get(
-                `${API_BASE_URL}/chat/${accountId}/conversations`,
+                `${API_BASE_URL}/${accountId}/chat/conversations`,
                 { withCredentials: true }
             );
 
@@ -58,7 +58,7 @@ export const useChat = (accountId: string): UseChatReturn => {
         try {
             setLoading(true);
             const response = await axios.get(
-                `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/participants?conversationType=${conversationType}`,
+                `${API_BASE_URL}/${accountId}/chat/conversations/${conversationId}/participants?conversationType=${conversationType}`,
                 { withCredentials: true }
             );
 
@@ -80,7 +80,7 @@ export const useChat = (accountId: string): UseChatReturn => {
     const fetchUnreadCount = useCallback(async () => {
         try {
             const response = await axios.get(
-                `${API_BASE_URL}/chat/${accountId}/messages/unread/count`,
+                `${API_BASE_URL}/${accountId}/chat/messages/unread/count`,
                 { withCredentials: true }
             );
 
@@ -98,7 +98,7 @@ export const useChat = (accountId: string): UseChatReturn => {
         try {
             setLoading(true);
             const response = await axios.post(
-                `${API_BASE_URL}/chat/${accountId}/conversations/private`,
+                `${API_BASE_URL}/${accountId}/chat/conversations/private`,
                 { otherUserId },
                 { withCredentials: true }
             );
@@ -124,7 +124,7 @@ export const useChat = (accountId: string): UseChatReturn => {
         try {
             setLoading(true);
             const response = await axios.post(
-                `${API_BASE_URL}/chat/${accountId}/conversations/group`,
+                `${API_BASE_URL}/${accountId}/chat/conversations/group`,
                 {
                     name,
                     participants: participantIds
@@ -150,7 +150,7 @@ export const useChat = (accountId: string): UseChatReturn => {
         try {
             setLoading(true);
             const response = await axios.get(
-                `${API_BASE_URL}/chat/${accountId}/messages/unread/count/byConversation`,
+                `${API_BASE_URL}/${accountId}/chat/messages/unread/count/byConversation`,
                 { withCredentials: true }
             );
 

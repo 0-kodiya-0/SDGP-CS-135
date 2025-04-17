@@ -21,6 +21,7 @@ import { redirectWithError, redirectWithSuccess } from "./redirect";
 import { MongoError } from "mongodb";
 import { Error as MongooseError } from "mongoose";
 import { GaxiosError } from "gaxios";
+import jwt from "jsonwebtoken";
 
 export const createSuccessResponse = <T>(data: T): ApiResponse<T> => ({
     success: true,
@@ -60,6 +61,49 @@ export const asyncHandlerWithErr = (
     return (err, req, res, next) => {
         Promise.resolve(fn(err, req, res, next)).catch(next);
     };
+};
+
+export const jwtErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+    // Check if error is a JWT error
+    if (err instanceof jwt.JsonWebTokenError ||
+        err instanceof jwt.TokenExpiredError ||
+        err instanceof jwt.NotBeforeError ||
+        (err && (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError' || err.name === 'NotBeforeError'))) {
+
+        console.error('JWT Error:', err);
+
+        // Handle specific JWT error types
+        if (err instanceof jwt.TokenExpiredError || err.name === 'TokenExpiredError') {
+            return res.status(401).json(createErrorResponse(
+                ApiErrorCode.TOKEN_EXPIRED,
+                'The provided token has expired'
+            ));
+        }
+
+        if (err instanceof jwt.NotBeforeError || err.name === 'NotBeforeError') {
+            return res.status(401).json(createErrorResponse(
+                ApiErrorCode.TOKEN_INVALID,
+                'The token cannot be used yet (not before error)'
+            ));
+        }
+
+        // Handle generic JWT errors (malformed, invalid signature, etc.)
+        if (err instanceof jwt.JsonWebTokenError || err.name === 'JsonWebTokenError') {
+            return res.status(401).json(createErrorResponse(
+                ApiErrorCode.TOKEN_INVALID,
+                err.message || 'Invalid token provided'
+            ));
+        }
+
+        // Generic JWT error fallback
+        return res.status(401).json(createErrorResponse(
+            ApiErrorCode.AUTH_FAILED,
+            'Authentication failed due to token issues'
+        ));
+    }
+
+    // Not a JWT error, pass to next handler
+    next(err);
 };
 
 // MongoDB Error Handler
@@ -340,6 +384,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 // Example of how to apply all middleware in the correct order
 export const applyErrorHandlers = (app: any) => {
     // Apply in order from most specific to most general
+    app.use(asyncHandlerWithErr(jwtErrorHandler));
     app.use(asyncHandlerWithErr(mongoErrorHandler));
     app.use(asyncHandlerWithErr(googleApiErrorHandler));
     app.use(asyncHandlerWithErr(apiRequestErrorHandler));

@@ -65,7 +65,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/participants?conversationType=${conversationType}`,
+        `${API_BASE_URL}/${accountId}/chat/conversations/${conversationId}/participants?conversationType=${conversationType}`,
         { withCredentials: true }
       );
 
@@ -117,7 +117,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     setLoading(true);
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}`,
+        `${API_BASE_URL}/${accountId}/chat/conversations/${conversationId}`,
         { withCredentials: true }
       );
 
@@ -137,7 +137,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     setLoading(true);
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/chat/${accountId}/conversations/${conversationId}/messages`,
+        `${API_BASE_URL}/${accountId}/chat/conversations/${conversationId}/messages`,
         { withCredentials: true }
       );
 

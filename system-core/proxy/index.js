@@ -21,6 +21,9 @@ const socketIOProxy = createProxyMiddleware({
     changeOrigin: true,
     ws: true, // Enable WebSocket proxying
     logLevel: 'debug',
+    cookiePathRewrite: {
+        '^/': '/api/v1/socket.io', // this adds the slash
+    },
     pathRewrite: undefined, // Don't rewrite the path
     on: {
         proxyReq: (proxyReq, req, res) => {
@@ -54,6 +57,7 @@ const apiProxy = createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
     logLevel: 'debug',
+    cookieDomainRewrite: true,
     on: {
         proxyReq: (proxyReq, req, res) => {
             if (req.headers.host) {
@@ -61,6 +65,16 @@ const apiProxy = createProxyMiddleware({
             }
             if (!req.headers['x-forwarded-proto']) {
                 proxyReq.setHeader('X-Forwarded-Proto', req.protocol);
+            }
+        },
+        proxyRes: (proxyRes, req, res) => {
+            // Add /api/v1 to cookie paths while preserving the original path
+            if (proxyRes.headers['set-cookie']) {
+                const cookies = proxyRes.headers['set-cookie'].map(cookie => {
+                    // This regex preserves the original path after /
+                    return cookie.replace(/; Path=\/(.*?)(?=;|$)/i, '; Path=/api/v1/$1');
+                });
+                proxyRes.headers['set-cookie'] = cookies;
             }
         },
         error: (err, req, res) => {
@@ -114,7 +128,7 @@ const server = app.listen(PORT, () => {
 server.on('upgrade', (req, socket, head) => {
     const pathname = req.url ? req.url.split('?')[0] : '';
     console.log('[PROXY] WebSocket upgrade request for path:', pathname);
-    
+
     if (pathname.startsWith('/socket.io')) {
         console.log('[PROXY] Upgrading Socket.IO WebSocket connection');
         socketIOProxy.upgrade(req, socket, head);

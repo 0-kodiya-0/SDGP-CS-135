@@ -1,32 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
-import { useAuth } from "../features/default/user_account";
+import { useAccountStore } from '../features/default/user_account/store/account.store';
 
 /**
  * Component to handle OAuth redirects and process auth status
  */
 const AuthCallback: React.FC = () => {
     const navigate = useNavigate();
-    const { isLoading, isAuthenticated} = useAuth();
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState<string>('');
 
+    const { addAccount } = useAccountStore();
+
     // Process authentication result only once on component mount
     useEffect(() => {
-        if (!(!isLoading && isAuthenticated)) {
-            return;
-        }
         try {
             // Get parameters directly from searchParams
             const authStatus = searchParams.get('status');
             const errorCode = searchParams.get('errorCode');
             const errorMessage = searchParams.get('errorMessage');
-            const dataParam = searchParams.get('data');
+            const accountId = searchParams.get("accountId");
             const returnTo = searchParams.get('returnTo');
-
-            // Set redirect path if specified
 
             // Process the authentication result
             if (authStatus === 'error') {
@@ -35,21 +31,11 @@ const AuthCallback: React.FC = () => {
             } else if (authStatus === 'success') {
                 setStatus('success');
 
-                let userData;
+                if (accountId) {
+                    addAccount(accountId);
 
-                // Try to parse user data if available (only once)
-                if (dataParam) {
-                    try {
-                        userData = JSON.parse(decodeURIComponent(dataParam));
-                        console.log('Authentication successful with data:', userData);
-                    } catch (e) {
-                        console.error('Failed to parse authentication data:', e);
-                    }
-                }
-
-                if (userData && userData.accountId) {
                     setTimeout(() => {
-                        navigate(`/app/${userData.accountId}`);
+                        navigate(`/app/${accountId}`);
                     }, 1500);
                 } else if (returnTo) {
                     setTimeout(() => {
@@ -66,7 +52,7 @@ const AuthCallback: React.FC = () => {
             setStatus('error');
             setMessage('An unexpected error occurred while processing authentication.');
         }
-    }, [isLoading, isAuthenticated]); // Only depend on isProcessing flag
+    }, []); // Only depend on isProcessing flag
 
     const handleGoBack = () => {
         navigate(-1);

@@ -1,5 +1,5 @@
 import { AccountValidationError } from "../../types/response.types";
-import { UserDetails, TokenDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
+import { UserDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
 
 export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDetails {
     return (
@@ -11,16 +11,16 @@ export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDeta
     );
 }
 
-export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenDetails {
-    return (
-        obj !== null &&
-        typeof obj === "object" &&
-        typeof obj.accessToken === "string" &&
-        typeof obj.refreshToken === "string" && 
-        typeof obj.expireAt === "number" &&
-        typeof obj.tokenCreatedAt === "number"
-    );
-}
+// export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenDetails {
+//     return (
+//         obj !== null &&
+//         typeof obj === "object" &&
+//         typeof obj.accessToken === "string" &&
+//         typeof obj.refreshToken === "string" && 
+//         typeof obj.expireAt === "number" &&
+//         typeof obj.tokenCreatedAt === "number"
+//     );
+// }
 
 // export function validateDevicePreferences(obj?: Partial<DevicePreferences>): obj is DevicePreferences {
 //     return (
@@ -75,8 +75,7 @@ export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): o
         obj?.accountType === AccountType.OAuth &&
         obj.provider &&
         Object.values(OAuthProviders).includes(obj.provider) &&
-        typeof obj.security === "object" &&
-        validateTokenDetails(obj.tokenDetails)
+        typeof obj.security === "object"
     ) {
         return true;
     }

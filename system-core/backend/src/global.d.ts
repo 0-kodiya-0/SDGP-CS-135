@@ -1,5 +1,5 @@
 import { OAuthAccountDocument } from "./feature/account/Account.model";
-import { SessionPayload } from "./types/session.types";
+// import { SessionPayload } from "./types/session.types";
 
 declare global {
     namespace NodeJS {
@@ -34,7 +34,8 @@ declare global {
     }
     namespace Express {
         interface Request {
-            session?: SessionPayload;
+            accessToken?: string;
+            refreshToken?: string;
             oauthAccount?: OAuthAccountDocument;
             googleAuth?: Auth.OAuth2Client;
             googlePermissionRedirectUrl?: string;

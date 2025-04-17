@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../features/default/user_account';
+import { useAccountStore } from '../features/default/user_account/store/account.store';
 
 const LoginPage: React.FC = () => {
-    const { isAuthenticated, accountIds, isLoading } = useAuth();
     const navigate = useNavigate();
+
+    const { accountIds } = useAccountStore();
 
     // Get current path to return to after auth
     const returnPath = encodeURIComponent(location.pathname);
@@ -14,16 +15,8 @@ const LoginPage: React.FC = () => {
         window.location.href = `/api/v1/oauth/signin/google?redirectUrl=${encodeURIComponent(`/auth/callback?returnTo=${returnPath}`)}`;
     };
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
-
     // Check if user is already authenticated (for UI messaging)
-    const isAddingAccount = isAuthenticated && accountIds.length > 0;
+    const isAddingAccount = accountIds.length > 0;
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center">

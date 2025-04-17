@@ -17,15 +17,6 @@ export const useServicePermissions = (
   // Get valid scopes for this service
   const availableScopes = getValidScopesForService(serviceType);
 
-  // Initialize permissions object with all scopes set to false
-  // const initialPermissions = availableScopes.reduce((acc, scope) => {
-  //   acc[scope] = false;
-  //   return acc;
-  // }, {} as ServicePermissions);
-
-  // // Track service permission states
-  // const [permissions, setPermissions] = useState<ServicePermissions>(initialPermissions);
-
   const permissions = useGooglePermissionsStore(usePermissionsCacheState(accountId, serviceType)) as unknown as ServicePermissions;
   const [permissionsLoading, setPermissionsLoading] = useState<boolean>(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);

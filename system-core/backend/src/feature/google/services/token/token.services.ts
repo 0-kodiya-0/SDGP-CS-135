@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { ScopeToServiceMap } from '../../config/config';
-import { TokenInfo, TokenScopeInfo } from './token.types';
+import { TokenScopeInfo } from './token.types';
 import { ProviderValidationError } from '../../../../types/response.types';
 import { OAuthProviders } from '../../../account/Account.types';
 
@@ -76,35 +76,45 @@ export async function getTokenScopes(accessToken: string): Promise<TokenScopeInf
      * Refresh an access token using a refresh token
      * @param refreshToken The refresh token to use
      */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenInfo> {
+export async function refreshAccessToken(refreshToken: string) {
     try {
         const refreshClient = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET
         );
-        
-        refreshClient.setCredentials({
-            refresh_token: refreshToken
-        });
+
+        refreshClient.setCredentials({ refresh_token: refreshToken });
 
         const { credentials } = await refreshClient.refreshAccessToken();
 
-        return {
-            accessToken: credentials.access_token || '',
-            refreshToken: credentials.refresh_token || refreshToken,
-            scope: credentials.scope || ''
-        };
+        if (!credentials.access_token || !credentials.expiry_date) {
+            throw new ProviderValidationError(
+                OAuthProviders.Google,
+                'Missing required token details'
+            );
+        }
+
+        return credentials;
     } catch (error) {
         console.error('Error refreshing access token:', error);
-        throw new ProviderValidationError(OAuthProviders.Google, 'Failed to refresh access token');
+
+        // Avoid wrapping the same error again
+        if (error instanceof ProviderValidationError) {
+            throw error;
+        }
+
+        throw new ProviderValidationError(
+            OAuthProviders.Google,
+            'Failed to refresh access token'
+        );
     }
 }
 
- /**
-     * Check if a token has access to a specific scope
-     * @param accessToken The token to check
-     * @param requiredScope The scope to check for
-     */
+/**
+    * Check if a token has access to a specific scope
+    * @param accessToken The token to check
+    * @param requiredScope The scope to check for
+    */
 export async function hasScope(accessToken: string, requiredScope: string): Promise<boolean> {
     try {
         const tokenInfo = await getTokenInfo(accessToken);

@@ -1,5 +1,5 @@
 import express, { Response, Request, NextFunction } from 'express';
-import { OAuthAccount, AccountType, AccountStatus, OAuthProviders, TokenDetails } from '../account/Account.types';
+import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
 import { validateOAuthAccount } from '../account/Account.validation';
 import { validateSignUpState, validateSignInState, validateOAuthState, validatePermissionState, verifyTokenOwnership, validateProvider, validateState } from './Auth.validation';
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
@@ -12,9 +12,9 @@ import { findUserByEmail, findUserById, userEmailExists, userIdExists } from '..
 import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 // import { getRedirectUrl } from '../../utils/redirect';
-import { createOrUpdateSession, updateDbUserTokens } from '../../services/session';
 import { asyncHandler } from '../../utils/response';
 import { getTokenInfo } from '../google/services/token';
+import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 
 export const router = express.Router();
 
@@ -75,21 +75,12 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
                     email: stateDetails.oAuthResponse.email,
                     imageUrl: stateDetails.oAuthResponse.imageUrl
                 },
-                tokenDetails: stateDetails.oAuthResponse.tokenDetails as TokenDetails,
                 security: {
                     twoFactorEnabled: false,
                     sessionTimeout: 3600,
                     autoLock: false
                 }
             };
-
-            const accessTokenInfo = await getTokenInfo(stateDetails.oAuthResponse.tokenDetails.accessToken);
-
-            if (!accessTokenInfo.expires_in) {
-                throw new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Error getting token detail from provider');
-            }
-
-            newAccount.tokenDetails.expireAt = accessTokenInfo.expires_in;
 
             const success = validateOAuthAccount(newAccount);
             if (!success) {
@@ -100,14 +91,28 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
 
             const newAccountDoc = await models.accounts.OAuthAccount.create(newAccount);
 
-            // Create session with the new account using SessionManager
-            await createOrUpdateSession(res, newAccountDoc._id.toHexString(), req);
+            const accessTokenInfo = await getTokenInfo(stateDetails.oAuthResponse.tokenDetails.accessToken);
+
+            if (!accessTokenInfo.expires_in) {
+                return next(new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Failed to fetch token information'));
+            }
+
+            setAccessTokenCookie(
+                res,
+                newAccountDoc.id || newAccountDoc._id.toHexString(),
+                stateDetails.oAuthResponse.tokenDetails.accessToken,
+                accessTokenInfo.expires_in as number
+            );
+
+            if (stateDetails.oAuthResponse.tokenDetails.refreshToken) {
+                setRefreshTokenCookie(res, newAccountDoc.id || newAccountDoc._id.toHexString(), stateDetails.oAuthResponse.tokenDetails.refreshToken);
+            }
 
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
 
             next(new RedirectSuccess({
-                accountId: newAccountDoc._id.toHexString(),
+                accountId: newAccountDoc.id || newAccountDoc._id.toHexString(),
                 name: newAccount.userDetails.name
             }, redirectTo));
             return;
@@ -156,9 +161,22 @@ router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Re
         try {
             await clearSignInState(stateDetails.state);
 
-            await createOrUpdateSession(res, user.id, req);
+            const accessTokenInfo = await getTokenInfo(stateDetails.oAuthResponse.tokenDetails.accessToken);
 
-            await updateDbUserTokens(user.id, provider, stateDetails.oAuthResponse.tokenDetails.accessToken);
+            if (!accessTokenInfo.expires_in) {
+                return next(new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Failed to fetch token information'));
+            }
+
+            setAccessTokenCookie(
+                res,
+                user.id,
+                stateDetails.oAuthResponse.tokenDetails.accessToken,
+                accessTokenInfo.expires_in as number
+            );
+
+            if (stateDetails.oAuthResponse.tokenDetails.refreshToken) {
+                setRefreshTokenCookie(res, user.id, stateDetails.oAuthResponse.tokenDetails.refreshToken);
+            }
 
             // Use the stored redirect URL if available, otherwise use the default
             const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
@@ -281,8 +299,8 @@ router.get('/callback/permission/:provider', asyncHandler(async (req: Request, r
                 return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission token exchange failed'));
             }
 
-            if (!result || !result.tokenDetails || !result.tokenDetails.accessToken) {
-                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission request failed - no token received'));
+            if (!result || !result.tokenDetails || !result.tokenDetails.accessToken || !result.tokenDetails.refreshToken) {
+                return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission request failed'));
             }
 
             const exists = await userIdExists(accountId);
@@ -301,10 +319,22 @@ router.get('/callback/permission/:provider', asyncHandler(async (req: Request, r
                 return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Permission was granted with an incorrect account. Please try again and ensure you use the correct Google account.'));
             }
 
-            // Use SessionManager to update the token
-            await updateDbUserTokens(accountId, provider as OAuthProviders, result.tokenDetails.accessToken, result.tokenDetails.refreshToken);
+            const accessTokenInfo = await getTokenInfo(result.tokenDetails.accessToken);
 
-            await createOrUpdateSession(res, accountId, req);
+            if (!accessTokenInfo.expires_in) {
+                return next(new RedirectError(ApiErrorCode.SERVER_ERROR, redirectUrl, 'Failed to fetch token information'));
+            }
+
+            setAccessTokenCookie(
+                res,
+                accountId,
+                result.tokenDetails.accessToken,
+                accessTokenInfo.expires_in as number
+            );
+
+            if (result.tokenDetails.refreshToken) {
+                setRefreshTokenCookie(res, accountId, result.tokenDetails.refreshToken);
+            }
 
             console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirectUrl}`);
 

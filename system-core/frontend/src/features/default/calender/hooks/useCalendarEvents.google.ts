@@ -62,7 +62,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
                 events: CalendarEvent[];
                 nextPageToken?: string;
             }>>(
-                `${API_BASE_URL}/google/${accountId}/calendar/events?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/calendar/events?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -118,7 +118,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             if (calendarId) queryParams.append('calendarId', calendarId);
 
             const response = await axios.get<ApiResponse<{ event: CalendarEvent }>>(
-                `${API_BASE_URL}/google/${accountId}/calendar/events/${eventId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/calendar/events/${eventId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -163,7 +163,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             }
 
             const response = await axios.post<ApiResponse<{ event: CalendarEvent }>>(
-                `${API_BASE_URL}/google/${accountId}/calendar/events`,
+                `${API_BASE_URL}/${accountId}/google/calendar/events`,
                 params,
                 { withCredentials: true }
             );
@@ -210,7 +210,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             }
 
             const response = await axios.put<ApiResponse<{ event: CalendarEvent }>>(
-                `${API_BASE_URL}/google/${accountId}/calendar/events/${eventId}`,
+                `${API_BASE_URL}/${accountId}/google/calendar/events/${eventId}`,
                 { ...params, eventId },
                 { withCredentials: true }
             );
@@ -266,7 +266,7 @@ export const useCalendarEvents = (accountId: string): UseCalendarEventsReturn =>
             if (params?.sendUpdates) queryParams.append('sendUpdates', params.sendUpdates);
 
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/calendar/events/${eventId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/calendar/events/${eventId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 

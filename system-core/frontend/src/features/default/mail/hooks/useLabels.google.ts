@@ -42,7 +42,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
         try {
             const response = await axios.get<ApiResponse<{ labels: GmailLabel[] }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/labels`,
+                `${API_BASE_URL}/${accountId}/google/gmail/labels`,
                 { withCredentials: true }
             );
 
@@ -82,7 +82,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
         try {
             const response = await axios.post<ApiResponse<{ label: GmailLabel }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/labels`,
+                `${API_BASE_URL}/${accountId}/google/gmail/labels`,
                 params,
                 { withCredentials: true }
             );
@@ -128,7 +128,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
         try {
             const response = await axios.put<ApiResponse<{ label: GmailLabel }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/labels/${labelId}`,
                 params,
                 { withCredentials: true }
             );
@@ -175,7 +175,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
         try {
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/labels/${labelId}`,
                 { withCredentials: true }
             );
 
@@ -218,7 +218,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
 
         try {
             const response = await axios.get<ApiResponse<{ label: GmailLabel }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/labels/${labelId}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/labels/${labelId}`,
                 { withCredentials: true }
             );
 

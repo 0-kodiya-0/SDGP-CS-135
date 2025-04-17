@@ -20,7 +20,9 @@ export const authenticateGoogleApi = asyncHandler(async (
     res: Response,
     next: NextFunction
 ) => {
-    const accessToken = req.oauthAccount?.tokenDetails.accessToken as string;
+    const accessToken = req.accessToken as string;
+
+    console.log(accessToken);
 
     // Create OAuth2 client with the valid token
     const oauth2Client = new google.auth.OAuth2(
@@ -58,14 +60,6 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
             throw new ServerError('Google API client not initialized', 500, ApiErrorCode.SERVER_ERROR);
         }
 
-        // try {
-        // Check if the user is returning from a permission request that failed
-        // const permissionCheckFailed = req.query.permission_check_failed === 'true';
-
-        // if (permissionCheckFailed) {
-        //     throw new AuthError(`Additional permissions required for ${service} ${scopeLevel} access`, 403, ApiErrorCode.PERMISSION_DENIED);
-        // }
-
         // Get the required scope
         const requiredScope = getGoogleScope(service, scopeLevel);
 
@@ -89,39 +83,6 @@ export const requireGoogleScope = (service: GoogleServiceName, scopeLevel: strin
 
         // Token has the required scope, continue
         next();
-        // } catch (error) {
-        //     console.error('Google scope validation error:', error);
-
-        //     // Check if this appears to be a permission issue
-        //     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        //     const isLikelyPermissionError =
-        //         errorMessage.includes('permission') ||
-        //         errorMessage.includes('scope') ||
-        //         errorMessage.includes('access');
-
-        //     if (isLikelyPermissionError && req.googlePermissionInfo) {
-        //         // Send an error response with permission info
-        //         return sendError(
-        //             res,
-        //             403,
-        //             ApiErrorCode.INSUFFICIENT_SCOPE,
-        //             {
-        //                 requiredPermission: {
-        //                     service,
-        //                     scopeLevel,
-        //                     permissionInfo: req.googlePermissionInfo
-        //                 }
-        //             }
-        //         );
-        //     }
-
-        //     sendError(
-        //         res,
-        //         403,
-        //         ApiErrorCode.INSUFFICIENT_SCOPE,
-        //         `Access to Google ${service} requires additional permissions`
-        //     );
-        // }
     });
 };
 
@@ -135,78 +96,3 @@ export const googleApiAuth = (service: GoogleServiceName, scopeLevel: string = '
         requireGoogleScope(service, scopeLevel)
     ];
 };
-
-/**
- * Helper function to handle Google API errors consistently
- */
-// export const handleGoogleApiError = (req: Request, res: Response, error: any) => {
-//     console.error('Google API error:', error);
-
-//     // Get the permission info if available
-//     const googleReq = req as GoogleApiRequest;
-//     const permissionInfo = googleReq.googlePermissionInfo;
-
-//     // Handle different types of Google API errors
-//     if (error.response && error.response.data) {
-//         // Google API error with response data
-//         const { code, message } = error.response.data.error || {};
-//         const statusCode = code || error.response.status || 500;
-//         let errorCode = ApiErrorCode.DATABASE_ERROR;
-
-//         // Map HTTP status codes to our API error codes
-//         if (statusCode === 401 || statusCode === 403) {
-//             errorCode = ApiErrorCode.AUTH_FAILED;
-
-//             // Check if this is a permission error
-//             const isPermissionError =
-//                 message?.includes('permission') ||
-//                 message?.includes('scope') ||
-//                 message?.includes('authorization') ||
-//                 message?.includes('access');
-
-//             // If this appears to be a permission error and we have permission info
-//             if (isPermissionError && permissionInfo) {
-//                 // Send error with permission info instead of redirecting
-//                 return sendError(
-//                     res,
-//                     403,
-//                     ApiErrorCode.INSUFFICIENT_SCOPE,
-//                     { permissionInfo }
-//                 );
-//             }
-//         } else if (statusCode === 404) {
-//             errorCode = ApiErrorCode.RESOURCE_NOT_FOUND;
-//         } else if (statusCode === 429) {
-//             errorCode = ApiErrorCode.RATE_LIMIT_EXCEEDED;
-//         }
-
-//         sendError(res, statusCode, errorCode, message || 'Google API error');
-//     } else if (error.code === 'ECONNREFUSED') {
-//         // Network connection error
-//         sendError(res, 503, ApiErrorCode.SERVICE_UNAVAILABLE, 'Google API service unavailable');
-//     } else if (error.message && error.message.includes('token expired')) {
-//         // Token expired error - this should normally be caught and handled by the token refresh mechanism
-//         sendError(res, 401, ApiErrorCode.TOKEN_EXPIRED, 'Authentication token expired');
-//     } else {
-//         // Check if this might be a permission error based on error message
-//         const errorMsg = error.message || 'Unknown Google API error';
-//         const isLikelyPermissionError =
-//             errorMsg.includes('permission') ||
-//             errorMsg.includes('scope') ||
-//             errorMsg.includes('authorization') ||
-//             errorMsg.includes('access');
-
-//         if (isLikelyPermissionError && permissionInfo) {
-//             // Send error with permission info instead of redirecting
-//             return sendError(
-//                 res,
-//                 403,
-//                 ApiErrorCode.INSUFFICIENT_SCOPE,
-//                 { permissionInfo }
-//             );
-//         }
-
-//         // Generic error handler
-//         sendError(res, 500, ApiErrorCode.SERVER_ERROR, errorMsg);
-//     }
-// };

@@ -184,14 +184,14 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
  * Get account details by ID
  */
 export const fetchAccountDetails = (accountId: string) => {
-    return authFetch(`/account/${accountId}`);
+    return authFetch(`/${accountId}/account`);
 };
 
 /**
  * Fetch email for a specific account
  */
 export const fetchAccountEmail = (accountId: string) => {
-    return authFetch(`/account/${accountId}/email`);
+    return authFetch(`/${accountId}/account/email`);
 };
 
 /**

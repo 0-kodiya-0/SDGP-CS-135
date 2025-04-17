@@ -64,7 +64,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
                 messages: GmailMessage[];
                 nextPageToken?: string;
             }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages?${queryParams.toString()}`,
                 { withCredentials: true }
             );
     
@@ -113,7 +113,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
             queryParams.append('format', format);
 
             const response = await axios.get<ApiResponse<{ message: GmailMessage }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages/${messageId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages/${messageId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -157,7 +157,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
 
         try {
             const response = await axios.post<ApiResponse<{ message: GmailMessage }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages`,
                 params,
                 { withCredentials: true }
             );
@@ -200,7 +200,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
 
         try {
             const response = await axios.post<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages/${messageId}/trash`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages/${messageId}/trash`,
                 {},
                 { withCredentials: true }
             );
@@ -245,7 +245,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
 
         try {
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages/${messageId}`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages/${messageId}`,
                 { withCredentials: true }
             );
 
@@ -291,7 +291,7 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
 
         try {
             const response = await axios.post<ApiResponse<{ message: GmailMessage }>>(
-                `${API_BASE_URL}/google/${accountId}/gmail/messages/${messageId}/modify`,
+                `${API_BASE_URL}/${accountId}/google/gmail/messages/${messageId}/modify`,
                 { addLabelIds, removeLabelIds },
                 { withCredentials: true }
             );

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as chatService from './chat.service';
-import { validateAccountAccess, validateTokenAccess } from '../../services/session';
+import { validateTokenAccess } from '../../services/session';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError, AuthError, JsonSuccess } from '../../types/response.types';
 import { asyncHandler } from '../../utils/response';
@@ -17,16 +17,16 @@ const validateTimestamp = (timestamp: string): boolean => {
 };
 
 // Apply account access validation to all routes
-router.use("/:accountId", validateAccountAccess, validateTokenAccess);
+router.use("/", validateTokenAccess);
 
-router.get('/:accountId/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.get('/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
 
     const conversations = await chatService.getUserConversations(userId);
     next(new JsonSuccess(conversations));
 }));
 
-router.get('/:accountId/conversations/:conversationId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.get('/conversations/:conversationId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
 
@@ -41,7 +41,7 @@ router.get('/:accountId/conversations/:conversationId', asyncHandler(async (req:
 }));
 
 // Get messages for a conversation
-router.get('/:accountId/conversations/:conversationId/messages', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
+router.get('/conversations/:conversationId/messages', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
 
@@ -70,7 +70,7 @@ router.get('/:accountId/conversations/:conversationId/messages', asyncHandler(as
 }));
 
 // Create private conversation
-router.post('/:accountId/conversations/private', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.post('/conversations/private', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { otherUserId } = req.body;
 
@@ -83,7 +83,7 @@ router.post('/:accountId/conversations/private', asyncHandler(async (req: Reques
 }));
 
 // Create group conversation
-router.post('/:accountId/conversations/group', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.post('/conversations/group', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { name, participants } = req.body;
 
@@ -111,7 +111,7 @@ router.post('/:accountId/conversations/group', asyncHandler(async (req: Request,
     next(new JsonSuccess(conversation));
 }));
 
-router.get('/:accountId/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
+router.get('/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const currentUserId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
     const { conversationType } = req.query;
@@ -133,7 +133,7 @@ router.get('/:accountId/conversations/:conversationId/participants', asyncHandle
 }));
 
 // Add user to group
-router.post('/:accountId/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
+router.post('/conversations/:conversationId/participants', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const currentUserId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
     const { userId } = req.body;
@@ -153,7 +153,7 @@ router.post('/:accountId/conversations/:conversationId/participants', asyncHandl
 }));
 
 // Remove user from group
-router.delete('/:accountId/conversations/:conversationId/participants/:userId', asyncHandler(async (req: Request<{ accountId: string, conversationId: string, userId: string }>, res: Response, next: NextFunction) => {
+router.delete('/conversations/:conversationId/participants/:userId', asyncHandler(async (req: Request<{ accountId: string, conversationId: string, userId: string }>, res: Response, next: NextFunction) => {
     const currentUserId = req.oauthAccount?.id as string;
     const { conversationId, userId } = req.params;
 
@@ -172,7 +172,7 @@ router.delete('/:accountId/conversations/:conversationId/participants/:userId', 
 }));
 
 // Get unread message count
-router.get('/:accountId/messages/unread/count', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.get('/messages/unread/count', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
 
     const count = await chatService.getUnreadCount(userId);
@@ -180,7 +180,7 @@ router.get('/:accountId/messages/unread/count', asyncHandler(async (req: Request
 }));
 
 // Add this route to chat.routes.ts
-router.get('/:accountId/messages/unread/count/byConversation', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+router.get('/messages/unread/count/byConversation', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
 
     const countByConversation = await chatService.getUnreadCountByConversation(userId);
@@ -188,7 +188,7 @@ router.get('/:accountId/messages/unread/count/byConversation', asyncHandler(asyn
 }));
 
 // Mark messages as read in a conversation
-router.post('/:accountId/conversations/:conversationId/read', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
+router.post('/conversations/:conversationId/read', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
 
@@ -203,7 +203,7 @@ router.post('/:accountId/conversations/:conversationId/read', asyncHandler(async
 }));
 
 // Delete conversation
-router.delete('/:accountId/conversations/:conversationId', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
+router.delete('/conversations/:conversationId', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
     const { conversationId } = req.params;
 

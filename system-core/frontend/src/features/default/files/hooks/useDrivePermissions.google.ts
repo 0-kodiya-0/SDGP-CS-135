@@ -43,7 +43,7 @@ export const useDrivePermissions = (accountId: string) => {
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
             const response = await axios.get<{ permissions: Permission[] }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}/permissions?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}/permissions?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -88,7 +88,7 @@ export const useDrivePermissions = (accountId: string) => {
             }
 
             const response = await axios.post<{ permission: Permission }>(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}/permissions`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}/permissions`,
                 params,
                 { withCredentials: true }
             );
@@ -135,7 +135,7 @@ export const useDrivePermissions = (accountId: string) => {
             if (params.supportsAllDrives) queryParams.append('supportsAllDrives', 'true');
 
             await axios.delete(
-                `${API_BASE_URL}/google/${accountId}/drive/files/${fileId}/permissions/${permissionId}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/drive/files/${fileId}/permissions/${permissionId}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 

@@ -48,7 +48,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
         calendars: CalendarResource[];
         nextPageToken?: string;
       }>>(
-        `${API_BASE_URL}/google/${accountId}/calendar/calendars?${queryParams.toString()}`,
+        `${API_BASE_URL}/${accountId}/google/calendar/calendars?${queryParams.toString()}`,
         { withCredentials: true }
       );
 
@@ -95,7 +95,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
       }
 
       const response = await axios.post<ApiResponse<{ calendar: CalendarResource }>>(
-        `${API_BASE_URL}/google/${accountId}/calendar/calendars`,
+        `${API_BASE_URL}/${accountId}/google/calendar/calendars`,
         params,
         { withCredentials: true }
       );
@@ -141,7 +141,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
       }
 
       const response = await axios.put<ApiResponse<{ calendar: CalendarResource }>>(
-        `${API_BASE_URL}/google/${accountId}/calendar/calendars/${calendarId}`,
+        `${API_BASE_URL}/${accountId}/google/calendar/calendars/${calendarId}`,
         params,
         { withCredentials: true }
       );
@@ -186,7 +186,7 @@ export const useCalendarList = (accountId: string): UseCalendarListReturn => {
       }
 
       const response = await axios.delete<ApiResponse<{ message: string }>>(
-        `${API_BASE_URL}/google/${accountId}/calendar/calendars/${calendarId}`,
+        `${API_BASE_URL}/${accountId}/google/calendar/calendars/${calendarId}`,
         { withCredentials: true }
       );
 

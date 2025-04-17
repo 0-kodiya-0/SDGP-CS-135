@@ -1,24 +1,17 @@
 import express, { NextFunction, Request, Response } from 'express';
-import { ApiErrorCode, BadRequestError, NotFoundError, JsonSuccess, RedirectSuccess, AuthError, ServerError } from '../../types/response.types';
+import { ApiErrorCode, BadRequestError, NotFoundError, JsonSuccess, RedirectSuccess, ServerError } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
-import { createSessionToken, updateDbUserTokens, validateAccountAccess, validateTokenAccess } from '../../services/session';
+import { clearAllSessions, clearSession, setAccessTokenCookie, setRefreshTokenCookie, validateTokenAccess } from '../../services/session';
 import { OAuthAccountDocument } from './Account.model';
-import { SessionPayload } from '../../types/session.types';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
 import { refreshAccessToken } from '../google/services/token';
 import { OAuthProviders } from './Account.types';
 
-export const router = express.Router();
+export const authenticatedNeedRouter = express.Router();
+export const authenticationNotNeedRouter = express.Router();
 
-router.get('/', (req: Request, res: Response, next: NextFunction) => {
-    if (!req.session) {
-        throw new AuthError('Not authenticated');
-    }
-    next(new JsonSuccess({ accounts: req.session.accounts }, 200));
-});
-
-router.get('/search', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+authenticationNotNeedRouter.get('/search', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const email = req.query.email as string;
 
     if (!email) {
@@ -38,42 +31,36 @@ router.get('/search', asyncHandler(async (req: Request, res: Response, next: Nex
 }));
 
 // Logout all accounts (clear entire session)
-router.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
-    res.clearCookie('session_token', { path: '/' });
-    next(new RedirectSuccess(null, "/"));
-});
+authenticationNotNeedRouter.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
+    const { accountIds, ...rest } = req.query;
 
-router.get('/logout/:accountId', (req: Request, res: Response, next: NextFunction) => {
-    const { accountId } = req.params;
-    const session = req.session;
-
-    if (!session) {
-        next(new RedirectSuccess(null, "/"));
-        return;
+    if (!Array.isArray(accountIds)) {
+        throw new BadRequestError("Invalid format or undefine account ids");
     }
 
-    // Remove account from session
-    const updatedAccounts = session.accounts.filter(id => id !== accountId);
-
-    // If no accounts left, clear the session
-    if (updatedAccounts.length === 0) {
-        res.clearCookie('session_token', { path: '/' });
-        next(new RedirectSuccess(null, "/"));
-        return;
-    }
-
-    // Update the session
-    const updatedSession = {
-        ...session,
-        accounts: updatedAccounts
-    };
-
-    createSessionToken(res, updatedSession);
-    next(new RedirectSuccess(null, "/"));
+    clearAllSessions(res, accountIds as (string)[]);
+    next(new RedirectSuccess(rest, "/"));
 });
 
-router.get('/:accountId/refreshToken', validateAccountAccess, asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+authenticationNotNeedRouter.get('/logout', (req: Request, res: Response, next: NextFunction) => {
+    const { accountId, ...rest } = req.query;
+
+    if (!accountId) {
+        throw new BadRequestError("Missing accountId");
+    }
+
+    clearSession(res, accountId as string);
+    next(new RedirectSuccess(rest, "/", undefined));
+});
+
+authenticatedNeedRouter.use('/', validateTokenAccess);
+
+authenticatedNeedRouter.get('/refreshToken', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const accountId = req.query.accountId as string;
+
     const account = req.oauthAccount as OAuthAccountDocument;
+
+    const refreshToken = req.refreshToken as string;
 
     const { redirectUrl } = req.query;
 
@@ -82,10 +69,15 @@ router.get('/:accountId/refreshToken', validateAccountAccess, asyncHandler(async
     }
 
     if (account.provider === OAuthProviders.Google) {
-        const newTokenInfo = await refreshAccessToken(account.tokenDetails.refreshToken);
+        const newTokenInfo = await refreshAccessToken(refreshToken);
 
         // Update the token in the database
-        await updateDbUserTokens(account._id.toHexString(), account.provider, newTokenInfo.accessToken);
+        setAccessTokenCookie(res, accountId, newTokenInfo.access_token as string, newTokenInfo.expiry_date as number);
+
+        // If a new refresh token was provided, update that as well
+        if (newTokenInfo.refresh_token) {
+            setRefreshTokenCookie(res, accountId, newTokenInfo.refresh_token);
+        }
 
     } else {
         throw new ServerError("Invalid account provider type found");
@@ -94,10 +86,8 @@ router.get('/:accountId/refreshToken', validateAccountAccess, asyncHandler(async
     next(new RedirectSuccess(null, redirectUrl as string, undefined, undefined, undefined, false));
 }));
 
-router.use('/:accountId', validateAccountAccess, validateTokenAccess);
-
 // Get account details
-router.get('/:accountId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+authenticatedNeedRouter.get('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const account = req.oauthAccount as OAuthAccountDocument;
     const safeAccount = toOAuthAccount(account);
 
@@ -105,7 +95,7 @@ router.get('/:accountId', asyncHandler(async (req: Request, res: Response, next:
 }));
 
 // Update OAuth account
-router.patch('/:accountId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+authenticatedNeedRouter.patch('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const account = req.oauthAccount as OAuthAccountDocument;
     const updates = req.body;
 
@@ -123,42 +113,42 @@ router.patch('/:accountId', asyncHandler(async (req: Request, res: Response, nex
 }));
 
 // Remove account from session and revoke tokens
-router.delete('/:accountId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { accountId } = req.params;
-    const session = req.session as SessionPayload;
+// authenticatedNeedRouter.delete('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+//     const { accountId } = req.params;
+//     const session = req.session as SessionPayload;
 
-    // Remove account from session
-    const updatedAccounts = session.accounts.filter(id => id !== accountId);
+//     // Remove account from session
+//     const updatedAccounts = session.accounts.filter(id => id !== accountId);
 
-    // If no accounts left, clear the session
-    if (updatedAccounts.length === 0) {
-        res.clearCookie('session_token', { path: '/' });
-        next(new JsonSuccess({ message: 'Account removed and session cleared' }, 200));
-        return;
-    }
+//     // If no accounts left, clear the session
+//     if (updatedAccounts.length === 0) {
+//         res.clearCookie('session_token', { path: '/' });
+//         next(new JsonSuccess({ message: 'Account removed and session cleared' }, 200));
+//         return;
+//     }
 
-    // Update the session
-    const updatedSession = {
-        ...session,
-        accounts: updatedAccounts
-    };
+//     // Update the session
+//     const updatedSession = {
+//         ...session,
+//         accounts: updatedAccounts
+//     };
 
-    createSessionToken(res, updatedSession);
-    next(new JsonSuccess({ message: 'Account removed from session' }, 200));
-}));
+//     createSessionToken(res, updatedSession);
+//     next(new JsonSuccess({ message: 'Account removed from session' }, 200));
+// }));
 
 /**
  * GET endpoint to retrieve email address for a specific account
  * This route requires authentication and account access validation
  */
-router.get('/:accountId/email', (req: Request, res: Response, next: NextFunction) => {
+authenticatedNeedRouter.get('/email', (req: Request, res: Response, next: NextFunction) => {
     const account = req.oauthAccount as OAuthAccountDocument;
 
     next(new JsonSuccess({ email: account.userDetails.email }, 200));
 });
 
 // Update OAuth account security settings
-router.patch('/:accountId/security', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+authenticatedNeedRouter.patch('/security', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const securityUpdates = req.body;
     const account = req.oauthAccount as OAuthAccountDocument;
 

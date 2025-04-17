@@ -6,10 +6,10 @@ import passport from 'passport';
 import cookieParser from 'cookie-parser';
 import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
-import { router as accountRoutes } from './feature/account';
+import { authenticatedNeedRouter as authNeedAccountRouter, authenticationNotNeedRouter as authNotNeedAccountRouter } from './feature/account';
 import { router as googleRoutes } from './feature/google';
 import db from './config/db';
-import { authenticateSession } from './services/session';
+import { authenticateSession, validateAccountAccess } from './services/session';
 import socketConfig from './config/socket.config';
 import { chatRoutes, ChatSocketHandler } from './feature/chat';
 import { applyErrorHandlers } from './utils/response';
@@ -60,9 +60,13 @@ new ChatSocketHandler(io);
 
 // Routes - Using API paths that match the proxy configuration
 app.use('/oauth', oauthRoutes);
-app.use('/account', authenticateSession, accountRoutes);
-app.use('/google', authenticateSession, googleRoutes);
-app.use('/chat', authenticateSession, chatRoutes);
+app.use('/account', authNotNeedAccountRouter);
+
+app.use("/:accountId", authenticateSession, validateAccountAccess);
+
+app.use('/:accountId/account', authNeedAccountRouter);
+app.use('/:accountId/google', googleRoutes);
+app.use('/:accountId/chat', chatRoutes);
 
 applyErrorHandlers(app);
 

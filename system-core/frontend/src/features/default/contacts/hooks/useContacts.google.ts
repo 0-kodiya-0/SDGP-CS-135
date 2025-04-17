@@ -54,7 +54,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 nextPageToken?: string,
                 syncToken?: string
             }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -100,7 +100,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
             if (params?.personFields) queryParams.append('personFields', params.personFields);
 
             const response = await axios.get<ApiResponse<{ contact: PersonType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts/${resourceName}?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts/${resourceName}?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 
@@ -140,7 +140,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
             }
 
             const response = await axios.post<ApiResponse<{ contact: PersonType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts`,
                 contactData,
                 { withCredentials: true }
             );
@@ -182,7 +182,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
             }
 
             const response = await axios.put<ApiResponse<{ contact: PersonType }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts/${resourceName}`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts/${resourceName}`,
                 contactData,
                 { withCredentials: true }
             );
@@ -223,7 +223,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
             }
 
             const response = await axios.delete<ApiResponse<{ message: string }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts/${resourceName}`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts/${resourceName}`,
                 { withCredentials: true }
             );
 
@@ -280,7 +280,7 @@ export const useContacts = (accountId: string): UseContactsReturn => {
                 contacts: PersonType[],
                 nextPageToken?: string
             }>>(
-                `${API_BASE_URL}/google/${accountId}/people/contacts/search?${queryParams.toString()}`,
+                `${API_BASE_URL}/${accountId}/google/people/contacts/search?${queryParams.toString()}`,
                 { withCredentials: true }
             );
 

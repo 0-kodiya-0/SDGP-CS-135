@@ -1,1 +1,1 @@
-export { router } from "./Account.routes"
+export { authenticatedNeedRouter, authenticationNotNeedRouter } from "./Account.routes"
