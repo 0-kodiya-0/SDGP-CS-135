@@ -2,8 +2,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { PersonType } from '../../contacts';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
 import ContactSearchComponent from './ContactSearchComponent';
+import CreateGroupComponent from './CreateGroupComponent';
 import { useChat } from '../hooks/useChat';
 import { searchAccounts } from '../../user_account/utils/account.utils';
+import { RefreshCw } from 'lucide-react';
 
 interface ChatSummaryViewProps {
   accountId: string;
@@ -19,6 +21,7 @@ interface Conversation {
     sender: string;
     timestamp: string;
   };
+  unreadCount?: number;
 }
 
 export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
@@ -27,19 +30,19 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   // State management
   const [showContactSearch, setShowContactSearch] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
-  const [groupName, setGroupName] = useState('');
-  const [selectedContacts, setSelectedContacts] = useState<PersonType[]>([]);
   const [conversationSearchQuery, setConversationSearchQuery] = useState('');
   const [conversationNames, setConversationNames] = useState<Record<string, string>>({});
+  const [conversationsWithUnread, setConversationsWithUnread] = useState<Record<string, number>>({});
 
   // Use the chat hook
   const {
     conversations,
     loading,
     error,
-    unreadCount,
+    // unreadCount,
     fetchConversations,
-    fetchUnreadCount,
+    // fetchUnreadCount,
+    fetchUnreadCountByConversation,
     createPrivateConversation,
     createGroupConversation,
     fetchParticipantInformation
@@ -48,21 +51,36 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   // Get the tab store functions
   const { addTab, tabs } = useTabStore();
 
-  // Set up polling for unread count and conversations
-  // useEffect(() => {
-  //   if (accountId) {
-  //     const intervalId = setInterval(() => {
-  //       fetchUnreadCount();
-  //       fetchConversations();
-  //     }, 30000); // Poll every 30 seconds
-
-  //     return () => clearInterval(intervalId);
-  //   }
-  // }, [accountId]);
-
+  // Load unread count data
+  // Replace the useEffect that fetches unread counts
   useEffect(() => {
-    console.log(conversationSearchQuery);
-  }, [conversationSearchQuery])
+    if (accountId) {
+      fetchConversations();
+    }
+  }, [accountId]);
+
+  // Replace the polling interval too
+  useEffect(() => {
+    if (accountId) {
+      const intervalId = setInterval(() => {
+        if (loading) return;
+        fetchConversations();
+      }, 30000); // Poll every 30 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [accountId]);
+
+  // Load conversation names
+  useEffect(() => {
+    loadConversationNames().then(() => {
+      fetchUnreadCountByConversation().then((unreadCounts) => {
+        if (unreadCounts) {
+          setConversationsWithUnread(unreadCounts);
+        }
+      });
+    });
+  }, [conversations]);
 
   // Get participant name from conversation
   const getConversationName = useCallback(async (conversation: Conversation) => {
@@ -71,25 +89,19 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     }
 
     // For private conversations, show the other participant's name
-    // In a real app, you would fetch and display the actual name
     const otherParticipantInfo = await fetchParticipantInformation(conversation._id, "private");
     return otherParticipantInfo ? otherParticipantInfo.name : 'Unknown';
   }, [fetchParticipantInformation]);
 
-  // Load conversation names
-  useEffect(() => {
-    const loadConversationNames = async () => {
-      const names: Record<string, string> = {};
+  const loadConversationNames = useCallback(async () => {
+    const names: Record<string, string> = {};
 
-      for (const conversation of conversations) {
-        const name = await getConversationName(conversation);
-        names[conversation._id] = name;
-      }
+    for (const conversation of conversations) {
+      const name = await getConversationName(conversation);
+      names[conversation._id] = name;
+    }
 
-      setConversationNames(names);
-    };
-
-    loadConversationNames();
+    setConversationNames(names);
   }, [conversations, getConversationName]);
 
   // Function to select and open a conversation in a new tab
@@ -98,8 +110,16 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     const conversation = conversations.find(conv => conv._id === conversationId);
     if (!conversation) return;
 
-    // Get a title for the tab
-    const tabTitle = conversationNames[conversationId] || 'Chat';
+    // Get a title for the tab based on conversation type
+    let tabTitle = 'Chat';
+
+    if (conversation.type === 'private') {
+      // For private chats, use the other participant's name
+      tabTitle = conversationNames[conversationId] || 'Chat';
+    } else if (conversation.type === 'group' && conversation.name) {
+      // For group chats, use the group name
+      tabTitle = conversation.name;
+    }
 
     // Add a new tab with ChatConversation component
     addTab(
@@ -111,6 +131,13 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
         conversationId
       }
     );
+
+    // Clear unread count from this conversation
+    setConversationsWithUnread(prev => ({
+      ...prev,
+      [conversationId]: 0
+    }));
+
   }, [conversations, addTab, accountId, conversationNames]);
 
   // Handle creating a private conversation
@@ -121,10 +148,9 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     const emailAddresses = contact.emailAddresses.find(v => v.metadata?.primary)?.value;
     if (!emailAddresses) return;
 
-    // Check if trying to chat with self
+    // Check if the contact is a user in the system
     const account = await searchAccounts(emailAddresses!);
     if (!account || !account.accountId) {
-      // Show error or notification that you can't chat with yourself
       console.error("Contact doesn't use fusion space application");
       return;
     }
@@ -137,46 +163,35 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   };
 
   // Handle creating a group conversation
-  const handleCreateGroupConversation = async () => {
-    if (!groupName.trim() || selectedContacts.length === 0) return;
+  const handleCreateGroupConversation = async (groupName: string, contacts: PersonType[]) => {
+    if (!groupName.trim() || contacts.length === 0) return;
 
     // Extract participant IDs from resourceName
-    let participantIds = await Promise.all(selectedContacts
-      .map(async (contact) => {
-        const emailAddresses = contact.emailAddresses?.find(v => v.metadata?.primary)?.value;
-        if (!emailAddresses) return;
-        return await searchAccounts(emailAddresses);
-      }));
+    const participantPromises = contacts.map(async (contact) => {
+      const emailAddresses = contact.emailAddresses?.find(v => v.metadata?.primary)?.value;
+      if (!emailAddresses) return null;
+      const account = await searchAccounts(emailAddresses);
+      return account?.accountId || null;
+    });
 
-    participantIds = participantIds.map(account => {
-      if (!account || !account.accountId) return null;
-      return account.accountId;
-    }).filter(account => account !== null);
+    const participantIds = (await Promise.all(participantPromises))
+      .filter((id): id is string => id !== null);
 
-
-    console.log(participantIds)
+    if (participantIds.length === 0) {
+      console.error("No valid participants found");
+      return;
+    }
 
     const conversationId = await createGroupConversation(groupName, participantIds);
     if (conversationId) {
       handleSelectConversation(conversationId);
       setShowNewGroup(false);
-      setGroupName('');
-      setSelectedContacts([]);
     }
   };
 
   // Handle conversation search input change
   const handleConversationSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setConversationSearchQuery(e.target.value);
-  };
-
-  // Toggle contact selection for group creation
-  const toggleContactSelection = (contact: PersonType) => {
-    if (selectedContacts.some(c => c.resourceName === contact.resourceName)) {
-      setSelectedContacts(selectedContacts.filter(c => c.resourceName !== contact.resourceName));
-    } else {
-      setSelectedContacts([...selectedContacts, contact]);
-    }
   };
 
   // Check if a conversation is already open in a tab
@@ -210,6 +225,12 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
+            </button>
+            <button
+              className="p-2 rounded-full hover:bg-gray-100"
+              onClick={() => fetchConversations()}
+              title="Refresh conversation">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
               className="p-2 rounded-full hover:bg-gray-100"
@@ -273,19 +294,30 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
             {filteredConversations.map((conversation) => {
               const isOpen = isConversationOpen(conversation._id);
               const conversationName = conversationNames[conversation._id] || 'Loading...';
+              const unreadMessagesCount = conversationsWithUnread[conversation._id] || 0;
+              // const totalUnreadCount = Object.values(conversationsWithUnread).reduce((a, b) => a + b, 0);
 
               return (
                 <li
                   key={conversation._id}
                   className={`p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${isOpen ? 'bg-blue-50' : ''
-                    }`}
+                    } ${unreadMessagesCount > 0 ? 'bg-blue-50' : ''}`}
                   onClick={() => handleSelectConversation(conversation._id)}
                 >
-                  <div className="flex justify-between">
+                  <div className="relative flex justify-between">
                     <div className="flex-1">
-                      <h3 className="font-medium">{conversationName}</h3>
+                      <div className="flex items-center">
+                        <h3 className={`font-medium ${unreadMessagesCount > 0 ? 'font-bold text-black' : 'text-gray-700'}`}>
+                          {conversationName}
+                        </h3>
+                        {unreadMessagesCount > 0 && (
+                          <span className="ml-2 bg-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                            {unreadMessagesCount}
+                          </span>
+                        )}
+                      </div>
                       {conversation.lastMessage && (
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className={`text-sm ${unreadMessagesCount > 0 ? 'text-gray-800' : 'text-gray-500'} truncate`}>
                           {conversation.lastMessage.content}
                         </p>
                       )}
@@ -319,116 +351,11 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
 
       {/* New group modal */}
       {showNewGroup && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-              <div>
-                <div className="mt-3 text-center sm:mt-0 sm:text-left">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Create New Group
-                  </h3>
-                  <div className="mt-4">
-                    <label htmlFor="group-name" className="block text-sm font-medium text-gray-700">
-                      Group Name
-                    </label>
-                    <input
-                      type="text"
-                      id="group-name"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Enter group name"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Add Participants
-                    </label>
-
-                    {/* Selected contacts display */}
-                    {selectedContacts.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {selectedContacts.map(contact => {
-                          const name = contact.names && contact.names[0]?.displayName || 'Unnamed Contact';
-
-                          return (
-                            <div
-                              key={contact.resourceName}
-                              className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded flex items-center"
-                            >
-                              <span>{name}</span>
-                              <button
-                                type="button"
-                                className="ml-1.5 text-blue-400 hover:text-blue-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleContactSelection(contact);
-                                }}
-                              >
-                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Contact search component (embedded) */}
-                    <div className="mt-3">
-                      <ContactSearchComponent
-                        accountId={accountId}
-                        isEmbedded={true}
-                        selectedContacts={selectedContacts}
-                        onSelectContact={toggleContactSelection}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                <button
-                  type="button"
-                  className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:col-start-2 sm:text-sm ${!groupName.trim() || selectedContacts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  onClick={handleCreateGroupConversation}
-                  disabled={!groupName.trim() || selectedContacts.length === 0}
-                >
-                  Create Group
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:col-start-1 sm:text-sm"
-                  onClick={() => {
-                    setShowNewGroup(false);
-                    setGroupName('');
-                    setSelectedContacts([]);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Unread message indicator */}
-      {unreadCount > 0 && (
-        <div className="fixed bottom-8 right-8 z-10">
-          <div className="bg-blue-600 text-white rounded-full px-4 py-2 shadow-lg flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-            </svg>
-            <span>{unreadCount} unread message{unreadCount !== 1 ? 's' : ''}</span>
-          </div>
-        </div>
+        <CreateGroupComponent
+          accountId={accountId}
+          onClose={() => setShowNewGroup(false)}
+          onCreateGroup={handleCreateGroupConversation}
+        />
       )}
     </div>
   );

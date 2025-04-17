@@ -33,7 +33,7 @@ interface Participant {
   _id: string;
   email: string;
   name?: string;
-  imageUrl: string;
+  imageUrl?: string;
 }
 
 interface UserTyping {
@@ -47,7 +47,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   const [loading, setLoading] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [participants, setParticipants] = useState<Record<string, string>>({});
+  const [participants, setParticipants] = useState<Record<string, Participant>>({});
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState<UserTyping[]>([]);
 
@@ -57,8 +57,9 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
   const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const participantImageRefs = useRef<Record<string, string>>({});
 
-  // Fetch participant names directly from the API
+  // Fetch participant information directly from the API
   const fetchParticipants = useCallback(async (conversationType: string | undefined) => {
     if (!accountId || !conversationId || !conversationType) return;
 
@@ -69,16 +70,35 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
       );
 
       const participantsData = response.data.data;
-      const participantsMap: Record<string, string> = {};
+      const participantsMap: Record<string, Participant> = {};
 
       if (conversationType === "private") {
-        participantsMap[participantsData._id] = participantsData.name || participantsData.email || `User ${participantsData._id.slice(0, 6)}...`;
+        participantsMap[participantsData._id] = {
+          _id: participantsData._id,
+          name: participantsData.name || participantsData.email || `User ${participantsData._id.slice(0, 6)}...`,
+          email: participantsData.email,
+          imageUrl: participantsData.imageUrl
+        };
+        // Cache image url reference
+        if (participantsData.imageUrl) {
+          participantImageRefs.current[participantsData._id] = participantsData.imageUrl;
+        }
       } else {
         participantsData.forEach((participant: Participant) => {
-          if (participant._id === accountId) {
-            participantsMap[participant._id] = 'You';
-          } else {
-            participantsMap[participant._id] = participant.name || participant.email || `User ${participant._id.slice(0, 6)}...`;
+          const displayName = participant._id === accountId
+            ? 'You'
+            : participant.name || participant.email || `User ${participant._id.slice(0, 6)}...`;
+
+          participantsMap[participant._id] = {
+            _id: participant._id,
+            name: displayName,
+            email: participant.email,
+            imageUrl: participant.imageUrl
+          };
+
+          // Cache image url reference
+          if (participant.imageUrl) {
+            participantImageRefs.current[participant._id] = participant.imageUrl;
           }
         });
       }
@@ -190,7 +210,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
     socket.on('user_typing', (data) => {
       if (data.userId === accountId) return;
 
-      const displayName = participants[data.userId] || `User ${data.userId.slice(0, 6)}...`;
+      const displayName = participants[data.userId]?.name || `User ${data.userId.slice(0, 6)}...`;
 
       setTyping(prev => {
         if (prev.some(user => user.userId === data.userId)) {
@@ -335,19 +355,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Conversation header */}
-      <div className="px-4 py-3 bg-white shadow-sm flex items-center">
-        {loading && !conversation ? (
-          <div className="h-5 w-32 bg-gray-200 animate-pulse rounded"></div>
-        ) : (
-          <h2 className="font-medium text-gray-800">
-            {conversation?.type === 'group'
-              ? conversation.name
-              : participants[conversation?.participants?.find(id => id !== accountId) || ''] || 'Loading...'}
-          </h2>
-        )}
-      </div>
-
       {/* Message container */}
       <div
         ref={messageContainerRef}
@@ -368,6 +375,21 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
                 key={message._id}
                 className={`flex ${message.sender === accountId ? 'justify-end' : 'justify-start'}`}
               >
+                {message.sender !== accountId && (
+                  <div className="flex-shrink-0 mr-2">
+                    {participantImageRefs.current[message.sender] ? (
+                      <img
+                        src={participantImageRefs.current[message.sender]}
+                        alt={participants[message.sender]?.name || "User"}
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-gray-300 flex items-center justify-center text-gray-600">
+                        {(participants[message.sender]?.name || "U").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div
                   className={`rounded-lg px-3 py-2 max-w-xs md:max-w-md ${message.sender === accountId
                     ? 'bg-blue-500 text-white'
@@ -376,7 +398,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
                 >
                   {message.sender !== accountId && participants[message.sender] && (
                     <div className="text-xs text-gray-500 mb-1">
-                      {participants[message.sender]}
+                      {participants[message.sender].name}
                     </div>
                   )}
                   <div className="text-sm">{message.content}</div>
@@ -397,6 +419,21 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
                     )}
                   </div>
                 </div>
+                {message.sender === accountId && (
+                  <div className="flex-shrink-0 ml-2">
+                    {participantImageRefs.current[accountId] ? (
+                      <img
+                        src={participantImageRefs.current[accountId]}
+                        alt="You"
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-blue-300 flex items-center justify-center text-blue-600">
+                        Y
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -456,7 +493,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = ({ accountId, con
               width="18"
               height="18"
               viewBox="0 0 24 24"
-
               fill="none"
               stroke="currentColor"
               strokeWidth="2"

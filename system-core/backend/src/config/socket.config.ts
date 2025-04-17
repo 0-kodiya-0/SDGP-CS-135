@@ -15,10 +15,8 @@ export const initializeSocketIO = (httpServer: HttpServer): SocketIOServer => {
 
     // Define allowed origins - adjust based on your environment
     const allowedOrigins = [
-        'http://localhost:5173', // Frontend direct
-        'http://localhost:8080', // Proxy
-        process.env.FRONTEND_URL as string,
-        process.env.PROXY_URL as string
+        process.env.FRONTEND_URL as string || 'http://localhost:5173',
+        process.env.PROXY_URL as string || 'http://localhost:8080'
     ].filter(Boolean); // Remove any undefined values
 
     console.log('Socket.IO initializing with allowed origins:', allowedOrigins);
@@ -59,7 +57,7 @@ export const initializeSocketIO = (httpServer: HttpServer): SocketIOServer => {
     io.on('connection', (socket) => {
         console.log(`Client connected: ${socket.id}, transport: ${socket.conn.transport.name}`);
         console.log(`Client handshake: ${socket.handshake.address} from origin: ${socket.handshake.headers.origin}`);
-        
+
         socket.on('disconnect', (reason) => {
             console.log(`Client disconnected: ${socket.id}, reason: ${reason}`);
         });

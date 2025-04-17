@@ -334,3 +334,46 @@ export async function getUnreadCount(userId: string): Promise<number> {
     read: false
   });
 }
+
+// Add this function to chat.service.ts
+export async function getUnreadCountByConversation(userId: string): Promise<Record<string, number>> {
+  const { chat } = await db.getModels();
+
+  // Get conversation IDs where user is a participant
+  const conversations = await chat.Conversation.find(
+    { participants: userId },
+    { _id: 1 }
+  );
+
+  const conversationIds = conversations.map(c => c._id.toString());
+  const result: Record<string, number> = {};
+
+  // Initialize counts to zero
+  for (const id of conversationIds) {
+    result[id] = 0;
+  }
+
+  // Get unread messages grouped by conversation
+  const unreadMessages = await chat.Message.aggregate([
+    {
+      $match: {
+        conversationId: { $in: conversationIds },
+        sender: { $ne: userId },
+        read: false
+      }
+    },
+    {
+      $group: {
+        _id: "$conversationId",
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Fill in the counts
+  for (const item of unreadMessages) {
+    result[item._id] = item.count;
+  }
+
+  return result;
+}

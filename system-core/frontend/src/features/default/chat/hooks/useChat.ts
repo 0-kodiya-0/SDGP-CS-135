@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../../conf/axios';
 
@@ -23,6 +23,7 @@ interface UseChatReturn {
     fetchUnreadCount: () => Promise<void>;
     fetchParticipantInformation: (conversationId: string, conversationType: "private") => Promise<{ name: string, imageUrl: string }>,
     createPrivateConversation: (otherUserId: string) => Promise<string | null>;
+    fetchUnreadCountByConversation: () => Promise<Record<string, number> | null>;
     createGroupConversation: (name: string, participantIds: string[]) => Promise<string | null>;
 }
 
@@ -31,14 +32,6 @@ export const useChat = (accountId: string): UseChatReturn => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [unreadCount, setUnreadCount] = useState<number>(0);
-
-    // Initial data loading
-    useEffect(() => {
-        if (accountId) {
-            fetchConversations();
-            fetchUnreadCount();
-        }
-    }, [accountId]);
 
     // Fetch conversations
     const fetchConversations = useCallback(async () => {
@@ -153,6 +146,26 @@ export const useChat = (accountId: string): UseChatReturn => {
         }
     }, [accountId, fetchConversations]);
 
+    const fetchUnreadCountByConversation = useCallback(async (): Promise<Record<string, number> | null> => {
+        try {
+            setLoading(true);
+            const response = await axios.get(
+                `${API_BASE_URL}/chat/${accountId}/messages/unread/count/byConversation`,
+                { withCredentials: true }
+            );
+
+            if (response.data.data) {
+                return response.data.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('Failed to fetch unread counts by conversation:', error);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    }, [accountId]);
+
     return {
         conversations,
         loading,
@@ -160,7 +173,8 @@ export const useChat = (accountId: string): UseChatReturn => {
         unreadCount,
         fetchConversations,
         fetchUnreadCount,
-        fetchParticipantInformation, 
+        fetchUnreadCountByConversation, // Add this
+        fetchParticipantInformation,
         createPrivateConversation,
         createGroupConversation
     };

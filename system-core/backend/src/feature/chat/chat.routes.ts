@@ -179,6 +179,14 @@ router.get('/:accountId/messages/unread/count', asyncHandler(async (req: Request
     next(new JsonSuccess({ count }));
 }));
 
+// Add this route to chat.routes.ts
+router.get('/:accountId/messages/unread/count/byConversation', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.oauthAccount?.id as string;
+
+    const countByConversation = await chatService.getUnreadCountByConversation(userId);
+    next(new JsonSuccess(countByConversation));
+}));
+
 // Mark messages as read in a conversation
 router.post('/:accountId/conversations/:conversationId/read', asyncHandler(async (req: Request<{ accountId: string, conversationId: string }>, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;
