@@ -3,8 +3,9 @@ import { ApiErrorCode, AuthError, BadRequestError, NotFoundError, RedirectError,
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
 import { validateOAuthAccount } from '../../feature/account/Account.validation';
-import { extractAccessToken, verifySession } from './session.manager';
+import { extractAccessToken, extractRefreshToken, verifySession } from './session.manager';
 import { removeRootUrl } from '../../utils/url';
+import mongoose from 'mongoose';
 
 /**
  * Middleware to verify JWT token from cookies and add accessToken to request
@@ -16,14 +17,10 @@ export const authenticateSession = (req: Request, res: Response, next: NextFunct
         throw new BadRequestError('Account ID is required');
     }
 
-    const accessToken = extractAccessToken(req, accountId);
-
-    if (!accessToken) {
-        throw new AuthError('Authentication required');
+    if (!mongoose.Types.ObjectId.isValid(accountId)) {
+        throw new BadRequestError('Invalid Account ID format');
     }
 
-    // Add accessToken data to request object
-    req.accessToken = accessToken;
     next();
 };
 
@@ -53,43 +50,54 @@ export const validateAccountAccess = asyncHandler(async (req: Request, res: Resp
 });
 
 export const validateTokenAccess = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const accountId = req.params.accountId;
 
-    let token: string;
+    const accessToken = extractAccessToken(req, accountId);
+    const refreshToken = extractRefreshToken(req, accountId);
 
-    if (req.url === "/refreshToken") {
-        token = req.refreshToken as string;
-    } else {
-        token = req.accessToken as string;
-    }
+    console.log(req.cookies, req.params, req.path);
 
-    let tokenPayload;
+    const token: string | null = req.path === "/account/refreshToken" ? refreshToken : accessToken;
 
     try {
-        tokenPayload = verifySession(token) as string;
-    } catch {
-        if (req.url === "/refreshToken") {
-            throw new RedirectError(
-                ApiErrorCode.TOKEN_INVALID,
-                `../account/logout?accountId=${req.oauthAccount?.id || req.oauthAccount?._id.toHexString()}`,
-                "Access token expired",
-                302);
-        } else {
-            throw new RedirectError(
-                ApiErrorCode.TOKEN_INVALID,
-                `../${req.oauthAccount?.id || req.oauthAccount?._id.toHexString()}/account/refreshToken`,
-                "Access token expired",
-                302, undefined, `..${removeRootUrl(req.originalUrl as string)}`);
+        if (!token) {
+            throw new Error("Token not found");
         }
-    }
 
-    if (tokenPayload && typeof tokenPayload === "string") {
-        if (req.url === "/refreshToken") {
+        const tokenPayload = verifySession(token);
+
+        if (typeof tokenPayload !== "string") {
+            throw new BadRequestError("Invalid payload format");
+        }
+
+        if (req.path === "/account/refreshToken") {
             req.refreshToken = tokenPayload;
         } else {
             req.accessToken = tokenPayload;
         }
+
         next();
-    } else {
-        throw new BadRequestError("Invalid payload format");
+    } catch (error) {
+        console.log(error);
+
+        const accountPath = req.oauthAccount?.id || req.oauthAccount?._id?.toHexString?.() || accountId;
+
+        if (req.path === "/account/refreshToken") {
+            throw new RedirectError(
+                ApiErrorCode.TOKEN_INVALID,
+                `/api/v1/account/logout?accountId=${accountPath}`,
+                "Access token expired",
+                302
+            );
+        } else {
+            throw new RedirectError(
+                ApiErrorCode.TOKEN_INVALID,
+                `../${accountPath}/account/refreshToken`,
+                "Access token expired",
+                302,
+                undefined,
+                `..${removeRootUrl(req.originalUrl)}`
+            );
+        }
     }
 });

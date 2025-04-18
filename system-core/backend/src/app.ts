@@ -9,7 +9,7 @@ import { router as oauthRoutes } from './feature/oauth';
 import { authenticatedNeedRouter as authNeedAccountRouter, authenticationNotNeedRouter as authNotNeedAccountRouter } from './feature/account';
 import { router as googleRoutes } from './feature/google';
 import db from './config/db';
-import { authenticateSession, validateAccountAccess } from './services/session';
+import { authenticateSession, validateAccountAccess, validateTokenAccess } from './services/session';
 import socketConfig from './config/socket.config';
 import { chatRoutes, ChatSocketHandler } from './feature/chat';
 import { applyErrorHandlers } from './utils/response';
@@ -62,7 +62,7 @@ new ChatSocketHandler(io);
 app.use('/oauth', oauthRoutes);
 app.use('/account', authNotNeedAccountRouter);
 
-app.use("/:accountId", authenticateSession, validateAccountAccess);
+app.use("/:accountId", authenticateSession, validateAccountAccess, validateTokenAccess);
 
 app.use('/:accountId/account', authNeedAccountRouter);
 app.use('/:accountId/google', googleRoutes);

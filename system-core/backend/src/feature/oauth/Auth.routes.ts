@@ -101,7 +101,7 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
                 res,
                 newAccountDoc.id || newAccountDoc._id.toHexString(),
                 stateDetails.oAuthResponse.tokenDetails.accessToken,
-                accessTokenInfo.expires_in as number
+                accessTokenInfo.expires_in * 1000 as number
             );
 
             if (stateDetails.oAuthResponse.tokenDetails.refreshToken) {
@@ -171,7 +171,7 @@ router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Re
                 res,
                 user.id,
                 stateDetails.oAuthResponse.tokenDetails.accessToken,
-                accessTokenInfo.expires_in as number
+                accessTokenInfo.expires_in * 1000 as number
             );
 
             if (stateDetails.oAuthResponse.tokenDetails.refreshToken) {
@@ -329,7 +329,7 @@ router.get('/callback/permission/:provider', asyncHandler(async (req: Request, r
                 res,
                 accountId,
                 result.tokenDetails.accessToken,
-                accessTokenInfo.expires_in as number
+                accessTokenInfo.expires_in * 1000 as number
             );
 
             if (result.tokenDetails.refreshToken) {

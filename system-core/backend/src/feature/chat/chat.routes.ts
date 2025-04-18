@@ -1,11 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as chatService from './chat.service';
-import { validateTokenAccess } from '../../services/session';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError, AuthError, JsonSuccess } from '../../types/response.types';
 import { asyncHandler } from '../../utils/response';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
 // Middleware for input validation
 const validateObjectId = (id: string): boolean => {
@@ -15,9 +14,6 @@ const validateObjectId = (id: string): boolean => {
 const validateTimestamp = (timestamp: string): boolean => {
     return !isNaN(Date.parse(timestamp));
 };
-
-// Apply account access validation to all routes
-router.use("/", validateTokenAccess);
 
 router.get('/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.oauthAccount?.id as string;

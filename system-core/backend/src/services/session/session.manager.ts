@@ -29,7 +29,7 @@ export const setAccessTokenCookie = (res: Response, accountId: string, accessTok
     res.cookie(`access_token_${accountId}`, jwt.sign(accessToken, JWT_SECRET), {
         httpOnly: true,
         secure: true,
-        maxAge: expiresIn * 1000, // Convert seconds to milliseconds
+        maxAge: expiresIn, // Convert seconds to milliseconds
         path: `/${accountId}` // Path-specific cookie
     });
 };
@@ -42,7 +42,7 @@ export const setRefreshTokenCookie = (res: Response, accountId: string, refreshT
         httpOnly: true,
         secure: true,
         maxAge: COOKIE_MAX_AGE, // Very long expiration
-        path: `/${accountId}/refreshToken` // Path-specific for refresh token endpoint
+        path: `/${accountId}/account/refreshToken` // Path-specific for refresh token endpoint
     });
 };
 
@@ -50,26 +50,26 @@ export const setRefreshTokenCookie = (res: Response, accountId: string, refreshT
  * Extract access token from cookies for a specific account
  */
 export const extractAccessToken = (req: Request, accountId: string): string | null => {
-    return req.cookies[`access_token_${accountId}`] || null;
+    return req.cookies[`access_token_${accountId}`];
 };
 
 /**
  * Extract refresh token from cookies for a specific account
  */
 export const extractRefreshToken = (req: Request, accountId: string): string | null => {
-    return req.cookies[`refresh_token_${accountId}`] || null;
+    return req.cookies[`refresh_token_${accountId}`];
 };
 
 export const clearAllSessions = (res: Response, accountIds: (string)[]) => {
     accountIds.forEach(accountId => {
         res.clearCookie(`access_token_${accountId}`, { path: `/${accountId}` });
-        res.clearCookie(`refresh_token_${accountId}`, { path: `/${accountId}/refreshToken` });
+        res.clearCookie(`refresh_token_${accountId}`, { path: `/${accountId}/account/refreshToken` });
     });
 }
 
 export const clearSession = (res: Response, accountId: string) => {
     res.clearCookie(`access_token_${accountId}`, { path: `/${accountId}` });
-    res.clearCookie(`refresh_token_${accountId}`, { path: `/${accountId}/refreshToken` });
+    res.clearCookie(`refresh_token_${accountId}`, { path: `/${accountId}/account/refreshToken` });
 }
 
 /**

@@ -1,14 +1,14 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { ApiErrorCode, BadRequestError, NotFoundError, JsonSuccess, RedirectSuccess, ServerError } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
-import { clearAllSessions, clearSession, setAccessTokenCookie, setRefreshTokenCookie, validateTokenAccess } from '../../services/session';
+import { clearAllSessions, clearSession, setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { OAuthAccountDocument } from './Account.model';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
 import { refreshAccessToken } from '../google/services/token';
 import { OAuthProviders } from './Account.types';
 
-export const authenticatedNeedRouter = express.Router();
+export const authenticatedNeedRouter = express.Router({ mergeParams: true });
 export const authenticationNotNeedRouter = express.Router();
 
 authenticationNotNeedRouter.get('/search', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -31,60 +31,27 @@ authenticationNotNeedRouter.get('/search', asyncHandler(async (req: Request, res
 }));
 
 // Logout all accounts (clear entire session)
-authenticationNotNeedRouter.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
-    const { accountIds, ...rest } = req.query;
+// authenticationNotNeedRouter.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
+//     const { accountIds } = req.query;
 
-    if (!Array.isArray(accountIds)) {
-        throw new BadRequestError("Invalid format or undefine account ids");
-    }
+//     if (!Array.isArray(accountIds)) {
+//         throw new BadRequestError("Invalid format or undefine account ids");
+//     }
 
-    clearAllSessions(res, accountIds as (string)[]);
-    next(new RedirectSuccess(rest, "/"));
-});
+//     clearAllSessions(res, accountIds as (string)[]);
+//     next(new RedirectSuccess(null, "/"));
+// });
 
 authenticationNotNeedRouter.get('/logout', (req: Request, res: Response, next: NextFunction) => {
-    const { accountId, ...rest } = req.query;
+    const { accountId } = req.query;
 
     if (!accountId) {
         throw new BadRequestError("Missing accountId");
     }
 
-    clearSession(res, accountId as string);
-    next(new RedirectSuccess(rest, "/", undefined));
+    // clearSession(res, accountId as string);
+    next(new RedirectSuccess(null, "/", undefined));
 });
-
-authenticatedNeedRouter.use('/', validateTokenAccess);
-
-authenticatedNeedRouter.get('/refreshToken', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const accountId = req.query.accountId as string;
-
-    const account = req.oauthAccount as OAuthAccountDocument;
-
-    const refreshToken = req.refreshToken as string;
-
-    const { redirectUrl } = req.query;
-
-    if (!redirectUrl) {
-        throw new BadRequestError("Missing redirectUrl query parameter");
-    }
-
-    if (account.provider === OAuthProviders.Google) {
-        const newTokenInfo = await refreshAccessToken(refreshToken);
-
-        // Update the token in the database
-        setAccessTokenCookie(res, accountId, newTokenInfo.access_token as string, newTokenInfo.expiry_date as number);
-
-        // If a new refresh token was provided, update that as well
-        if (newTokenInfo.refresh_token) {
-            setRefreshTokenCookie(res, accountId, newTokenInfo.refresh_token);
-        }
-
-    } else {
-        throw new ServerError("Invalid account provider type found");
-    }
-
-    next(new RedirectSuccess(null, redirectUrl as string, undefined, undefined, undefined, false));
-}));
 
 // Get account details
 authenticatedNeedRouter.get('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -164,4 +131,29 @@ authenticatedNeedRouter.patch('/security', asyncHandler(async (req: Request, res
     // Convert to safe account type
     const updatedAccount = toOAuthAccount(account);
     next(new JsonSuccess(updatedAccount, 200));
+}));
+
+authenticatedNeedRouter.get('/refreshToken', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const accountId = req.params.accountId as string;
+
+    const account = req.oauthAccount as OAuthAccountDocument;
+
+    const refreshToken = req.refreshToken as string;
+
+    const { redirectUrl } = req.query;
+
+    if (!redirectUrl) {
+        throw new BadRequestError("Missing redirectUrl query parameter");
+    }
+
+    if (account.provider === OAuthProviders.Google) {
+        const newTokenInfo = await refreshAccessToken(refreshToken);
+
+        // Update the token in the database
+        setAccessTokenCookie(res, accountId, newTokenInfo.access_token as string, newTokenInfo.expiry_date as number - Date.now());
+    } else {
+        throw new ServerError("Invalid account provider type found");
+    }
+
+    next(new RedirectSuccess(null, redirectUrl as string, undefined, undefined, undefined, false));
 }));
