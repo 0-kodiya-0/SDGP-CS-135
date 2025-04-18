@@ -4,11 +4,10 @@ import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
 import { useAccount as useAccountDetails } from "./features/default/user_account";
-// import { WorkspaceProvider } from "./features/required/workspace";
 import { registerAllComponents } from "./features/required/tab_view";
 
 const App: React.FC = () => {
-    const { isLoading, error, fetchAccountDetails } = useAccountDetails();
+    const { isLoading, error, fetchCurrentAccountDetails } = useAccountDetails();
     const { currentEnvironment, isLoading: envLoading } = useEnvironment();
 
     // Initialize component registry on app startup
@@ -38,7 +37,7 @@ const App: React.FC = () => {
                 <p className="text-gray-600 mb-4">{error}</p>
                 <button
                     className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={() => fetchAccountDetails()}
+                    onClick={() => fetchCurrentAccountDetails()}
                 >
                     Retry
                 </button>
@@ -55,9 +54,6 @@ const App: React.FC = () => {
                             environment={currentEnvironment}
                             isLoading={envLoading}
                         />
-                    {/* <WorkspaceProvider> */}
-                        
-                    {/* </WorkspaceProvider> */}
                     <Footer />
             </QueryClientProvider>
         </div>

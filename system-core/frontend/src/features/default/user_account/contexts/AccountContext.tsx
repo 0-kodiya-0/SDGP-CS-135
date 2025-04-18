@@ -2,15 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { Account } from '../types/types.data';
-import axios from 'axios';
-import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
 import { useAccountStore } from '../store/account.store'; // Import the new store
+import { fetchAccountDetails } from '../utils/account.utils';
 
 interface AccountContextType {
+    accounts: Account[];
     currentAccount: Account | null;
     isLoading: boolean;
+    fetchCurrentAccountDetails: () => void;
+    fetchAllAccountDetails: () => void;
     error: string | null;
-    fetchAccountDetails: () => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -20,6 +21,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const { isAuthenticated, isLoading: authLoading } = useAuth();
     const { accountIds } = useAccountStore(); // Get account IDs from store
 
+    const [accounts, setAccounts] = useState<Account[]>([]);
     const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     return;
                 }
 
-                await fetchAccountDetails();
+                await fetchAllAccountDetails();
             } catch (err) {
                 console.error('Error loading account data:', err);
                 setError('Failed to load account data');
@@ -52,40 +54,63 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
 
         loadAccountData();
+    }, [accountId]);
+
+
+    const fetchAllAccountDetails = useCallback(async () => {
+        if (!accountIds || accountIds.length === 0) return;
+
+        try {
+            setIsLoading(true);
+            const accountPromises = accountIds.map(async (accountId) => {
+                try {
+                    const response = await fetchAccountDetails(accountId);
+                    return response;
+                } catch {
+                    return null
+                }
+            });
+
+            const accountDetails = await Promise.all(accountPromises);
+
+            const currentAccount = accountDetails.find(account => account.id === accountId);
+
+            if (!currentAccount) {
+                throw new Error("Current account not found");
+            }
+
+            setCurrentAccount(currentAccount);
+
+            setAccounts(accountDetails.filter((data) => data !== null));
+        } catch (error) {
+            console.error('Error fetching account details:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, [accountId, accountIds]);
 
-    const fetchAccountDetails = useCallback(async () => {
+    const fetchCurrentAccountDetails = useCallback(async () => {
         if (!accountId) return;
 
         try {
             setIsLoading(true);
-            setError(null);
+            const accountDetails = await fetchAccountDetails(accountId);
 
-            const response = await axios.get<ApiResponse<Account>>(
-                `${API_BASE_URL}/${accountId}/account`,
-                { withCredentials: true }
-            );
-
-            if (response.data.success && response.data.data) {
-                const account = response.data.data;
-                setCurrentAccount(account);
-            } else {
-                console.error("API returned success: false");
-                setError('Failed to load account details');
-            }
+            setCurrentAccount(accountDetails);
         } catch (error) {
             console.error('Error fetching account details:', error);
-            setError('Failed to load account details');
         } finally {
             setIsLoading(false);
         }
     }, [accountId]);
 
     const value = {
+        accounts,
         currentAccount,
         isLoading,
         error,
-        fetchAccountDetails
+        fetchCurrentAccountDetails, 
+        fetchAllAccountDetails
     };
 
     return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;

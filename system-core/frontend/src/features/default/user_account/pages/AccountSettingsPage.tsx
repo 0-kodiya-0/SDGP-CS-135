@@ -6,7 +6,7 @@ import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const AccountSettingsPage: React.FC = () => {
-    const { currentAccount, isLoading, error , fetchAccountDetails} = useAccount();
+    const { currentAccount, isLoading, error, fetchCurrentAccountDetails } = useAccount();
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -50,7 +50,7 @@ const AccountSettingsPage: React.FC = () => {
                     </button>
                     <button
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        onClick={() => fetchAccountDetails()}
+                        onClick={() => fetchCurrentAccountDetails()}
                     >
                         Retry
                     </button>

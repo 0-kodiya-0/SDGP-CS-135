@@ -24,7 +24,13 @@ export const AppRoutes: React.FC = () => {
                     <Route path="/" element={<AuthRedirect />} />
 
                     {/* Account selection page */}
-                    <Route path="/accounts" element={<AuthGuard><AccountSelectionPage /></AuthGuard>} />
+                    <Route path="/accounts" element={
+                        <AuthGuard>
+                            <AccountProvider>
+                                <AccountSelectionPage />
+                            </AccountProvider>
+                        </AuthGuard>
+                    } />
 
                     {/* Account settings page */}
                     <Route path="/app/:accountId/settings" element={

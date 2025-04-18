@@ -1,50 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, LogOut, Check } from 'lucide-react';
-import { fetchAccountDetails } from '../utils/account.utils';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from '../components/UserAvatar';
-import { Account } from '../types/types.data';
-import { useAccountStore } from '../store/account.store';
+import { useAccount } from '../contexts/AccountContext';
 
 const AccountSelectionPage: React.FC = () => {
     const { isLoading, logoutAll } = useAuth();
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [loadingAccounts, setLoadingAccounts] = useState(true);
+    const { isLoading: loadingAccounts, accounts } = useAccount();
     const [preferredAccountId, setPreferredAccountId] = useState<string | null>(
         localStorage.getItem('preferredAccountId')
     );
-    const { accountIds } = useAccountStore(); // Get account IDs from store
-
     const navigate = useNavigate();
-
-    // Fetch details for all accounts from the account IDs
-    useEffect(() => {
-        const fetchAllAccountDetails = async () => {
-            if (!accountIds || accountIds.length === 0) return;
-
-            try {
-                setLoadingAccounts(true);
-                const accountPromises = accountIds.map(async (accountId) => {
-                    try {
-                        const response = await fetchAccountDetails(accountId);
-                        return response;
-                    } catch {
-                        return null
-                    }
-                });
-
-                const accountDetails = await Promise.all(accountPromises);
-                setAccounts(accountDetails.filter((data) => data !== null));
-            } catch (error) {
-                console.error('Error fetching account details:', error);
-            } finally {
-                setLoadingAccounts(false);
-            }
-        };
-
-        fetchAllAccountDetails();
-    }, [accountIds]);
 
     const handleSelectAccount = (accountId: string) => {
         navigate(`/app/${accountId}`);
