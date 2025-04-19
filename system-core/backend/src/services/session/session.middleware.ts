@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiErrorCode, AuthError, BadRequestError, NotFoundError, RedirectError, ServerError } from '../../types/response.types';
+import { ApiErrorCode, BadRequestError, NotFoundError, RedirectError, ServerError } from '../../types/response.types';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
 import { validateOAuthAccount } from '../../feature/account/Account.validation';
@@ -54,14 +54,19 @@ export const validateTokenAccess = asyncHandler(async (req: Request, res: Respon
 
     const accessToken = extractAccessToken(req, accountId);
     const refreshToken = extractRefreshToken(req, accountId);
+    const isRefreshTokenPath = req.path === "/account/refreshToken";
 
     console.log(req.cookies, req.params, req.path);
 
-    const token: string | null = req.path === "/account/refreshToken" ? refreshToken : accessToken;
+    const token: string | null = isRefreshTokenPath ? refreshToken : accessToken;
 
     try {
         if (!token) {
-            throw new Error("Token not found");
+            if (isRefreshTokenPath) {
+                return next(new BadRequestError("Missing refresh token"));
+            } else {
+                throw new Error("Token not found");
+            }
         }
 
         const tokenPayload = verifySession(token);
@@ -70,19 +75,17 @@ export const validateTokenAccess = asyncHandler(async (req: Request, res: Respon
             throw new BadRequestError("Invalid payload format");
         }
 
-        if (req.path === "/account/refreshToken") {
+        if (isRefreshTokenPath) {
             req.refreshToken = tokenPayload;
         } else {
             req.accessToken = tokenPayload;
         }
 
         next();
-    } catch (error) {
-        console.log(error);
-
+    } catch {
         const accountPath = req.oauthAccount?.id || req.oauthAccount?._id?.toHexString?.() || accountId;
 
-        if (req.path === "/account/refreshToken") {
+        if (isRefreshTokenPath) {
             throw new RedirectError(
                 ApiErrorCode.TOKEN_INVALID,
                 `/api/v1/account/logout?accountId=${accountPath}`,

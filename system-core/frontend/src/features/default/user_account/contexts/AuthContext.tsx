@@ -5,7 +5,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
-    logout: (accountId?: string) => Promise<void>;
+    logout: (accountId: string) => Promise<void>;
     logoutAll: () => Promise<void>;
 }
 
@@ -16,7 +16,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [error, setError] = useState<string | null>(null);
 
     // Use the account store instead of state
-    const { hasAccounts, clearAccounts } = useAccountStore();
+    const { accountIds, hasAccounts, clearAccounts, removeAccount } = useAccountStore();
 
     // Complete initial loading after component mounts
     useEffect(() => {
@@ -24,13 +24,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     // Logout from a specific account
-    const logout = async (accountId?: string) => {
+    const logout = async (accountId: string) => {
         try {
             setIsLoading(true);
-            if (accountId) {
-                // Navigate to the logout endpoint
-                window.location.href = `/api/v1/${accountId}/account/logout`;
-            }
+            removeAccount(accountId);
+
+            window.location.href = `/api/v1/account/logout?accountId=${accountId}`;
         } catch (error) {
             console.error('Logout failed:', error);
             setError('Failed to logout');
@@ -45,8 +44,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(true);
             // Clear local store first
             clearAccounts();
+
+            const params = new URLSearchParams();
+            accountIds.forEach(id => params.append('accountIds', id));
+
             // Then navigate to logout endpoint
-            window.location.href = "/api/v1/account/logout/all";
+            window.location.href = `/api/v1/account/logout/all?${params.toString()}`;
         } catch (error) {
             console.error('Logout all failed:', error);
             setError('Failed to logout from all accounts');

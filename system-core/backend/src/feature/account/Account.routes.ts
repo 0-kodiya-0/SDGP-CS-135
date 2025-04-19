@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { ApiErrorCode, BadRequestError, NotFoundError, JsonSuccess, RedirectSuccess, ServerError } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
-import { clearAllSessions, clearSession, setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
+import { clearAllSessions, clearSession, setAccessTokenCookie } from '../../services/session';
 import { OAuthAccountDocument } from './Account.model';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
@@ -31,16 +31,16 @@ authenticationNotNeedRouter.get('/search', asyncHandler(async (req: Request, res
 }));
 
 // Logout all accounts (clear entire session)
-// authenticationNotNeedRouter.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
-//     const { accountIds } = req.query;
+authenticationNotNeedRouter.get('/logout/all', (req: Request, res: Response, next: NextFunction) => {
+    const { accountIds } = req.query;
 
-//     if (!Array.isArray(accountIds)) {
-//         throw new BadRequestError("Invalid format or undefine account ids");
-//     }
+    if (!Array.isArray(accountIds)) {
+        throw new BadRequestError("Invalid format or undefine account ids");
+    }
 
-//     clearAllSessions(res, accountIds as (string)[]);
-//     next(new RedirectSuccess(null, "/"));
-// });
+    clearAllSessions(res, accountIds as (string)[]);
+    next(new RedirectSuccess(null, "/"));
+});
 
 authenticationNotNeedRouter.get('/logout', (req: Request, res: Response, next: NextFunction) => {
     const { accountId } = req.query;
@@ -49,7 +49,7 @@ authenticationNotNeedRouter.get('/logout', (req: Request, res: Response, next: N
         throw new BadRequestError("Missing accountId");
     }
 
-    // clearSession(res, accountId as string);
+    clearSession(res, accountId as string);
     next(new RedirectSuccess(null, "/", undefined));
 });
 

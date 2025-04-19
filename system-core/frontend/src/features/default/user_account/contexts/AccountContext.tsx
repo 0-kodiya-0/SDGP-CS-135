@@ -10,7 +10,7 @@ interface AccountContextType {
     currentAccount: Account | null;
     isLoading: boolean;
     fetchCurrentAccountDetails: () => void;
-    fetchAllAccountDetails: () => void;
+    fetchAllAccountDetails: (setCurrentAccountData?: boolean) => void;
     error: string | null;
 }
 
@@ -19,7 +19,7 @@ const AccountContext = createContext<AccountContextType | undefined>(undefined);
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { accountId } = useParams<{ accountId: string }>();
     const { isAuthenticated, isLoading: authLoading } = useAuth();
-    const { accountIds } = useAccountStore(); // Get account IDs from store
+    const { accountIds, removeAccount } = useAccountStore(); // Get account IDs from store
 
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
@@ -57,37 +57,53 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [accountId]);
 
 
-    const fetchAllAccountDetails = useCallback(async () => {
-        if (!accountIds || accountIds.length === 0) return;
+    const fetchAllAccountDetails = useCallback(async (setCurrentAccountData = true) => {
+        if (!accountIds || accountIds.length === 0) {
+            setIsLoading(false);
+            return;
+        }
 
         try {
             setIsLoading(true);
-            const accountPromises = accountIds.map(async (accountId) => {
-                try {
-                    const response = await fetchAccountDetails(accountId);
-                    return response;
-                } catch {
-                    return null
+
+            // Fetch all accounts in parallel
+            const accountDetailsResults = await Promise.all(
+                accountIds.map(id => fetchAccountDetails(id))
+            );
+
+            // Filter out null responses (failed fetches)
+            const validAccounts = accountDetailsResults.filter((account): account is Account => account !== null);
+
+            // Find account IDs that failed to load
+            const fetchedAccountIds = validAccounts.map(account => account.id);
+            const invalidAccountIds = accountIds.filter(id => !fetchedAccountIds.includes(id));
+
+            // Remove failed accounts from the store
+            invalidAccountIds.forEach(id => removeAccount(id));
+
+            // Update accounts state
+            setAccounts(validAccounts);
+
+            // Set current account if requested
+            if (setCurrentAccountData && accountId) {
+                const current = validAccounts.find(account => account.id === accountId);
+                if (current) {
+                    setCurrentAccount(current);
+                } else {
+                    console.warn("Current account not found in fetched accounts");
+                    if (!invalidAccountIds.includes(accountId)) {
+                        // This is strange - account ID isn't in invalid list but we didn't find it
+                        setError("Error loading current account");
+                    }
                 }
-            });
-
-            const accountDetails = await Promise.all(accountPromises);
-
-            const currentAccount = accountDetails.find(account => account.id === accountId);
-
-            if (!currentAccount) {
-                throw new Error("Current account not found");
             }
-
-            setCurrentAccount(currentAccount);
-
-            setAccounts(accountDetails.filter((data) => data !== null));
         } catch (error) {
             console.error('Error fetching account details:', error);
+            setError('Failed to load account data');
         } finally {
             setIsLoading(false);
         }
-    }, [accountId, accountIds]);
+    }, [accountIds, accountId, removeAccount]);
 
     const fetchCurrentAccountDetails = useCallback(async () => {
         if (!accountId) return;
@@ -109,7 +125,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentAccount,
         isLoading,
         error,
-        fetchCurrentAccountDetails, 
+        fetchCurrentAccountDetails,
         fetchAllAccountDetails
     };
 

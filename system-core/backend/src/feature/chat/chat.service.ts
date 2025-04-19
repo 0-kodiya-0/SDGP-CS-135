@@ -3,12 +3,12 @@ import { ChatValidationError } from '../../types/response.types';
 import { MessageDocument, ConversationDocument } from './chat.model';
 
 // Verify if a user has access to a conversation
-export async function verifyConversationAccess(conversationId: string, userId: string): Promise<boolean> {
+export async function verifyConversationAccess(conversationId: string, accountId: string): Promise<boolean> {
   const { chat } = await db.getModels();
 
   // Use projection to only return the _id field, optimizing the query
   const conversation = await chat.Conversation.findOne(
-    { _id: conversationId, participants: userId },
+    { _id: conversationId, participants: accountId },
     { _id: 1 }
   );
 
@@ -46,7 +46,7 @@ export async function getOrCreatePrivateConversation(user1Id: string, user2Id: s
 }
 
 // Updated service functions
-export async function getPrivateParticipantInformation(conversationId: string, userId: string) {
+export async function getPrivateParticipantInformation(conversationId: string, accountId: string) {
   const { chat, accounts } = await db.getModels();
 
   const conversation = await chat.Conversation.findOne({
@@ -54,11 +54,11 @@ export async function getPrivateParticipantInformation(conversationId: string, u
     type: 'private'
   });
 
-  const exists = conversation?.participants.find((p => p === userId));
+  const exists = conversation?.participants.find((p => p === accountId));
 
   if (!exists) return null;
 
-  const otherParticipant = conversation?.participants.find((p => p !== userId));
+  const otherParticipant = conversation?.participants.find((p => p !== accountId));
 
   const account = await accounts.OAuthAccount.findOne(({ _id: otherParticipant }));
 
@@ -67,13 +67,13 @@ export async function getPrivateParticipantInformation(conversationId: string, u
   return { _id: account._id, name: account.userDetails.name, email: account.userDetails.email, imageUrl: account.userDetails.imageUrl };
 }
 
-export async function getGroupParticipantsInformation(conversationId: string, userId: string) {
+export async function getGroupParticipantsInformation(conversationId: string, accountId: string) {
   const { chat, accounts } = await db.getModels();
 
   const conversation = await chat.Conversation.findOne({
     _id: conversationId,
     type: 'group',
-    participants: { $in: [userId] }
+    participants: { $in: [accountId] }
   });
 
   if (!conversation) return null;
@@ -186,11 +186,11 @@ export async function getMessages(conversationId: string, limit: number = 50, be
 }
 
 // Get user's conversations
-export async function getUserConversations(userId: string): Promise<ConversationDocument[]> {
+export async function getUserConversations(accountId: string): Promise<ConversationDocument[]> {
   const { chat } = await db.getModels();
 
   return await chat.Conversation.find({
-    participants: userId
+    participants: accountId
   })
     .sort({ updatedAt: -1 })
     .exec();
@@ -205,13 +205,13 @@ export async function getUserConversation(conversationId: string): Promise<Conve
 }
 
 // Mark messages as read
-export async function markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
+export async function markMessagesAsRead(conversationId: string, accountId: string): Promise<void> {
   const { chat } = await db.getModels();
 
   await chat.Message.updateMany(
     {
       conversationId,
-      sender: { $ne: userId },
+      sender: { $ne: accountId },
       read: false
     },
     { read: true }
@@ -219,7 +219,7 @@ export async function markMessagesAsRead(conversationId: string, userId: string)
 }
 
 // Add user to group
-export async function addUserToGroup(conversationId: string, userId: string): Promise<ConversationDocument | null> {
+export async function addUserToGroup(conversationId: string, accountId: string): Promise<ConversationDocument | null> {
   const { chat } = await db.getModels();
 
   // Ensure conversation is a group type with optimized query
@@ -233,7 +233,7 @@ export async function addUserToGroup(conversationId: string, userId: string): Pr
   }
 
   // Don't add user if already a participant
-  if (conversation.participants.includes(userId)) {
+  if (conversation.participants.includes(accountId)) {
     return conversation;
   }
 
@@ -241,7 +241,7 @@ export async function addUserToGroup(conversationId: string, userId: string): Pr
   return await chat.Conversation.findOneAndUpdate(
     { _id: conversationId, type: 'group' },
     {
-      $addToSet: { participants: userId },
+      $addToSet: { participants: accountId },
       updatedAt: timestamp
     },
     { new: true }
@@ -249,7 +249,7 @@ export async function addUserToGroup(conversationId: string, userId: string): Pr
 }
 
 // Remove user from group
-export async function removeUserFromGroup(conversationId: string, userId: string): Promise<ConversationDocument | null> {
+export async function removeUserFromGroup(conversationId: string, accountId: string): Promise<ConversationDocument | null> {
   const { chat } = await db.getModels();
 
   // Ensure conversation is a group type with optimized query
@@ -271,7 +271,7 @@ export async function removeUserFromGroup(conversationId: string, userId: string
   return await chat.Conversation.findOneAndUpdate(
     { _id: conversationId, type: 'group' },
     {
-      $pull: { participants: userId },
+      $pull: { participants: accountId },
       updatedAt: timestamp
     },
     { new: true }
@@ -279,7 +279,7 @@ export async function removeUserFromGroup(conversationId: string, userId: string
 }
 
 // Delete conversation and all its messages with transaction support
-export async function deleteConversation(conversationId: string, userId: string): Promise<boolean> {
+export async function deleteConversation(conversationId: string, accountId: string): Promise<boolean> {
   const { chat } = await db.getModels();
 
   // Start a session for transaction
@@ -290,7 +290,7 @@ export async function deleteConversation(conversationId: string, userId: string)
 
     // Verify user is part of the conversation with optimized query
     const conversation = await chat.Conversation.findOne(
-      { _id: conversationId, participants: userId },
+      { _id: conversationId, participants: accountId },
       { _id: 1 }
     ).session(session);
 
@@ -316,12 +316,12 @@ export async function deleteConversation(conversationId: string, userId: string)
 }
 
 // Get unread message count
-export async function getUnreadCount(userId: string): Promise<number> {
+export async function getUnreadCount(accountId: string): Promise<number> {
   const { chat } = await db.getModels();
 
   // Get conversation IDs where user is a participant
   const conversations = await chat.Conversation.find(
-    { participants: userId },
+    { participants: accountId },
     { _id: 1 }
   );
 
@@ -330,18 +330,18 @@ export async function getUnreadCount(userId: string): Promise<number> {
   // Count unread messages
   return await chat.Message.countDocuments({
     conversationId: { $in: conversationIds },
-    sender: { $ne: userId },
+    sender: { $ne: accountId },
     read: false
   });
 }
 
 // Add this function to chat.service.ts
-export async function getUnreadCountByConversation(userId: string): Promise<Record<string, number>> {
+export async function getUnreadCountByConversation(accountId: string): Promise<Record<string, number>> {
   const { chat } = await db.getModels();
 
   // Get conversation IDs where user is a participant
   const conversations = await chat.Conversation.find(
-    { participants: userId },
+    { participants: accountId },
     { _id: 1 }
   );
 
@@ -358,7 +358,7 @@ export async function getUnreadCountByConversation(userId: string): Promise<Reco
     {
       $match: {
         conversationId: { $in: conversationIds },
-        sender: { $ne: userId },
+        sender: { $ne: accountId },
         read: false
       }
     },

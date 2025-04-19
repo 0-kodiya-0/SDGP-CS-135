@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PlusCircle, ChevronUp, ChevronDown, LogOut, UserCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fetchAccountDetails } from '../utils/account.utils';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from './UserAvatar';
@@ -14,71 +13,23 @@ interface AccountPopupProps {
 }
 
 // Component to fetch and display a single account in the list
-const AccountListItem: React.FC<{ accountId: string; onSelect: (accountId: string) => void }> = ({
-  accountId,
+const AccountListItem: React.FC<{ account: Account; onSelect: (accountId: string) => void }> = ({
+  account,
   onSelect
 }) => {
-  const [account, setAccount] = useState<Account | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const getAccountDetails = async () => {
-      try {
-        const response = await fetchAccountDetails(accountId);
-        if (response.success) {
-          setAccount(response.data);
-        } else {
-          setError(true);
-        }
-      } catch (err) {
-        console.error('Error fetching account details:', err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getAccountDetails();
-  }, [accountId]);
-
   return (
     <button
       className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-left"
-      onClick={() => onSelect(accountId)}
-      disabled={loading}
+      onClick={() => onSelect(account.id)}
     >
-      {loading ? (
-        <div className="flex items-center w-full">
-          <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
-          <div className="ml-3 flex-1">
-            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-1"></div>
-            <div className="h-3 w-32 bg-gray-100 rounded animate-pulse"></div>
-          </div>
-        </div>
-      ) : error ? (
-        <>
-          <UserAvatar
-            account={account}
-            size="sm"
-          />
-          <div className="flex-1 min-w-0 ml-3">
-            <p className="text-sm font-medium">Account {accountId.substring(0, 6)}...</p>
-            <p className="text-xs text-red-500">Error loading details</p>
-          </div>
-        </>
-      ) : (
-        <>
-          <UserAvatar
-            account={account}
-            size="sm"
-          />
-          <div className="flex-1 min-w-0 ml-3">
-            <p className="text-sm font-medium">{account?.userDetails.name}</p>
-            <p className="text-xs text-gray-500 truncate">{account?.userDetails.email}</p>
-          </div>
-        </>
-      )}
+      <UserAvatar
+        account={account}
+        size="sm"
+      />
+      <div className="flex-1 min-w-0 ml-3">
+        <p className="text-sm font-medium">{account?.userDetails.name}</p>
+        <p className="text-xs text-gray-500 truncate">{account?.userDetails.email}</p>
+      </div>
     </button>
   );
 };
@@ -88,8 +39,8 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const { accountIds, isAuthenticated, logout, logoutAll } = useAuth();
-  const { currentAccount } = useAccount();
+  const { isAuthenticated, logout, logoutAll } = useAuth();
+  const { currentAccount, accounts } = useAccount();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -212,11 +163,11 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   };
 
   const renderOtherAccounts = () => {
-    if (!accountIds || accountIds.length <= 1) return null;
-    
+    if (!accounts || accounts.length <= 1) return null;
+
     // Filter out the current account ID
-    const otherAccountIds = accountIds.filter(id => id !== currentAccount?.id);
-    
+    const otherAccountIds = accounts.filter(accounts => accounts.id !== currentAccount?.id);
+
     if (otherAccountIds.length === 0) return null;
 
     return (
@@ -233,10 +184,10 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
         {showAllAccounts && (
           <div className="mt-2 space-y-1">
-            {otherAccountIds.map((accountId) => (
+            {otherAccountIds.map((account) => (
               <AccountListItem
-                key={accountId}
-                accountId={accountId}
+                key={account.id}
+                account={account}
                 onSelect={handleSwitchAccount}
               />
             ))}
@@ -271,7 +222,7 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
 
         {isAuthenticated && (
           <div className="mt-3 pt-3 border-t">
-            {accountIds && accountIds.length > 1 ? (
+            {accounts && accounts.length > 1 ? (
               <>
                 <button
                   className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-gray-700 text-sm"

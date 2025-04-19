@@ -155,7 +155,7 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
             }
 
             // Return the error response for the caller to handle
-            return {
+            throw {
                 success: false,
                 error: error.response.data.error || 'API request failed',
                 status: error.response.status
@@ -163,7 +163,7 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
         } else if (error.request) {
             // The request was made but no response was received
             console.error('Network Error:', error.request);
-            return {
+            throw {
                 success: false,
                 error: 'Network error, please check your connection',
                 status: 0
@@ -171,7 +171,7 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
         } else {
             // Something happened in setting up the request
             console.error('Request Error:', error.message);
-            return {
+            throw {
                 success: false,
                 error: 'Failed to make request',
                 status: 0
@@ -183,8 +183,12 @@ export const authFetch = async (url: string, options: AxiosRequestConfig = {}) =
 /**
  * Get account details by ID
  */
-export const fetchAccountDetails = (accountId: string) => {
-    return authFetch(`/${accountId}/account`);
+export const fetchAccountDetails = async (accountId: string) => {
+    try {
+        return await authFetch(`/${accountId}/account`);
+    } catch {
+        return null
+    }
 };
 
 /**
@@ -197,8 +201,12 @@ export const fetchAccountEmail = (accountId: string) => {
 /**
  * Fetch email for a specific account
  */
-export const searchAccounts = (email: string) => {
-    return authFetch(`/account/search?email=${email}`);
+export const searchAccounts = async (email: string) => {
+    try {
+        return await authFetch(`/account/search?email=${email}`);
+    } catch {
+        return null;
+    }
 };
 
 export default authFetch;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, LogOut, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,10 +7,15 @@ import { useAccount } from '../contexts/AccountContext';
 
 const AccountSelectionPage: React.FC = () => {
     const { isLoading, logoutAll } = useAuth();
-    const { isLoading: loadingAccounts, accounts } = useAccount();
+    const { isLoading: loadingAccounts, accounts, fetchAllAccountDetails } = useAccount();
     const [preferredAccountId, setPreferredAccountId] = useState<string | null>(
         localStorage.getItem('preferredAccountId')
     );
+
+    useEffect(() => {
+        fetchAllAccountDetails(false);
+    }, [])
+
     const navigate = useNavigate();
 
     const handleSelectAccount = (accountId: string) => {
@@ -39,7 +44,7 @@ const AccountSelectionPage: React.FC = () => {
             </div>
         );
     }
-
+    
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md mx-auto">
