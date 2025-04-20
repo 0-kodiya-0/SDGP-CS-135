@@ -68,7 +68,7 @@ export async function getTokenScopes(accessToken: string): Promise<TokenScopeInf
         };
     } catch (error) {
         console.error('Error getting token scopes:', error);
-        throw new ProviderValidationError(OAuthProviders.Google, 'Failed to get token scope information');
+        throw new ProviderValidationError(OAuthProviders.Google, 'Failed to get token scope information', undefined);
     }
 }
 
@@ -106,6 +106,66 @@ export async function refreshAccessToken(refreshToken: string) {
         throw new ProviderValidationError(
             OAuthProviders.Google,
             'Failed to refresh access token'
+        );
+    }
+}
+
+/**
+ * Revoke an access token and optionally a refresh token
+ * @param accessToken The access token to revoke
+ * @param refreshToken Optional refresh token to revoke
+ */
+export async function revokeTokens(accessToken: string, refreshToken?: string) {
+    try {
+        // Create OAuth2 client for revoking tokens
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET
+        );
+
+        // Revoke access token
+        const results = {
+            accessTokenRevoked: false,
+            refreshTokenRevoked: false
+        };
+
+        try {
+            await oAuth2Client.revokeToken(accessToken);
+            results.accessTokenRevoked = true;
+        } catch (error) {
+            console.error('Error revoking access token:', error);
+        }
+
+        // Revoke refresh token if provided
+        if (refreshToken) {
+            try {
+                await oAuth2Client.revokeToken(refreshToken);
+                results.refreshTokenRevoked = true;
+            } catch (error) {
+                console.error('Error revoking refresh token:', error);
+            }
+        }
+
+        // Check if at least one token was revoked successfully
+        if (!results.accessTokenRevoked && !results.refreshTokenRevoked) {
+            throw new ProviderValidationError(
+                OAuthProviders.Google,
+                'Failed to revoke tokens'
+            );
+        }
+
+        return results;
+    } catch (error) {
+        console.error('Error during token revocation:', error);
+        
+        // Avoid wrapping the same error again
+        if (error instanceof ProviderValidationError) {
+            throw error;
+        }
+        
+        throw new ProviderValidationError(
+            OAuthProviders.Google,
+            'Failed to revoke tokens'
         );
     }
 }

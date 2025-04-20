@@ -5,7 +5,7 @@ import { validateSignUpState, validateSignInState, validateOAuthState, validateP
 import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
 import { generateSignInState, generateSignupState, generateOAuthState, clearOAuthState, clearSignUpState, clearSignInState, generatePermissionState } from './Auth.utils';
 import { SignUpRequest, SignInRequest, AuthRequest, OAuthCallBackRequest } from './Auth.dto';
-import { ApiErrorCode, AuthError, BadRequestError, NotFoundError, RedirectError, RedirectSuccess } from '../../types/response.types';
+import { ApiErrorCode, BadRequestError, NotFoundError, RedirectError, RedirectSuccess } from '../../types/response.types';
 import passport from 'passport';
 import db from '../../config/db';
 import { findUserByEmail, findUserById, userEmailExists, userIdExists } from '../account/Account.utils';
@@ -271,12 +271,6 @@ router.get('/callback/:provider', asyncHandler(async (req: OAuthCallBackRequest,
 router.get('/callback/permission/:provider', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const provider = req.params.provider;
     const stateFromProvider = req.query.state as string;
-    const error = req.query.error as string;
-
-    if (error) {
-        console.error(`Permission error returned from provider: ${error}`);
-        throw new AuthError(`Permission request failed: ${error}`);
-    }
 
     if (!validateProvider(provider, res)) {
         throw new BadRequestError('Invalid provider');

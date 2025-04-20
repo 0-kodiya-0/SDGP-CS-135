@@ -5,7 +5,7 @@ import { clearAllSessions, clearSession, setAccessTokenCookie } from '../../serv
 import { OAuthAccountDocument } from './Account.model';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
-import { refreshAccessToken } from '../google/services/token';
+import { refreshAccessToken, revokeTokens as revokeGoogleTokens } from '../google/services/token';
 import { OAuthProviders } from './Account.types';
 
 export const authenticatedNeedRouter = express.Router({ mergeParams: true });
@@ -156,4 +156,26 @@ authenticatedNeedRouter.get('/refreshToken', asyncHandler(async (req: Request, r
     }
 
     next(new RedirectSuccess(null, redirectUrl as string, undefined, undefined, undefined, false));
+}));
+
+authenticatedNeedRouter.get('/refreshToken/revoke', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const accountId = req.params.accountId as string;
+
+    const account = req.oauthAccount as OAuthAccountDocument;
+
+    const accessToken = req.accessToken as string;
+    const refreshToken = req.refreshToken as string;
+
+    let result;
+
+    if (account.provider === OAuthProviders.Google) {
+        result = await revokeGoogleTokens(accessToken, refreshToken);
+
+        // Update the token in the database
+        clearSession(res, accountId as string);
+    } else {
+        throw new ServerError("Invalid account provider type found");
+    }
+
+    next(new JsonSuccess(result, undefined, "Token revoked"));
 }));

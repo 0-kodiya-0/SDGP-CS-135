@@ -9,6 +9,8 @@ import AccountSettingsPage from './features/default/user_account/pages/AccountSe
 import NotFoundPage from './pages/NotFoundPage';
 import AuthGuard from './pages/AuthGuard';
 import { LoginPage, SignupPage, AuthCallback, AuthRedirect } from './pages';
+import TokenRevocationWarningPage from './features/default/user_account/pages/TokenRevocationWarningPage';
+import PermissionCallback from './pages/PermissionCallback';
 
 export const AppRoutes: React.FC = () => {
     return (
@@ -19,6 +21,7 @@ export const AppRoutes: React.FC = () => {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/signup" element={<SignupPage />} />
                     <Route path="/auth/callback" element={<AuthCallback />} />
+                    <Route path="/permission/callback" element={<PermissionCallback />} />
 
                     {/* Root redirects to preferred account or account selection */}
                     <Route path="/" element={<AuthRedirect />} />
@@ -39,6 +42,10 @@ export const AppRoutes: React.FC = () => {
                                 <AccountSettingsPage />
                             </AccountProvider>
                         </AuthGuard>
+                    } />
+
+                    <Route path="/app/:accountId/revoke" element={
+                        <TokenRevocationWarningPage />
                     } />
 
                     {/* Main application routes */}

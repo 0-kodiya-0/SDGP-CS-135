@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useDriveFiles } from "../hooks/useDriveFiles.google";
 import { DriveFile } from "../types/types.google.api";
-import { FiDownload, FiFile, FiImage, FiFileText,  FiFolder, FiShield } from "react-icons/fi";
+import { FiDownload, FiFile, FiImage, FiFileText, FiFolder } from "react-icons/fi";
 import { useTabStore } from "../../../required/tab_view";
 import { ComponentTypes } from "../../../required/tab_view/types/types.views";
 import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
+import { GooglePermissionRequest } from "../../user_account";
 
 interface GoogleDriveViewProps {
   accountId: string;
@@ -16,17 +17,17 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
   const { addTab, setActiveTab } = useTabStore();
 
   const {
-    permissions,
+    hasRequiredPermission,
     permissionsLoading,
     permissionError,
-    checkAllServicePermissions,
+    checkAllServicePermissions: checkAllDrivePermissions,
   } = useServicePermissions(accountId, 'drive');
 
   useEffect(() => {
-    if (permissions?.readonly?.hasAccess) {
+    if (hasRequiredPermission('full')) {
       listFiles();
     }
-  }, [permissions?.readonly?.hasAccess]);
+  }, []);
 
   const handleFileClick = (file: DriveFile) => {
     setSelectedFile(file);
@@ -68,38 +69,19 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
     return <FiFile className="text-gray-500" />;
   };
 
-  const renderPermissionRequest = () => {
+  if (!hasRequiredPermission("full")) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <FiShield className="w-16 h-16 text-blue-500 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Google Drive Access Required</h2>
-        <p className="text-gray-600 text-center mb-6">
-          To use Google Drive features, we need your permission to access your files and folders.
-        </p>
-        <button 
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-          onClick={() => checkAllServicePermissions(true)}
-          disabled={permissionsLoading}
-        >
-          {permissionsLoading ? 'Requesting Access...' : 'Grant Drive Access'}
-        </button>
-        {permissionError && (
-          <p className="text-red-500 mt-4 text-sm">
-            Error: {permissionError}
-          </p>
-        )}
-        {!permissions?.readonly && (
-          <p className="text-amber-600 mt-4 text-sm">
-            Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
-          </p>
-        )}
-      </div>
+      <GooglePermissionRequest
+        serviceType="drive"
+        requiredScopes={['full']}
+        loading={permissionsLoading}
+        error={permissionError}
+        onRequestPermission={() => checkAllDrivePermissions(true)}
+        // Optional custom messaging
+        title="Calender Access Required"
+        description="To fetch and send emails, we need your permission to access your Gmail account."
+      />
     );
-  };
-
-  // Check if we need to show the permission request screen
-  if (!permissions?.readonly?.hasAccess) {
-    return renderPermissionRequest();
   }
 
   if (loading) {

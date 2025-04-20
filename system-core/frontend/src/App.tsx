@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './conf/react_query/persistConfig';
 import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
-import { useAccount as useAccountDetails } from "./features/default/user_account";
+import { GooglePermissionsProvider, useAccount as useAccountDetails } from "./features/default/user_account";
 import { registerAllComponents } from "./features/required/tab_view";
 
 const App: React.FC = () => {
@@ -48,13 +48,15 @@ const App: React.FC = () => {
     return (
         <div className="flex flex-col h-screen bg-white">
             <QueryClientProvider client={queryClient}>
+                <GooglePermissionsProvider>
                     <Navbar />
                     <Header
-                            key={`env-${currentEnvironment?.id || 'none'}`}
-                            environment={currentEnvironment}
-                            isLoading={envLoading}
-                        />
+                        key={`env-${currentEnvironment?.id || 'none'}`}
+                        environment={currentEnvironment}
+                        isLoading={envLoading}
+                    />
                     <Footer />
+                </GooglePermissionsProvider>
             </QueryClientProvider>
         </div>
     );

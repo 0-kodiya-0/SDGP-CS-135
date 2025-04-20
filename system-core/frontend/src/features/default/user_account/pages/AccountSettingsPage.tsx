@@ -4,10 +4,11 @@ import { ArrowLeft, Save, Shield, User, Bell, LogOut } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
+import { OAuthProviders } from '../types/types.data';
 
 const AccountSettingsPage: React.FC = () => {
     const { currentAccount, isLoading, error, fetchCurrentAccountDetails } = useAccount();
-    const { logout } = useAuth();
+    const { logout, tokenRevocation } = useAuth();
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('profile');
@@ -20,6 +21,12 @@ const AccountSettingsPage: React.FC = () => {
     const handleLogout = async () => {
         if (currentAccount) {
             await logout(currentAccount.id);
+        }
+    };
+
+    const handleRevokeToken = () => {
+        if (currentAccount) {
+            tokenRevocation(currentAccount.id, OAuthProviders.Google);
         }
     };
 
@@ -254,6 +261,24 @@ const AccountSettingsPage: React.FC = () => {
                                                 htmlFor="autolock-toggle"
                                                 className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
                                             ></label>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className='w-[50%]'>
+                                            <h3 className="font-medium">Revoke Access Token</h3>
+                                            <p className="text-sm text-gray-500">
+                                                Revoking your token will unlink all permissions and require you to sign in again.
+                                                Use this if you need to update the permissions granted to this application.
+                                            </p>
+                                        </div>
+                                        <div className="flex justify-end w-[50%] mr-2 align-middle select-none">
+                                            <button
+                                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                                                onClick={handleRevokeToken}
+                                            >
+                                                Revoke Access Token
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

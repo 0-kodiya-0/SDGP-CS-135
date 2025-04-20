@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, SquarePlus, Search, X, RefreshCcw, Loader2, CalendarPlus, Shield } from 'lucide-react';
+import { Calendar, SquarePlus, Search, X, RefreshCcw, Loader2, CalendarPlus } from 'lucide-react';
 import { useTabStore } from '../../../required/tab_view';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
 import { useCalendarList } from '../hooks/useCalendarList.google';
 import { CalendarEvent } from '../types/types.google.api';
 import { getEventStatusColor, formatEventTime } from '../utils/utils.google.api';
 import { ComponentTypes } from '../../../required/tab_view/types/types.views';
-import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
+import { GooglePermissionRequest, useServicePermissions } from '../../user_account';
 
 interface SummaryViewProps {
   accountId: string;
@@ -18,9 +18,9 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
   const { calendars, loading: loadingCalendars, error: calendarError, listCalendars } = useCalendarList(accountId);
   const { events, loading: loadingEvents, error: eventsError, listEvents } = useCalendarEvents(accountId);
   const { addTab } = useTabStore();
-  
+
   const {
-    permissions,
+    hasRequiredPermission,
     permissionsLoading,
     permissionError,
     checkAllServicePermissions: checkAllCalendarPermissions,
@@ -28,10 +28,10 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
 
   // Initialize data on component mount
   useEffect(() => {
-    if (accountId && permissions?.readonly?.hasAccess) {
+    if (accountId && hasRequiredPermission("full")) {
       listCalendars();
     }
-  }, [accountId, permissions]);
+  }, [accountId]);
 
   // Set initial selected calendars once they're loaded
   useEffect(() => {
@@ -43,7 +43,7 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
 
   // Fetch events when selected calendars change
   useEffect(() => {
-    if (accountId && selectedCalendarIds.length > 0 && permissions?.readonly?.hasAccess) {
+    if (accountId && selectedCalendarIds.length > 0 && hasRequiredPermission("full")) {
       // Get today's date at midnight
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -63,7 +63,7 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
         orderBy: 'startTime'
       });
     }
-  }, [accountId, selectedCalendarIds, permissions]);
+  }, [accountId, selectedCalendarIds]);
 
   // Filter events by search query and selected calendars
   const filteredEvents = events.filter(event => {
@@ -159,39 +159,19 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
     );
   };
 
-  // Render permission request screen
-  const renderPermissionRequest = () => {
+  if (!hasRequiredPermission("full")) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <Shield className="w-16 h-16 text-blue-500 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Calendar Access Required</h2>
-        <p className="text-gray-600 text-center mb-6">
-          To use Calendar features, we need your permission to access your calendars and events.
-        </p>
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-          onClick={() => checkAllCalendarPermissions(true)}
-          disabled={permissionsLoading}
-        >
-          {permissionsLoading ? 'Requesting Access...' : 'Grant Calendar Access'}
-        </button>
-        {permissionError && (
-          <p className="text-red-500 mt-4 text-sm">
-            Error: {permissionError}
-          </p>
-        )}
-        {!permissions?.readonly && (
-          <p className="text-amber-600 mt-4 text-sm">
-            Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
-          </p>
-        )}
-      </div>
+      <GooglePermissionRequest
+        serviceType="calendar"
+        requiredScopes={['full']}
+        loading={permissionsLoading}
+        error={permissionError}
+        onRequestPermission={() => checkAllCalendarPermissions(true)}
+        // Optional custom messaging
+        title="Calender Access Required"
+        description="To fetch and send emails, we need your permission to access your Gmail account."
+      />
     );
-  };
-
-  // Check if we need to show the permission request screen
-  if (!permissions?.readonly?.hasAccess) {
-    return renderPermissionRequest();
   }
 
   return (

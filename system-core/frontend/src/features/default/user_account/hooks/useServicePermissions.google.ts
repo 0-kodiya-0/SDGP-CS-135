@@ -1,101 +1,85 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useGooglePermissions } from '../../user_account/hooks/usePermissions.google';
-import { ScopeLevel, ServicePermissions, ServiceType, UseServicePermissionsReturn } from '../types/types.google.api';
-import { useGooglePermissionsStore, usePermissionsCacheState } from '../store/googlePermission.store';
+import { ServiceType, ScopeLevel } from '../types/types.google.api';
+import { getValidScopesForService } from '../utils/utils.google';
+import { useGooglePermissions } from '../contexts/GooglePermissionContext';
 
-/**
- * Hook for managing Google service-specific permissions
- * This wraps the useGooglePermissions hook with service-specific functionality
- */
-export const useServicePermissions = (
-  accountId: string | null,
-  serviceType: ServiceType
-): UseServicePermissionsReturn => {
-  // Use the base Google permissions hook
-  const { verifyServiceAccess, invalidatePermission, getValidScopesForService, requestMissingPermissions } = useGooglePermissions();
+// Service-specific permissions hook
+export const useServicePermissions = (accountId: string | null, serviceType: ServiceType) => {
+  const {
+    permissionsCache,
+    isPopupOpen,
+    pendingPermissions,
+    checkServicePermission,
+    requestPermissions,
+    hasRequiredPermission: checkPermission,
+    invalidatePermission
+  } = useGooglePermissions();
+
+  const [permissionsLoading, setPermissionsLoading] = useState<boolean>(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   // Get valid scopes for this service
   const availableScopes = getValidScopesForService(serviceType);
 
-  const permissions = useGooglePermissionsStore(usePermissionsCacheState(accountId, serviceType)) as unknown as ServicePermissions;
-  const [permissionsLoading, setPermissionsLoading] = useState<boolean>(false);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
+  // Get permissions from cache
+  const permissions = accountId && permissionsCache[accountId]?.[serviceType]
+    ? permissionsCache[accountId][serviceType]
+    : {};
 
-  /**
-   * Load permissions on mount to take advantage of cached permissions immediately
-   */
-  useEffect(() => {
-    // Skip if no account ID is provided
+  // Check all service permissions
+  const checkAllServicePermissions = useCallback(async (requestMissing: boolean = false) => {
     if (!accountId) return;
-
-    // Only load if permissions haven't been loaded yet
-    if (!permissionsLoading) {
-      checkAllServicePermissions();
-    }
-  }, [accountId]); // Only run when accountId changes
-
-  /**
-   * Check all service permissions at once and track their states
-   */
-  const checkAllServicePermissions = useCallback(async (rMissingPermissions: boolean = false): Promise<void> => {
-    if (!accountId) {
-      return;
-    }
 
     setPermissionsLoading(true);
     setPermissionError(null);
 
     try {
-      // Request all valid scopes for this service
-      const { missingPermissions } = await verifyServiceAccess(accountId, serviceType, availableScopes);
+      const results = await Promise.all(
+        availableScopes.map(scope => checkServicePermission(accountId, serviceType, scope))
+      );
 
-      if (rMissingPermissions) {
-        requestMissingPermissions(accountId, serviceType, missingPermissions);
+      const allGranted = results.every(result => result === true);
+
+      if (!allGranted && requestMissing) {
+        // Request missing permissions
+        await requestPermissions(
+          accountId,
+          serviceType,
+          availableScopes.filter((_, index) => !results[index])
+        );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setPermissionError(`Failed to check ${serviceType} permissions: ${errorMessage}`);
+      setPermissionError(error instanceof Error ? error.message : 'Failed to check permissions');
     } finally {
       setPermissionsLoading(false);
     }
-  }, [accountId, verifyServiceAccess, serviceType, availableScopes, requestMissingPermissions]);
+  }, [accountId, serviceType, availableScopes, checkServicePermission, requestPermissions]);
 
-  /**
-   * Check if the user has the required permission level
-   * Optimized to return early results for common cases
-   */
+  // Check if we have a specific permission
   const hasRequiredPermission = useCallback((requiredScope: ScopeLevel): boolean => {
-    // If 'full' permission is granted, allow access to any scope
+    if (!accountId) return false;
+
+    // If we have full access, we have access to everything
     if (permissions['full']?.hasAccess === true) {
       return true;
     }
 
-    // Check if the requested scope is valid for this service
-    if (!availableScopes.includes(requiredScope)) {
-      console.warn(`Requested scope "${requiredScope}" is not valid for ${serviceType} service`);
-      return false;
-    }
+    // Otherwise check for the specific permission
+    return checkPermission(accountId, serviceType, requiredScope);
+  }, [accountId, serviceType, permissions, checkPermission]);
 
-    // Check for the specific permission
-    return permissions[requiredScope]?.hasAccess === true;
-  }, [availableScopes, permissions, serviceType]);
-
-  /**
-   * Invalidate a service permission when an API call fails due to permission issues
-   */
-  const invalidateServicePermission = useCallback((scope: ScopeLevel): void => {
-    // Check if the scope is valid for this service
-    if (!availableScopes.includes(scope)) {
-      console.warn(`Attempted to invalidate scope "${scope}" which is not valid for ${serviceType} service`);
-      return;
-    }
-
-    // Only proceed if we have an account ID
+  // Invalidate a specific permission
+  const invalidateServicePermission = useCallback((scope: ScopeLevel) => {
     if (!accountId) return;
-
-    // Invalidate in the base hook
     invalidatePermission(accountId, serviceType, scope);
-  }, [availableScopes, accountId, invalidatePermission, serviceType]);
+  }, [accountId, serviceType, invalidatePermission]);
+
+  // Initialize permissions when the component mounts
+  useEffect(() => {
+    if (accountId) {
+      checkAllServicePermissions();
+    }
+  }, [accountId]);
 
   return {
     permissions,
@@ -104,6 +88,9 @@ export const useServicePermissions = (
     checkAllServicePermissions,
     hasRequiredPermission,
     invalidateServicePermission,
-    availableScopes
+    availableScopes,
+    isPermissionDialogOpen: isPopupOpen,
+    isPendingPermission: (scope: ScopeLevel) =>
+      pendingPermissions[`${accountId}:${serviceType}:${scope}`] === true
   };
 };

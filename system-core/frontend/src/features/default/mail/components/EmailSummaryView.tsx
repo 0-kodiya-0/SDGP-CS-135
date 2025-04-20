@@ -8,7 +8,8 @@ import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Sh
 // Components import
 import EmailListItem from './EmailListItem';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
-import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
+import { useServicePermissions } from '../../user_account';
+import { GooglePermissionRequest } from '../../user_account/components/GooglePermissionRequest';
 
 interface GmailSummaryViewProps {
     accountId: string;
@@ -20,8 +21,6 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
     const [parsedEmails, setParsedEmails] = useState<ParsedEmail[]>([]);
-    // const [showLabels, setShowLabels] = useState(false);
-    // const [permissionRequested, setPermissionRequested] = useState(false);
 
     // Hooks
     const { addTab } = useTabStore();
@@ -38,11 +37,15 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     } = useGmailMessages(accountId);
 
     const {
-        permissions,
+        hasRequiredPermission,
         permissionsLoading,
         permissionError,
-        checkAllServicePermissions: checkAllGmailPermissions,
+        checkAllServicePermissions: checkAllGmailPermissions
     } = useServicePermissions(accountId, 'gmail');
+
+    useEffect(() => {
+        console.log(permissionError);
+    }, [permissionError]);
 
     const {
         labels,
@@ -56,25 +59,11 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     // Effects
     useEffect(() => {
         // Load labels when component mounts
-        if (permissions?.readonly?.hasAccess) {
+        if (hasRequiredPermission("full")) {
             listLabels();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [permissionsLoading]);
-
-    useEffect(() => {
-        console.log(permissionsLoading, permissions)
-    }, [permissionsLoading, permissions])
-
-    // useEffect(() => {
-    //     console.log("Permission state changed:", JSON.stringify(permissions));
-
-    //     // If we just got readonly access, try loading messages
-    //     if (permissions?.readonly) {
-    //         console.log("Got readonly access, loading messages");
-    //         handleRefresh();
-    //     }
-    // }, [permissions]); // Watch the entire permissions object
 
     useEffect(() => {
         const loadMessages = async () => {
@@ -88,7 +77,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         };
 
         // Only load messages if we have permissions
-        if (permissions?.readonly?.hasAccess) {
+        if (hasRequiredPermission("full")) {
             loadMessages();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,7 +152,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleRefresh = () => {
-        if (!permissions?.readonly) {
+        if (!hasRequiredPermission("readonly")) {
             return;
         }
         listMessages({
@@ -174,7 +163,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleTrashEmail = async (emailId: string) => {
-        if (!permissions?.full?.hasAccess) {
+        if (!hasRequiredPermission("full")) {
             return;
         }
         const success = await trashMessage(emailId);
@@ -187,7 +176,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleStarred = async (emailId: string, isStarred: boolean) => {
-        if (!permissions?.full?.hasAccess) {
+        if (!hasRequiredPermission("full")) {
             return;
         }
 
@@ -203,7 +192,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleImportant = async (emailId: string, isImportant: boolean) => {
-        if (!permissions?.full?.hasAccess) {
+        if (!hasRequiredPermission("full")) {
             return;
         }
 
@@ -219,7 +208,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openComposeInTab = () => {
-        if (!permissions?.send?.hasAccess) {
+        if (!hasRequiredPermission('send')) {
             return;
         }
 
@@ -238,7 +227,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openEmailInTab = async (emailId: string) => {
-        if (!permissions?.readonly) {
+        if (!hasRequiredPermission("full")) {
             return;
         }
 
@@ -269,7 +258,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openLabelManagerInTab = () => {
-        if (!permissions?.full?.hasAccess) {
+        if (!hasRequiredPermission("full")) {
             return;
         }
 
@@ -287,112 +276,19 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         );
     };
 
-    // Render system labels at the top
-    // const renderSystemLabels = () => {
-    //     const systemLabelsConfig = [
-    //         { id: GMAIL_SYSTEM_LABELS.INBOX, icon: <Inbox className="w-4 h-4" />, label: 'Inbox' },
-    //         { id: GMAIL_SYSTEM_LABELS.SENT, icon: <Send className="w-4 h-4" />, label: 'Sent' },
-    //         { id: GMAIL_SYSTEM_LABELS.STARRED, icon: <Star className="w-4 h-4" />, label: 'Starred' },
-    //         { id: GMAIL_SYSTEM_LABELS.IMPORTANT, icon: <AlertCircle className="w-4 h-4" />, label: 'Important' },
-    //         { id: GMAIL_SYSTEM_LABELS.TRASH, icon: <Trash className="w-4 h-4" />, label: 'Trash' }
-    //     ];
-
-    //     return (
-    //         <div className="space-y-1 mb-4">
-    //             {systemLabelsConfig.map(item => (
-    //                 <div
-    //                     key={item.id}
-    //                     className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer hover:bg-gray-100 
-    //           ${selectedLabel === item.id ? 'bg-gray-100 font-medium' : ''}`}
-    //                     onClick={() => handleLabelClick(item.id)}
-    //                 >
-    //                     {item.icon}
-    //                     <span>{item.label}</span>
-    //                 </div>
-    //             ))}
-    //         </div>
-    //     );
-    // };
-
-    // Render user custom labels
-    // const renderCustomLabels = () => {
-    //     const customLabels = labels.filter(label => !label.id.toUpperCase().startsWith('CATEGORY_') && !Object.values(GMAIL_SYSTEM_LABELS).includes(label.id));
-
-    //     if (customLabels.length === 0) {
-    //         return null;
-    //     }
-
-    //     return (
-    //         <div className="mt-4">
-    //             <div
-    //                 className="flex items-center justify-between px-3 py-2 cursor-pointer"
-    //                 onClick={() => setShowLabels(!showLabels)}
-    //             >
-    //                 <span className="text-sm font-medium text-gray-600">Labels</span>
-    //                 <ChevronDown className={`w-4 h-4 transform transition-transform ${showLabels ? 'rotate-180' : ''}`} />
-    //             </div>
-
-    //             {showLabels && (
-    //                 <div className="space-y-1 mt-1">
-    //                     {customLabels.map(label => (
-    //                         <div
-    //                             key={label.id}
-    //                             className={`flex items-center px-3 py-2 rounded cursor-pointer hover:bg-gray-100
-    //               ${selectedLabel === label.id ? 'bg-gray-100 font-medium' : ''}`}
-    //                             onClick={() => handleLabelClick(label.id)}
-    //                         >
-    //                             <Tag className="w-4 h-4 mr-2" />
-    //                             <span className="truncate">{label.name}</span>
-    //                         </div>
-    //                     ))}
-    //                 </div>
-    //             )}
-
-    //             <div
-    //                 className="flex items-center gap-2 px-3 py-2 mt-2 cursor-pointer hover:bg-gray-100 text-blue-600"
-    //                 onClick={openLabelManagerInTab}
-    //             >
-    //                 <Plus className="w-4 h-4" />
-    //                 <span>Manage labels</span>
-    //             </div>
-    //         </div>
-    //     );
-    // };
-
-    const renderPermissionRequest = () => {
+    if (!hasRequiredPermission("full")) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-                <Shield className="w-16 h-16 text-blue-500 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Gmail Access Required</h2>
-                <p className="text-gray-600 text-center mb-6">
-                    To use Gmail features, we need your permission to access your emails, labels, and send messages on your behalf.
-                </p>
-                <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                    onClick={() => checkAllGmailPermissions(true)}
-                    disabled={permissionsLoading}
-                >
-                    {permissionsLoading ? 'Requesting Access...' : 'Grant Gmail Access'}
-                </button>
-
-                {permissionError && (
-                    <p className="text-red-500 mt-4 text-sm">
-                        Error: {permissionError}
-                    </p>
-                )}
-
-                {!permissions?.readonly && (
-                    <p className="text-amber-600 mt-4 text-sm">
-                        Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
-                    </p>
-                )}
-            </div>
+            <GooglePermissionRequest
+                serviceType="gmail"
+                requiredScopes={['full']}
+                loading={permissionsLoading}
+                error={permissionError}
+                onRequestPermission={() => checkAllGmailPermissions(true)}
+                // Optional custom messaging
+                title="Email Access Required"
+                description="To fetch and send emails, we need your permission to access your Gmail account."
+            />
         );
-    };
-
-    // Check if we need to show the permission request screen
-    if (!permissions?.readonly?.hasAccess) {
-        return renderPermissionRequest();
     }
 
     return (

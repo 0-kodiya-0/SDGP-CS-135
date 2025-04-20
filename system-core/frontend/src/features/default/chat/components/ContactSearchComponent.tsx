@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PersonType, useContacts } from '../../contacts';
-import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
-import { Shield } from 'lucide-react';
+import { GooglePermissionRequest, useServicePermissions } from '../../user_account';
 
 interface ContactSearchComponentProps {
     accountId: string;
@@ -23,7 +22,7 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
 
     // Use service permission hook
     const {
-        permissions,
+        hasRequiredPermission,
         permissionsLoading,
         permissionError,
         checkAllServicePermissions: checkAllPeoplePermissions,
@@ -44,7 +43,7 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
     // Effect to perform search when query changes
     useEffect(() => {
         const performSearch = async () => {
-            if (searchQuery.trim().length >= 2 && permissions?.readonly?.hasAccess) {
+            if (searchQuery.trim().length >= 2 && hasRequiredPermission('full')) {
                 const result = await searchContacts(searchQuery, {
                     pageSize: 10,
                     readMask: 'names,emailAddresses,phoneNumbers,photos'
@@ -62,72 +61,25 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
 
         const timeoutId = setTimeout(performSearch, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchQuery, permissions?.readonly?.hasAccess]);
+    }, [searchQuery]);
 
     // Check if a contact is already selected (for group creation)
     const isContactSelected = (contact: PersonType) => {
         return selectedContacts.some(c => c.resourceName === contact.resourceName);
     };
 
-    // Permission request screen renderer
-    const renderPermissionRequest = () => {
+    if (!hasRequiredPermission("full")) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-                <Shield className="w-16 h-16 text-blue-500 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Contacts Access Required</h2>
-                <p className="text-gray-600 text-center mb-6">
-                    To use Contacts features, we need your permission to access your contact information.
-                </p>
-                <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                    onClick={() => checkAllPeoplePermissions(true)}
-                    disabled={permissionsLoading}
-                >
-                    {permissionsLoading ? 'Requesting Access...' : 'Grant Contacts Access'}
-                </button>
-
-                {permissionError && (
-                    <p className="text-red-500 mt-4 text-sm">
-                        Error: {permissionError}
-                    </p>
-                )}
-
-                {!permissions?.readonly?.hasAccess && (
-                    <p className="text-amber-600 mt-4 text-sm">
-                        Please accept the permission request in the popup window. If you don't see it, check if it was blocked by your browser.
-                    </p>
-                )}
-            </div>
-        );
-    };
-
-    // Check if we need to show the permission request screen
-    if (!permissions?.readonly?.hasAccess) {
-        return isEmbedded ? (
-            <div className="border border-gray-200 rounded-md p-4">
-                {renderPermissionRequest()}
-            </div>
-        ) : (
-            <div className="fixed inset-0 z-10 overflow-y-auto">
-                <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                    <div className="fixed inset-0 transition-opacity">
-                        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-                    </div>
-                    <span className="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-                    <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-                        {renderPermissionRequest()}
-                        <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                            <button
-                                type="button"
-                                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
-                                onClick={onClose}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <GooglePermissionRequest
+                serviceType="people"
+                requiredScopes={['full']}
+                loading={permissionsLoading}
+                error={permissionError}
+                onRequestPermission={() => checkAllPeoplePermissions(true)}
+                // Optional custom messaging
+                title="People Access Required"
+                description="To fetch and send emails, we need your permission to access your Gmail account."
+            />
         );
     }
 

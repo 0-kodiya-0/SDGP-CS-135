@@ -1,79 +1,86 @@
-// types.google.api.ts - Enhanced with new token endpoints
+export type ServiceType = 'gmail' | 'calendar' | 'drive' | 'docs' | 'sheets' | 'people' | 'meet';
+export type ScopeLevel = 'readonly' | 'full' | 'send' | 'compose' | 'events' | 'file' | 'create' | 'edit';
+
+export interface PermissionCacheEntry {
+    hasAccess: boolean;
+    lastChecked: number;
+}
+
+export interface ServicePermissions {
+    [scope: string]: PermissionCacheEntry;
+}
+
+export interface PermissionsState {
+    [service: string]: ServicePermissions;
+}
+
 export interface TokenInfoResponse {
     tokenInfo: {
-        expiresAt: string;
-        expiresIn: number;
-        email: string;
-        verified: boolean;
+        access_token: string;
+        expires_in: number;
+        scope: string;
+        token_type: string;
     };
     scopes: {
-        granted: Array<{
-            scope: string;
+        [scope: string]: {
             service: string;
             level: string;
-        }>;
-        serviceAccess: {
-            gmail: boolean;
-            calendar: boolean;
-            drive: boolean;
-            people: boolean;
-            meet: boolean;
-            [key: string]: boolean;
         };
     };
 }
 
 export interface ServiceAccessResponse {
-    service: string;
-    scopeResults : Record<string, { hasAccess: boolean, requiredScope: string }>;
+    service: ServiceType;
+    scopeResults: {
+        [scope: string]: {
+            hasAccess: boolean;
+            requiredScope: string;
+        };
+    };
 }
 
-export interface SessionInfo {
-    sessionId: string;
-    createdAt: string;
-    lastActivity: string;
-    userAgent: string;
-    isCurrent: boolean;
+export interface PermissionState {
+    accountId: string | null;
+    permissionsCache: {
+        [accountId: string]: PermissionsState;
+    };
+    pendingPermissions: {
+        [key: string]: boolean;
+    };
+    isPopupOpen: boolean;
+    currentPermissionRequest: {
+        service: ServiceType;
+        scopes: ScopeLevel[];
+        onComplete?: (success: boolean) => void;
+    } | null;
 }
 
-export interface RefreshTokenResponse {
-    success: boolean;
-    expiresAt: string;
-    expiresIn: number;
-}
-
-export interface SessionsResponse {
-    sessions: SessionInfo[];
-    currentSessionId: string;
-}
-
-export interface TerminateSessionsResponse {
-    success: boolean;
-    terminatedSessionsCount: number;
-}
-
-export interface UseTokenApiReturn {
-    tokenInfo: TokenInfoResponse | null;
-    serviceAccess: ServiceAccessResponse | null;
-    loading: boolean;
-    error: string | null;
-
-    // Token info and permissions
-    getTokenInfo: (accountId: string) => Promise<TokenInfoResponse | null>;
-    checkServiceAccess: (
+export interface PermissionContextValue extends PermissionState {
+    checkServicePermission: (
         accountId: string,
-        service: string,
-        scopeLevel: ScopeLevel[]
-    ) => Promise<ServiceAccessResponse | null>;
-
-    // New token management functions
-    refreshToken: (accountId: string) => Promise<boolean>;
-
-    // // Session management
-    // getSessions: (accountId: string) => Promise<SessionInfo[] | null>;
-    // terminateOtherSessions: (accountId: string) => Promise<boolean>;
+        service: ServiceType,
+        scope: ScopeLevel
+    ) => Promise<boolean>;
+    requestPermissions: (
+        accountId: string,
+        service: ServiceType,
+        scopes: ScopeLevel[],
+        onComplete?: (success: boolean) => void
+    ) => Promise<boolean>;
+    hasRequiredPermission: (
+        accountId: string,
+        service: ServiceType,
+        scope: ScopeLevel
+    ) => boolean;
+    invalidatePermission: (
+        accountId: string,
+        service: ServiceType,
+        scope: ScopeLevel
+    ) => void;
+    clearAccountPermissions: (accountId: string) => void;
 }
 
+// Types for permission handling
 export interface PermissionInfo {
     permissionUrl: string;
     redirectUrl: string;
@@ -90,77 +97,4 @@ export interface RequiredPermission {
 export interface PermissionError {
     code: string;
     message: string | { requiredPermission?: RequiredPermission; permissionInfo?: PermissionInfo; };
-}
-
-// Enhanced permission scope types with service-specific scope levels
-export type ServiceType = "gmail" | "calendar" | "drive" | "sheets" | "docs" | "meet" | "people";
-
-// Base scope levels that apply across services
-export type BaseScope = "readonly" | "full";
-
-// Gmail-specific scope levels
-export type GmailScope = BaseScope | "send" | "compose";
-
-// Calendar-specific scope levels
-export type CalendarScope = BaseScope | "events";
-
-// Drive-specific scope levels
-export type DriveScope = BaseScope | "file" ;
-
-// Sheets & Docs specific scope levels
-export type DocsScope = BaseScope | "create" | "edit";
-
-// People-specific scope levels
-export type PeopleScope = BaseScope ;
-
-// Meet-specific scope levels
-export type MeetScope = BaseScope;
-
-// Union type of all possible scopes
-export type ScopeLevel = GmailScope | CalendarScope | DriveScope | DocsScope | PeopleScope | MeetScope;
-
-// Generic interface for service permissions that handles any scope type
-// Generic interface for service permissions that handles any scope type
-export type ServicePermissions = {
-    [scope in ScopeLevel]?: { hasAccess: boolean; };
-};
-
-/**
- * Interface for service access verification results
- */
-export  interface VerificationResult {
-  grantedPermissions: Record<ScopeLevel, boolean>;
-  missingPermissions: ScopeLevel[];
-}
-
-export interface PermissionCacheEntry {
-    hasAccess: boolean;
-    lastChecked: number;
-}
-
-export interface ServiceCache {
-    [scope: string]: PermissionCacheEntry;
-}
-
-export interface AccountCache {
-    [service: string]: ServiceCache;
-}
-
-export interface PermissionCache {
-    [accountId: string]: AccountCache;
-}
-
-export interface UseServicePermissionsReturn {
-    // Permission states
-    permissions?: ServicePermissions;
-    permissionsLoading: boolean;
-    permissionError: string | null;
-
-    // Functions
-    checkAllServicePermissions: (rMissingPermissions: boolean) => Promise<void>;
-    hasRequiredPermission: (requiredScope: ScopeLevel) => boolean;
-    invalidateServicePermission: (scope: ScopeLevel) => void;
-
-    // Service information
-    availableScopes: ScopeLevel[];
 }

@@ -1,25 +1,27 @@
-// googlePermissionUtils.ts
 import { API_BASE_URL } from "../../../../conf/axios";
-import { ScopeLevel } from "../types/types.google.api";
+import { PermissionError, PermissionInfo, RequiredPermission, ScopeLevel, ServiceType } from "../types/types.google.api";
 
-// Types for permission handling
-export interface PermissionInfo {
-    permissionUrl: string;
-    redirectUrl: string;
-    accountId: string;
-}
 
-export interface RequiredPermission {
-    service: string;
-    scopeLevel: string;
-    requiredScope?: string;
-    permissionInfo: PermissionInfo;
-}
-
-export interface PermissionError {
-    code: string;
-    message: string | { requiredPermission?: RequiredPermission; permissionInfo?: PermissionInfo; };
-}
+// Helper functions
+export const getValidScopesForService = (service: ServiceType): ScopeLevel[] => {
+    switch (service) {
+        case 'gmail':
+            return ['readonly', 'send', 'compose', 'full'];
+        case 'calendar':
+            return ['readonly', 'events', 'full'];
+        case 'drive':
+            return ['readonly', 'file', 'full'];
+        case 'sheets':
+        case 'docs':
+            return ['readonly', 'create', 'edit', 'full'];
+        case 'people':
+            return ['readonly', 'full'];
+        case 'meet':
+            return ['readonly', 'full'];
+        default:
+            return ['readonly', 'full'];
+    }
+};
 
 /**
  * Check if an error is a permission error from Google API
