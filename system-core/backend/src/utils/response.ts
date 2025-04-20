@@ -384,10 +384,10 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 // Example of how to apply all middleware in the correct order
 export const applyErrorHandlers = (app: any) => {
     // Apply in order from most specific to most general
-    app.use(asyncHandlerWithErr(jwtErrorHandler));
-    app.use(asyncHandlerWithErr(mongoErrorHandler));
-    app.use(asyncHandlerWithErr(googleApiErrorHandler));
-    app.use(asyncHandlerWithErr(apiRequestErrorHandler));
+    app.use(jwtErrorHandler);
+    app.use(mongoErrorHandler);
+    app.use(googleApiErrorHandler);
+    app.use(apiRequestErrorHandler);
     app.use(successHandler);
     app.use(errorHandler);
 

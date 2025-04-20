@@ -22,8 +22,6 @@ export const authenticateGoogleApi = asyncHandler(async (
 ) => {
     const accessToken = req.accessToken as string;
 
-    console.log(accessToken);
-
     // Create OAuth2 client with the valid token
     const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
