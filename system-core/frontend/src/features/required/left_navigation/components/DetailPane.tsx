@@ -19,9 +19,9 @@ export function DetailPane({ className }: DetailPaneProps) {
   // Use the feature store hook that automatically uses the current account
   const { currentFeature, accountId } = useFeatureStore();
 
-  useEffect(() => {
-    console.log(`[DetailPane] Loading feature: ${currentFeature} for account: ${accountId}`);
-  }, [currentFeature, accountId]);
+  // useEffect(() => {
+  //   console.log(`[DetailPane] Loading feature: ${currentFeature} for account: ${accountId}`);
+  // }, [currentFeature, accountId]);
 
   // Determine which component to render based on the selected feature
   const renderFeatureComponent = () => {

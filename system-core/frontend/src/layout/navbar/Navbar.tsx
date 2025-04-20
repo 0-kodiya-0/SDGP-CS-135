@@ -5,9 +5,11 @@ import { EnvironmentButton } from '../../features/default/environment';
 import { AccountPopup, useAccount, usePopup, UserAvatar } from '../../features/default/user_account';
 import { NavbarSearch } from '../../features/shared/search';
 import { NotificationBell } from '../../features/shared/notifications';
+import { useNavigate } from 'react-router-dom';
 
 export function Navbar() {
   const accountPopup = usePopup();
+  const navigate = useNavigate();
   const { currentAccount, isLoading } = useAccount();
 
   const handleUserCircleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -18,6 +20,11 @@ export function Navbar() {
     // You can add additional logic when menu is toggled
     console.log('Menu is now', isOpen ? 'open' : 'closed');
   };
+
+  const handleSettingPageOpen = () => {
+    if (!currentAccount?.id) return;
+    navigate(`/app/${currentAccount?.id}/settings`);
+  }
 
   return (
     <>
@@ -37,7 +44,7 @@ export function Navbar() {
             className="p-1.5 hover:bg-gray-100 rounded"
             aria-label="Settings"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-5 h-5" onClick={handleSettingPageOpen} />
           </button>
 
           {/* Notification Bell */}

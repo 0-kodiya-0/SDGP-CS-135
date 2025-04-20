@@ -48,7 +48,7 @@ export function SummarySection({
           </span>
         )}
       </button>
-      {featureComponent}
+      {isActive && featureComponent}
     </div>
   );
 }
