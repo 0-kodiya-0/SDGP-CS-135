@@ -1,0 +1,385 @@
+📦 Deployment Files Structure
+
+k8s/
+├── frontend-deployment.yaml
+├── backend-deployment.yaml
+├── nginx-deployment.yaml
+├── mongodb-deployment.yaml
+├── mongodb-pvc.yaml
+├── services.yaml
+├── cluster-issuer.yaml
+├── ingress.yaml
+
+---
+
+📁 Dockerfiles
+
+### Dockerfile for Frontend (Vite + NGINX)
+
+```Dockerfile
+# frontend/Dockerfile
+FROM node:18 AS builder
+WORKDIR /app
+COPY . .
+RUN npm install && npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+EXPOSE 5000
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### nginx.conf for Frontend
+
+```nginx
+# frontend/nginx.conf
+worker_processes 1;
+events { worker_connections 1024; }
+http {
+  include       mime.types;
+  default_type  application/octet-stream;
+  sendfile        on;
+  keepalive_timeout  65;
+
+  server {
+    listen 5000;
+    server_name localhost;
+
+    location / {
+      root /usr/share/nginx/html;
+      index index.html;
+      try_files $uri $uri/ /index.html;
+    }
+  }
+}
+```
+
+---
+
+### Dockerfile for Backend
+
+```Dockerfile
+# backend/Dockerfile
+FROM node:18
+WORKDIR /app
+COPY . .
+RUN npm install
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+---
+
+📦 Kubernetes Manifests (k8s/*.yaml)
+
+### mongodb-pvc.yaml
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+### mongodb-deployment.yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-data
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+```
+
+### backend-deployment.yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: your-registry/backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: MONGODB_URI
+              value: mongodb://mongodb:27017/your-db-name
+```
+
+### frontend-deployment.yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: your-registry/frontend:latest
+          ports:
+            - containerPort: 5000
+```
+
+### nginx-deployment.yaml (acts as reverse proxy for frontend and backend)
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: your-registry/nginx:latest
+          ports:
+            - containerPort: 8080
+```
+
+### services.yaml
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: LoadBalancer
+```
+
+### cluster-issuer.yaml (cert-manager for Let's Encrypt)
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: your-email@example.com
+    privateKeySecretRef:
+      name: letsencrypt-private-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+```
+
+### ingress.yaml
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.yourdomain.com
+      secretName: app-tls
+  rules:
+    - host: app.yourdomain.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 5000
+```
+
+---
+
+Let me know your exact domain name and registry path, and I’ll finalize this bundle as a ZIP or push-ready format.
+
+
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - main # Or your desired branch (e.g., `develop`)
+
+env:
+  REGISTRY: ghcr.io # GitHub Container Registry or Docker Hub
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }} # Set your Docker Hub username as a secret
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }} # Set your Docker Hub password as a secret
+  K8S_CLUSTER_NAME: your-cluster-name
+  K8S_NAMESPACE: default
+  K8S_SERVER: ${{ secrets.K8S_SERVER }}
+  K8S_TOKEN: ${{ secrets.K8S_TOKEN }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up Docker Buildx (for multi-arch builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      # Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITHUB_ACTOR }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build and push frontend Docker image
+      - name: Build and push frontend Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/yourusername/frontend:latest ./frontend
+          docker push ${{ env.REGISTRY }}/yourusername/frontend:latest
+
+      # Build and push backend Docker image
+      - name: Build and push backend Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/yourusername/backend:latest ./backend
+          docker push ${{ env.REGISTRY }}/yourusername/backend:latest
+
+      # Build and push nginx Docker image
+      - name: Build and push nginx Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/yourusername/nginx:latest ./nginx
+          docker push ${{ env.REGISTRY }}/yourusername/nginx:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: 'v1.23.0'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.K8S_CONFIG }}" > ~/.kube/config
+
+      # Apply Kubernetes deployment files
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/ # Applies all Kubernetes YAML files in the k8s/ folder
+
+      # Set the image to the latest build
+      - name: Update image in Deployment
+        run: |
+          kubectl set image deployment/backend backend=${{ env.REGISTRY }}/yourusername/backend:latest
+          kubectl set image deployment/frontend frontend=${{ env.REGISTRY }}/yourusername/frontend:latest
+          kubectl set image deployment/nginx nginx=${{ env.REGISTRY }}/yourusername/nginx:latest
+
+      # Wait for deployments to roll out
+      - name: Wait for the deployment rollout to finish
+        run: |
+          kubectl rollout status deployment/backend
+          kubectl rollout status deployment/frontend
+          kubectl rollout status deployment/nginx

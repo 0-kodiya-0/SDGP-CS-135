@@ -1,0 +1,30 @@
+{
+    "id": "${pluginId}",
+    "name": "${pluginName}",
+    "version": "1.0.0",
+    "description": "${description}",
+    "icon": "public/icon.png",
+    "internalPlugin": false,
+    "view": {
+        "summary": {
+            "entryPoint": "src/views/summary/index.ts"
+        },
+        "expand": {
+            "entryPoint": "src/views/expand/index.ts"
+        }
+    },
+    "background": {
+        "entryPoint": "src/scripts/background/index.ts"
+    },
+    "permissions": {
+        "storage": true
+    },
+    "settings": {
+        "defaultEnabled": true
+    },
+    "assets": {
+        "bundles": [],
+        "images": [],
+        "other": []
+    }
+}
