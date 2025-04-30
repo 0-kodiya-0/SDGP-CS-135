@@ -1,0 +1,49 @@
+{
+    "name": "create-plugin-template",
+    "version": "1.0.0",
+    "description": "CLI tool to generate a plugin template with the correct structure",
+    "main": "dist/index.js",
+    "bin": {
+        "create-plugin-template": "./dist/index.js"
+    },
+    "type": "commonjs",
+    "scripts": {
+        "build": "tsc",
+        "copy-template": "copyfiles -a -e \"template/node_modules/**/*\" -e \"template/package-lock.json\" -u 0 \"template/**/*\" dist/",
+        "copy-plugin": "copyfiles lib/vite-plugin-process-plugin-conf.ts dist/template",
+        "prebuild": "rimraf dist",
+        "postbuild": "npm run copy-template && npm run copy-plugin",
+        "prepublishOnly": "npm run build",
+        "start": "node dist/index.js"
+    },
+    "keywords": [
+        "plugin",
+        "template",
+        "generator",
+        "cli",
+        "scaffold"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "chalk": "^5.4.1",
+        "inquirer": "^12.4.2",
+        "ora": "^8.2.0"
+    },
+    "devDependencies": {
+        "@types/inquirer": "^8.2.10",
+        "@types/node": "^18.19.79",
+        "copyfiles": "^2.4.1",
+        "enhanced-resolve": "^5.18.1",
+        "es-module-lexer": "^1.6.0",
+        "glob": "^11.0.1",
+        "rimraf": "^6.0.1",
+        "tsx": "^4.19.3",
+        "typescript": "^5.8.2",
+        "vite": "^6.2.0"
+    },
+    "files": [
+        "dist",
+        "templates"
+    ]
+}

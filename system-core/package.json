@@ -1,0 +1,19 @@
+{
+  "name": "system-core",
+  "version": "1.0.0",
+  "scripts": {
+    "start:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:proxy": "cd proxy && npm run dev",
+    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\" \"npm run start:proxy\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^5.1.1",
+    "concurrently": "^9.1.2"
+  }
+}

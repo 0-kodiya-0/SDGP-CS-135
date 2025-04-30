@@ -1,0 +1,304 @@
+import { FileMetadata, FileEntry, FileReadOptions, MemoryProvider } from '../types';
+import { filesLogger } from '../../logger';
+
+const memoryLogger = filesLogger.extend('memory');
+
+/**
+ * Implements an in-memory file system provider for temporary file storage
+ */
+export class MemoryFileSystemProvider implements MemoryProvider {
+    readonly name = 'memory';
+    private files: Map<string, FileEntry> = new Map<string, FileEntry>();
+
+    constructor() {
+        memoryLogger('MemoryFileSystemProvider initialized');
+    }
+
+    /**
+     * Generates a unique ID for a file
+     * @returns A unique ID string
+     */
+    private generateUniqueId(): string {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+    }
+
+    /**
+     * Creates file metadata from a File object
+     * @param file The file object
+     * @param id Optional ID override
+     * @returns The file metadata
+     */
+    private createFileMetadata(file: File, id?: string): FileMetadata {
+        return {
+            id: id || this.generateUniqueId(),
+            name: file.name,
+            size: file.size,
+            type: file.type || this.getTypeFromName(file.name),
+            lastModified: file.lastModified || Date.now(),
+            createdAt: Date.now()
+        };
+    }
+
+    /**
+     * Creates file metadata from file content
+     * @param name The filename
+     * @param content The file content as ArrayBuffer
+     * @param type The MIME type
+     * @param id Optional ID override
+     * @returns The file metadata
+     */
+    private createFileMetadataFromContent(
+        name: string,
+        content: ArrayBuffer,
+        type: string,
+        id?: string
+    ): FileMetadata {
+        return {
+            id: id || this.generateUniqueId(),
+            name: name,
+            size: content.byteLength,
+            type: type || this.getTypeFromName(name),
+            lastModified: Date.now(),
+            createdAt: Date.now()
+        };
+    }
+
+    /**
+     * Attempts to determine MIME type from filename
+     * @param name The filename
+     * @returns The guessed MIME type or generic binary type
+     */
+    private getTypeFromName(name: string): string {
+        const extension = name.split('.').pop()?.toLowerCase();
+        const mimeTypeMap: Record<string, string> = {
+            'txt': 'text/plain',
+            'html': 'text/html',
+            'css': 'text/css',
+            'js': 'text/javascript',
+            'ts': 'text/typescript',
+            'json': 'application/json',
+            'xml': 'application/xml',
+            'pdf': 'application/pdf',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml',
+            'mp3': 'audio/mpeg',
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'zip': 'application/zip',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        };
+
+        return extension && mimeTypeMap[extension] ? mimeTypeMap[extension] : 'application/octet-stream';
+    }
+
+    /**
+     * Reads a File object as an ArrayBuffer
+     * @param file The file to read
+     * @returns Promise resolving to an ArrayBuffer
+     */
+    private async readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+        memoryLogger('Reading file as ArrayBuffer: %s', file.name);
+        return new Promise<ArrayBuffer>((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                if (reader.result instanceof ArrayBuffer) {
+                    memoryLogger('Successfully read file as ArrayBuffer: %s (%d bytes)', 
+                                file.name, reader.result.byteLength);
+                    resolve(reader.result);
+                } else {
+                    memoryLogger('Failed to read file as ArrayBuffer: %s', file.name);
+                    reject(new Error('Failed to read file as ArrayBuffer'));
+                }
+            };
+
+            reader.onerror = () => {
+                memoryLogger('Error reading file: %s', file.name);
+                reject(new Error('Error reading file'));
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    /**
+     * Stores a file in memory
+     * @param file The file or content to store
+     * @param metadata Optional metadata to associate with the file
+     * @returns Promise resolving to the file metadata
+     */
+    async storeFile(file: File | ArrayBuffer, metadata?: Partial<FileMetadata>): Promise<FileMetadata> {
+        try {
+            let fileMetadata: FileMetadata;
+            let content: ArrayBuffer;
+
+            if (file instanceof File) {
+                memoryLogger('Storing File object in memory: %s (%s, %d bytes)', 
+                            file.name, file.type, file.size);
+                content = await this.readFileAsArrayBuffer(file);
+                fileMetadata = this.createFileMetadata(file);
+            } else {
+                // If direct ArrayBuffer, require metadata with at least name and type
+                if (!metadata || !metadata.name) {
+                    memoryLogger('Missing name when storing ArrayBuffer content');
+                    throw new Error('Filename is required when storing ArrayBuffer content');
+                }
+
+                memoryLogger('Storing ArrayBuffer in memory: %s (%s, %d bytes)', 
+                            metadata.name, metadata.type || 'unknown', file.byteLength);
+                content = file;
+                const type = metadata.type || this.getTypeFromName(metadata.name);
+
+                fileMetadata = this.createFileMetadataFromContent(
+                    metadata.name,
+                    content,
+                    type,
+                    metadata.id
+                );
+            }
+
+            // Apply any additional metadata passed in
+            if (metadata) {
+                fileMetadata = { ...fileMetadata, ...metadata, size: content.byteLength };
+            }
+
+            this.files.set(fileMetadata.id, {
+                metadata: fileMetadata,
+                content
+            });
+
+            memoryLogger('File stored in memory with ID: %s', fileMetadata.id);
+            return fileMetadata;
+        } catch (error) {
+            memoryLogger('Error storing file: %o', error);
+            throw new Error('Failed to store file in memory');
+        }
+    }
+
+    /**
+     * Reads a file from memory by ID
+     * @param fileId The file ID to read
+     * @returns Promise resolving to the file entry
+     */
+    async readFile(fileId: string): Promise<FileEntry> {
+        memoryLogger('Reading file from memory: %s', fileId);
+        const fileEntry = this.files.get(fileId);
+
+        if (!fileEntry) {
+            memoryLogger('File not found in memory: %s', fileId);
+            throw new Error(`File with ID ${fileId} not found in memory`);
+        }
+
+        memoryLogger('Successfully read file from memory: %s (%s, %d bytes)', 
+                    fileId, fileEntry.metadata.name, fileEntry.metadata.size);
+        return fileEntry;
+    }
+
+    /**
+     * Reads a file from memory as text
+     * @param fileId The file ID to read
+     * @param options Reading options
+     * @returns Promise resolving to the text content
+     */
+    async readFileAsText(fileId: string, options?: FileReadOptions): Promise<string> {
+        const encoding = options?.encoding || 'utf-8';
+        memoryLogger('Reading file as text: %s (encoding: %s)', fileId, encoding);
+        
+        const fileEntry = await this.readFile(fileId);
+
+        try {
+            const text = new TextDecoder(encoding).decode(fileEntry.content);
+            memoryLogger('Successfully read file as text: %s (%d characters)', 
+                        fileId, text.length);
+            return text;
+        } catch (error) {
+            memoryLogger('Error decoding file as text: %s, %o', fileId, error);
+            throw new Error(`Failed to decode file as text with encoding ${encoding}`);
+        }
+    }
+
+    /**
+     * Deletes a file from memory by ID
+     * @param fileId The file ID to delete
+     * @returns Promise resolving once the file is deleted
+     */
+    async deleteFile(fileId: string): Promise<void> {
+        memoryLogger('Deleting file from memory: %s', fileId);
+        
+        if (!this.files.has(fileId)) {
+            memoryLogger('File not found for deletion: %s', fileId);
+            throw new Error(`File with ID ${fileId} not found in memory`);
+        }
+
+        this.files.delete(fileId);
+        memoryLogger('File deleted from memory: %s', fileId);
+    }
+
+    /**
+     * Lists all files in memory
+     * @returns Promise resolving to an array of file metadata
+     */
+    async listFiles(): Promise<FileMetadata[]> {
+        memoryLogger('Listing all files in memory');
+        const files = Array.from(this.files.values()).map(file => file.metadata);
+        memoryLogger('Found %d files in memory', files.length);
+        return files;
+    }
+
+    /**
+     * Checks if a file exists in memory
+     * @param fileId The file ID to check
+     * @returns Promise resolving to a boolean indicating if the file exists
+     */
+    async hasFile(fileId: string): Promise<boolean> {
+        memoryLogger('Checking if file exists in memory: %s', fileId);
+        const exists = this.files.has(fileId);
+        memoryLogger('File %s exists in memory: %s', fileId, exists);
+        return exists;
+    }
+
+    /**
+     * Updates a file's metadata
+     * @param fileId The file ID to update
+     * @param metadata The new metadata
+     * @returns Promise resolving to the updated metadata
+     */
+    async updateFileMetadata(fileId: string, metadata: Partial<FileMetadata>): Promise<FileMetadata> {
+        memoryLogger('Updating metadata for file: %s', fileId);
+        
+        const fileEntry = this.files.get(fileId);
+
+        if (!fileEntry) {
+            memoryLogger('File not found for metadata update: %s', fileId);
+            throw new Error(`File with ID ${fileId} not found in memory`);
+        }
+
+        const updatedMetadata = {
+            ...fileEntry.metadata,
+            ...metadata,
+            lastModified: Date.now()
+        };
+
+        fileEntry.metadata = updatedMetadata;
+        this.files.set(fileId, fileEntry);
+
+        memoryLogger('Metadata updated for file: %s', fileId);
+        return updatedMetadata;
+    }
+
+    /**
+     * Clears all files from memory
+     * @returns Promise resolving once all files are cleared
+     */
+    async clearAll(): Promise<void> {
+        memoryLogger('Clearing all files from memory (%d files)', this.files.size);
+        this.files.clear();
+        memoryLogger('All files cleared from memory');
+    }
+}

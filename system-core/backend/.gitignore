@@ -41,15 +41,6 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
-react-new/
-tools/
-create-plugin-template/
-test-dynamic-file-loading/
-vite-plugin-process-plugin-conf/
-plugin-template-gen/
-hello/
-test-dynamic-file-loading/
-create-plugin-template/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
@@ -60,7 +51,7 @@ web_modules/
 # Optional npm cache directory
 .npm
 
-next-env.d.ts
+db.json
 
 # Optional eslint cache
 .eslintcache
@@ -82,13 +73,6 @@ next-env.d.ts
 
 # Yarn Integrity file
 .yarn-integrity
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
