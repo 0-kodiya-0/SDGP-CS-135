@@ -1,4 +1,3 @@
-// index.ts - Fixed Environment Store Implementation
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Environment } from '../types/types.data';
@@ -50,8 +49,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
       // Map of accountId to selected environment ID
       selectedEnvironmentIds: {},
 
+      // Set selected environment for an account
       setEnvironment: (environment: Environment, accountId: string): void => {
-        envStoreLogger('Setting environment %d (%s) for account %s',
+        envStoreLogger('Setting environment %s (%s) for account %s',
           environment.id, environment.name, accountId);
 
         set(state => ({
@@ -61,9 +61,10 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
           }
         }));
 
-        envStoreLogger('Environment %d set as active for account %s', environment.id, accountId);
+        envStoreLogger('Environment %s set as active for account %s', environment.id, accountId);
       },
 
+      // Get the selected environment for an account
       getEnvironment: (accountId: string): Environment | null => {
         envStoreLogger('Getting environment for account %s', accountId);
         const state = get();
@@ -79,25 +80,28 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
         ) || null;
 
         if (environment) {
-          envStoreLogger('Found environment %d (%s) for account %s',
+          envStoreLogger('Found environment %s (%s) for account %s',
             environment.id, environment.name, accountId);
         } else {
-          envStoreLogger('Selected environment %d not found for account %s', selectedEnvId, accountId);
+          envStoreLogger('Selected environment %s not found for account %s', selectedEnvId, accountId);
         }
 
         return environment;
       },
 
+      // Add a new environment to the store
       addEnvironment: (environmentData): Environment => {
-        envStoreLogger('Adding new environment for account %s: %s',
+        envStoreLogger('Adding environment for account %s: %s',
           environmentData.accountId, environmentData.name);
 
-        // Generate a new environment with a unique ID and timestamps
+        // Use the server-provided ID if available
         const newEnvironment: Environment = {
           ...environmentData,
-          id: generateUniqueId(),
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
+          // If the environment already has an ID (e.g., from server), use it
+          id: environmentData.id || generateUniqueId(),
+          // Use provided created/lastModified or generate new ones
+          created: environmentData.created || new Date().toISOString(),
+          lastModified: environmentData.lastModified || new Date().toISOString()
         };
 
         set(state => {
@@ -122,10 +126,11 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
           };
         });
 
-        envStoreLogger('Environment created with ID %d (%s)', newEnvironment.id, newEnvironment.name);
+        envStoreLogger('Environment created with ID %s (%s)', newEnvironment.id, newEnvironment.name);
         return newEnvironment;
       },
 
+      // Update an existing environment
       updateEnvironment: (id: string, data: Partial<Environment>): void => {
         envStoreLogger('Updating environment %s with data: %o', id, data);
 
@@ -140,13 +145,43 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
 
           const updated = updatedEnvironments.find(env => env.id === id);
           if (updated) {
-            envStoreLogger('Environment %d updated successfully: %s', id, updated.name);
+            envStoreLogger('Environment %s updated successfully: %s', id, updated.name);
           } else {
-            envStoreLogger('Environment %d not found for update', id);
+            envStoreLogger('Environment %s not found for update', id);
           }
 
           return {
             environments: updatedEnvironments
+          };
+        });
+      },
+
+      // Delete an environment
+      deleteEnvironment: (id: string): void => {
+        envStoreLogger('Deleting environment %s', id);
+
+        set(state => {
+          // Find the environment to get its accountId
+          const environment = state.environments.find(env => env.id === id);
+          if (!environment) {
+            envStoreLogger('Environment %s not found for deletion', id);
+            return state; // No changes if environment not found
+          }
+
+          const accountId = environment.accountId;
+          const updatedEnvironments = state.environments.filter(env => env.id !== id);
+          
+          // Check if the deleted environment was selected
+          const updatedSelectedIds = { ...state.selectedEnvironmentIds };
+          if (updatedSelectedIds[accountId] === id) {
+            // Clear the selection if it was the selected environment
+            delete updatedSelectedIds[accountId];
+            envStoreLogger('Cleared selected environment for account %s', accountId);
+          }
+
+          return {
+            environments: updatedEnvironments,
+            selectedEnvironmentIds: updatedSelectedIds
           };
         });
       },
@@ -169,6 +204,40 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
 
           envStoreLogger('Selected environment cleared for account %s', accountId);
           return { selectedEnvironmentIds: updatedSelections };
+        });
+      },
+
+      // NEW: Sync environments from server
+      syncEnvironments: (accountId: string, serverEnvironments: Environment[]): void => {
+        envStoreLogger('Syncing environments for account %s from server', accountId);
+        
+        set(state => {
+          // Get all other account environments (keep environments for other accounts)
+          const otherEnvironments = state.environments.filter(env => env.accountId !== accountId);
+          
+          // Combine other account environments with the server environments for this account
+          const combinedEnvironments = [...otherEnvironments, ...serverEnvironments];
+          
+          // Update selected environment ID if needed
+          const updatedSelectedIds = { ...state.selectedEnvironmentIds };
+          
+          // If the previously selected environment no longer exists, clear it
+          if (updatedSelectedIds[accountId]) {
+            const selectedExists = serverEnvironments.some(
+              env => env.id === updatedSelectedIds[accountId]
+            );
+            
+            if (!selectedExists) {
+              delete updatedSelectedIds[accountId];
+              envStoreLogger('Cleared invalid selected environment for account %s', accountId);
+            }
+          }
+          
+          envStoreLogger('Synced %d environments for account %s', serverEnvironments.length, accountId);
+          return {
+            environments: combinedEnvironments,
+            selectedEnvironmentIds: updatedSelectedIds
+          };
         });
       }
     }),

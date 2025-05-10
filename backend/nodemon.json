@@ -7,5 +7,5 @@
         "dist",
         "node_modules"
     ],
-    "exec": "tsx src/app.ts"
+    "exec": "cross-env NODE_OPTIONS=\"--trace-warnings --inspect\" npx tsx ./src/app.ts"
 }

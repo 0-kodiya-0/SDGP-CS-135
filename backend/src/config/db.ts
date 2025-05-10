@@ -1,15 +1,22 @@
 import initAccountModels from '../feature/account/Account.model';
 import initChatModels from '../feature/chat/chat.model';
+import initEnvironmentModel from '../feature/environment/Environment.model';
+import initActiveEnvironmentModel from '../feature/environment/ActiveEnvironment.model';
 import dbConfig from './db.config';
 
 // Define model types for type safety
 export type AccountModels = Awaited<ReturnType<typeof initAccountModels>>;
 export type ChatModels = Awaited<ReturnType<typeof initChatModels>>;
+export type EnvironmentModels = {
+  Environment: Awaited<ReturnType<typeof initEnvironmentModel>>;
+  ActiveEnvironment: Awaited<ReturnType<typeof initActiveEnvironmentModel>>;
+};
 
 // Database models container with proper typing
 interface DatabaseModels {
     accounts: AccountModels;
     chat: ChatModels;
+    environments: EnvironmentModels;
 }
 
 // Track initialization state
@@ -31,10 +38,19 @@ const initializeDB = async (): Promise<DatabaseModels> => {
             initChatModels(),
         ]);
 
+        // Initialize environment models on the accounts database
+        const accountsConnection = dbConfig.connections.accounts!;
+        const environmentModel = await initEnvironmentModel(accountsConnection);
+        const activeEnvironmentModel = await initActiveEnvironmentModel(accountsConnection);
+
         // Store initialized models
         models = {
             accounts: accountModels,
             chat: chatModels,
+            environments: {
+                Environment: environmentModel,
+                ActiveEnvironment: activeEnvironmentModel
+            }
         };
 
         isInitialized = true;

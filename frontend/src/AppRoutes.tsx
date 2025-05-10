@@ -11,6 +11,8 @@ import AuthGuard from './pages/AuthGuard';
 import { LoginPage, SignupPage, AuthCallback, AuthRedirect } from './pages';
 import TokenRevocationWarningPage from './features/default/user_account/pages/TokenRevocationWarningPage';
 import PermissionCallback from './pages/PermissionCallback';
+import EnvironmentSelectionPage from './features/default/environment/pages/EnvironmentSelectionPage';
+import CreateEnvironmentPage from './features/default/environment/pages/CreateEnvironmentPage';
 
 export const AppRoutes: React.FC = () => {
     return (
@@ -46,6 +48,23 @@ export const AppRoutes: React.FC = () => {
 
                     <Route path="/app/:accountId/revoke" element={
                         <TokenRevocationWarningPage />
+                    } />
+
+                    {/* Environment Routes */}
+                    <Route path="/app/:accountId/environments" element={
+                        <AuthGuard>
+                            <AccountProvider>
+                                <EnvironmentSelectionPage />
+                            </AccountProvider>
+                        </AuthGuard>
+                    } />
+                    
+                    <Route path="/app/:accountId/environments/create" element={
+                        <AuthGuard>
+                            <AccountProvider>
+                                <CreateEnvironmentPage />
+                            </AccountProvider>
+                        </AuthGuard>
                     } />
 
                     {/* Main application routes */}

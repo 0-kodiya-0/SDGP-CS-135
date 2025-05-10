@@ -29,7 +29,6 @@ const MessageSchema = new Schema({
   conversationId: { 
     type: String, 
     required: true, 
-    index: true,
     validate: {
       validator: (value: string) => mongoose.Types.ObjectId.isValid(value),
       message: 'Invalid conversationId format'
@@ -95,6 +94,7 @@ const ConversationSchema = new Schema({
 });
 
 // Create indexes
+MessageSchema.index({ conversationId: 1 });
 MessageSchema.index({ conversationId: 1, timestamp: -1 });
 ConversationSchema.index({ participants: 1 });
 ConversationSchema.index({ updatedAt: -1 });

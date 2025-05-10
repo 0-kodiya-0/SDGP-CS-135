@@ -1,3 +1,4 @@
+// backend/src/app.ts
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import cors from 'cors';
@@ -8,6 +9,7 @@ import setupPassport from './config/passport';
 import { router as oauthRoutes } from './feature/oauth';
 import { authenticatedNeedRouter as authNeedAccountRouter, authenticationNotNeedRouter as authNotNeedAccountRouter } from './feature/account';
 import { router as googleRoutes } from './feature/google';
+import environmentRoutes from './feature/environment';
 import db from './config/db';
 import { authenticateSession, validateAccountAccess, validateTokenAccess } from './services/session';
 import socketConfig from './config/socket.config';
@@ -67,6 +69,7 @@ app.use("/:accountId", authenticateSession, validateAccountAccess, validateToken
 app.use('/:accountId/account', authNeedAccountRouter);
 app.use('/:accountId/google', googleRoutes);
 app.use('/:accountId/chat', chatRoutes);
+app.use('/:accountId/environments', environmentRoutes); // Add environment routes
 
 applyErrorHandlers(app);
 
