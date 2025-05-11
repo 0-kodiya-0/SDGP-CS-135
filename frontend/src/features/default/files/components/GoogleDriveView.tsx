@@ -4,8 +4,7 @@ import { DriveFile } from "../types/types.google.api";
 import { FiDownload, FiFile, FiImage, FiFileText, FiFolder } from "react-icons/fi";
 import { useTabStore } from "../../../required/tab_view";
 import { ComponentTypes } from "../../../required/tab_view/types/types.views";
-import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
-import { GooglePermissionRequest } from "../../user_account";
+import { GooglePermissionRequest, useGooglePermissions } from "../../user_account";
 
 interface GoogleDriveViewProps {
   accountId: string;
@@ -20,20 +19,20 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
     hasRequiredPermission,
     permissionsLoading,
     permissionError,
-    checkAllServicePermissions: checkAllDrivePermissions,
-  } = useServicePermissions(accountId, 'drive');
+    checkAllServicePermissions,
+  } = useGooglePermissions();
 
   useEffect(() => {
-      if (accountId) {
-        checkAllDrivePermissions();
-      }
-    }, [accountId]);
+    if (accountId) {
+      checkAllServicePermissions(accountId, 'drive');
+    }
+  }, [accountId]);
 
   useEffect(() => {
-    if (hasRequiredPermission('full')) {
+    if (hasRequiredPermission(accountId, 'drive', 'full')) {
       listFiles();
     }
-  }, [permissionsLoading]);
+  }, [accountId, permissionsLoading]);
 
   const handleFileClick = (file: DriveFile) => {
     setSelectedFile(file);
@@ -75,17 +74,16 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
     return <FiFile className="text-gray-500" />;
   };
 
-  if (!hasRequiredPermission("full")) {
+  if (!hasRequiredPermission(accountId, "drive", "full") && !permissionsLoading) {
     return (
       <GooglePermissionRequest
         serviceType="drive"
         requiredScopes={['full']}
         loading={permissionsLoading}
         error={permissionError}
-        onRequestPermission={() => checkAllDrivePermissions(true)}
-        // Optional custom messaging
-        title="Calender Access Required"
-        description="To fetch and send emails, we need your permission to access your Gmail account."
+        onRequestPermission={() => checkAllServicePermissions(accountId, 'drive', true)}
+        title="Drive Access Required"
+        description="To access your files and documents, we need your permission to access your Google Drive."
       />
     );
   }

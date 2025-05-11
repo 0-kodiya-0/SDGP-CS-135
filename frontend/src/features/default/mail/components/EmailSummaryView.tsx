@@ -60,7 +60,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         if (accountId) {
             checkAllServicePermissions(accountId, 'gmail');
         }
-    }, [accountId, checkAllServicePermissions]);
+    }, [accountId]);
 
     // Effects
     useEffect(() => {

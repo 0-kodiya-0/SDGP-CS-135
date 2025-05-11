@@ -6,7 +6,7 @@ import { useCalendarList } from '../hooks/useCalendarList.google';
 import { CalendarEvent } from '../types/types.google.api';
 import { getEventStatusColor, formatEventTime } from '../utils/utils.google.api';
 import { ComponentTypes } from '../../../required/tab_view/types/types.views';
-import { GooglePermissionRequest, useServicePermissions } from '../../user_account';
+import { GooglePermissionRequest, useGooglePermissions } from '../../user_account';
 
 interface SummaryViewProps {
   accountId: string;
@@ -23,21 +23,21 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
     hasRequiredPermission,
     permissionsLoading,
     permissionError,
-    checkAllServicePermissions: checkAllCalendarPermissions,
-  } = useServicePermissions(accountId, 'calendar');
+    checkAllServicePermissions,
+  } = useGooglePermissions();
 
   useEffect(() => {
     if (accountId) {
-      checkAllCalendarPermissions();
+      checkAllServicePermissions(accountId, 'calendar');
     }
   }, [accountId]);
 
   // Initialize data on component mount
   useEffect(() => {
-    if (accountId && hasRequiredPermission("full")) {
+    if (accountId && hasRequiredPermission(accountId, 'calendar', 'full')) {
       listCalendars();
     }
-  }, [permissionsLoading]);
+  }, [accountId, permissionsLoading]);
 
   // Set initial selected calendars once they're loaded
   useEffect(() => {
@@ -49,7 +49,7 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
 
   // Fetch events when selected calendars change
   useEffect(() => {
-    if (accountId && selectedCalendarIds.length > 0 && hasRequiredPermission("full")) {
+    if (accountId && selectedCalendarIds.length > 0 && hasRequiredPermission(accountId, 'calendar', 'full')) {
       // Get today's date at midnight
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -165,17 +165,17 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
     );
   };
 
-  if (!hasRequiredPermission("full") && !permissionsLoading) {
+  if (!hasRequiredPermission(accountId, 'calendar', 'full') && !permissionsLoading) {
     return (
       <GooglePermissionRequest
         serviceType="calendar"
         requiredScopes={['full']}
         loading={permissionsLoading}
         error={permissionError}
-        onRequestPermission={() => checkAllCalendarPermissions(true)}
+        onRequestPermission={() => checkAllServicePermissions(accountId, 'calendar', true)}
         // Optional custom messaging
-        title="Calender Access Required"
-        description="To fetch and send emails, we need your permission to access your Gmail account."
+        title="Calendar Access Required"
+        description="To access your calendar events and manage appointments, we need your permission to access your Google Calendar."
       />
     );
   }

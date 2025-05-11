@@ -12,8 +12,6 @@ export { useAuth } from './contexts/AuthContext';
 export { useAccount } from './contexts/AccountContext';
 export { useGooglePermissions } from "./contexts/GooglePermissionContext.tsx";
 
-export { useServicePermissions } from "./hooks/useServicePermissions.google.ts";
-
 // Export pages
 export { default as AccountSettingsPage } from './pages/AccountSettingsPage';
 export { default as AccountSelectionPage } from "./pages/AccountSelectionPage";

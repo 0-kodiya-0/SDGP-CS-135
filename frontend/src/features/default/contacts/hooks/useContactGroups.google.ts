@@ -3,8 +3,7 @@ import { useState, useCallback } from "react";
 import { ContactGroupType } from "../types/types.data";
 import { UseContactGroupsReturn } from "../types/types.google.api";
 import { API_BASE_URL, ApiResponse } from "../../../../conf/axios";
-import { handleApiError } from "../../user_account/utils/utils.google";
-import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
+import { handleApiError, useGooglePermissions } from "../../user_account";
 
 /**
  * Hook for managing Google Contact Groups
@@ -20,8 +19,8 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
 
     const {
         hasRequiredPermission,
-        invalidateServicePermission,
-    } = useServicePermissions(accountId, 'people');
+        invalidatePermission,
+    } = useGooglePermissions();
 
     // Fetch contact groups
     const fetchGroups = useCallback(async (
@@ -35,7 +34,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'people', "readonly")) {
                 setError("Permission error: You need additional permissions to access contact groups");
                 setLoading(false);
                 return;
@@ -67,7 +66,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'people', "readonly");
                 setError("Permission error: You need additional permissions to access contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while fetching contact groups');
@@ -75,7 +74,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Get a single contact group
     const getGroup = useCallback(async (
@@ -85,7 +84,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'people', "readonly")) {
                 setError("Permission error: You need additional permissions to access contact groups");
                 setLoading(false);
                 return null;
@@ -106,7 +105,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'people', "readonly");
                 setError("Permission error: You need additional permissions to access contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting contact group');
@@ -115,7 +114,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Create a new contact group
     const createGroup = useCallback(async (
@@ -125,7 +124,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'people', "full")) {
                 setError("Permission error: You need additional permissions to create contact groups");
                 setLoading(false);
                 return null;
@@ -147,7 +146,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'people', "full");
                 setError("Permission error: You need additional permissions to create contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating contact group');
@@ -156,7 +155,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Update a contact group
     const updateGroup = useCallback(async (
@@ -168,7 +167,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'people', "full")) {
                 setError("Permission error: You need additional permissions to update contact groups");
                 setLoading(false);
                 return null;
@@ -190,7 +189,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'people', "full");
                 setError("Permission error: You need additional permissions to update contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating contact group');
@@ -199,7 +198,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Delete a contact group
     const deleteGroup = useCallback(async (
@@ -210,7 +209,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'people', "full")) {
                 setError("Permission error: You need additional permissions to delete contact groups");
                 setLoading(false);
                 return false;
@@ -234,7 +233,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'people', "full");
                 setError("Permission error: You need additional permissions to delete contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting contact group');
@@ -243,7 +242,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Add contacts to a group
     const addContactsToGroup = useCallback(async (
@@ -254,7 +253,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'people', "full")) {
                 setError("Permission error: You need additional permissions to modify contact groups");
                 setLoading(false);
                 return null;
@@ -276,7 +275,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'people', "full");
                 setError("Permission error: You need additional permissions to modify contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while adding contacts to group');
@@ -285,7 +284,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     // Remove contacts from a group
     const removeContactsFromGroup = useCallback(async (
@@ -296,7 +295,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'people', "full")) {
                 setError("Permission error: You need additional permissions to modify contact groups");
                 setLoading(false);
                 return null;
@@ -318,7 +317,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
             // Handle API errors and invalidate permissions if needed
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'people', "full");
                 setError("Permission error: You need additional permissions to modify contact groups");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while removing contacts from group');
@@ -327,7 +326,7 @@ export const useContactGroups = (accountId: string): UseContactGroupsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, accountId, invalidateServicePermission]);
+    }, [hasRequiredPermission, accountId, invalidatePermission]);
 
     return {
         groups,

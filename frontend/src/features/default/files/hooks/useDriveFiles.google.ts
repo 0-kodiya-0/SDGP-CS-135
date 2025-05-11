@@ -2,8 +2,7 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { API_BASE_URL } from "../../../../conf/axios";
 import { DriveFile, CreateFolderParams, CreateFileParams, UpdateFileParams, SearchFilesParams } from "../types/types.google.api";
-import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
-import { handleApiError } from "../../user_account";
+import { useGooglePermissions, handleApiError } from "../../user_account";
 
 /**
  * Hook for interacting with Google Drive files
@@ -20,8 +19,8 @@ export const useDriveFiles = (accountId: string) => {
 
     const {
         hasRequiredPermission,
-        invalidateServicePermission,
-    } = useServicePermissions(accountId, 'drive');
+        invalidatePermission
+    } = useGooglePermissions();
 
     /**
  * List files and folders with optional filtering
@@ -42,7 +41,7 @@ export const useDriveFiles = (accountId: string) => {
         try {
             console.log("listFiles called with params:", params);
 
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'drive', "readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -99,7 +98,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'drive', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to list files');
             }
@@ -107,7 +106,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
  * Get a specific file by ID
@@ -123,7 +122,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'drive', "readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -154,7 +153,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'drive', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to get file');
             }
@@ -162,7 +161,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Create a new folder
@@ -174,7 +173,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', "file")) {
                 setLoading(false);
                 return null;
             }
@@ -193,7 +192,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', "file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to create folder');
             }
@@ -201,7 +200,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, listFiles, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, listFiles, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Create a new empty file
@@ -213,7 +212,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', "file")) {
                 setLoading(false);
                 return null;
             }
@@ -232,7 +231,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', "file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to create file');
             }
@@ -240,7 +239,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, listFiles, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, listFiles, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Upload a file
@@ -258,7 +257,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', "file")) {
                 setLoading(false);
                 return null;
             }
@@ -294,7 +293,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', "file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to upload file');
             }
@@ -302,7 +301,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, listFiles, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, listFiles, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Update an existing file
@@ -315,7 +314,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', "file")) {
                 setLoading(false);
                 return null;
             }
@@ -339,7 +338,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', "file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to update file');
             }
@@ -347,7 +346,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, currentFile, listFiles, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, currentFile, listFiles, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Delete a file or folder
@@ -362,7 +361,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', "file")) {
                 setLoading(false);
                 return null;
             }
@@ -389,7 +388,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', "file");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to delete file');
             }
@@ -397,7 +396,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, currentFile, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, currentFile, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Search for files and folders
@@ -409,7 +408,7 @@ export const useDriveFiles = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'drive', "readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -435,7 +434,7 @@ export const useDriveFiles = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'drive', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to search files');
             }
@@ -443,7 +442,7 @@ export const useDriveFiles = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Download a file

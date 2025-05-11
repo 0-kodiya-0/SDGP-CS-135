@@ -6,7 +6,7 @@ import CreateGroupForm from './CreateGroupForms';
 import { useContacts } from '../hooks/useContacts.google';
 import { PersonType, ContactGroupType } from '../types/types.data';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
-import { GooglePermissionRequest, useServicePermissions } from '../../user_account';
+import { GooglePermissionRequest, useGooglePermissions } from '../../user_account';
 
 interface SummaryViewProps {
   accountId: string;
@@ -26,8 +26,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     hasRequiredPermission,
     permissionsLoading,
     permissionError,
-    checkAllServicePermissions: checkAllPeoplePermissions,
-  } = useServicePermissions(accountId, 'people');
+    checkAllServicePermissions,
+  } = useGooglePermissions();
 
   // Use the tabs hook
   const { addTab, updateTab, closeTab, setActiveTab: setActiveTabInContext, tabs } = useTabStore();
@@ -47,15 +47,15 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
 
   useEffect(() => {
     if (accountId) {
-      checkAllPeoplePermissions();
+      checkAllServicePermissions(accountId, 'people');
     }
   }, [accountId]);
 
   useEffect(() => {
-    if (hasRequiredPermission('full')) {
+    if (hasRequiredPermission(accountId, 'people', 'full')) {
       fetchContacts();
     }
-  }, [permissionsLoading]);
+  }, [accountId, permissionsLoading]);
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {
@@ -260,17 +260,17 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     </svg>
   );
 
-  if (!hasRequiredPermission("full") && !permissionsLoading) {
+  if (!hasRequiredPermission(accountId, 'people', 'full') && !permissionsLoading) {
     return (
       <GooglePermissionRequest
         serviceType="people"
         requiredScopes={['full']}
         loading={permissionsLoading}
         error={permissionError}
-        onRequestPermission={() => checkAllPeoplePermissions(true)}
+        onRequestPermission={() => checkAllServicePermissions(accountId, 'people', true)}
         // Optional custom messaging
-        title="People Access Required"
-        description="To fetch and send emails, we need your permission to access your Gmail account."
+        title="Contacts Access Required"
+        description="To access your contacts, we need your permission to access your Google Contacts."
       />
     );
   }

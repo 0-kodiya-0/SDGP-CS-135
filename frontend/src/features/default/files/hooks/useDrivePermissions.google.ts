@@ -2,8 +2,7 @@ import axios from "axios";
 import { useState, useCallback } from "react";
 import { API_BASE_URL } from "../../../../conf/axios";
 import { Permission } from "../types/types.google.api";
-import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
-import { handleApiError } from "../../user_account";
+import { useGooglePermissions, handleApiError } from "../../user_account";
 
 /**
  * Hook for managing file permissions
@@ -15,8 +14,8 @@ export const useDrivePermissions = (accountId: string) => {
 
     const {
         hasRequiredPermission,
-        invalidateServicePermission,
-    } = useServicePermissions(accountId, 'drive');
+        invalidatePermission,
+    } = useGooglePermissions();
 
     /**
      * List permissions for a file
@@ -32,7 +31,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'drive', 'readonly')) {
                 setLoading(false);
                 return null;
             }
@@ -53,7 +52,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'drive', 'readonly');
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to list permissions');
             }
@@ -61,7 +60,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Share a file with another user
@@ -82,7 +81,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', 'file')) {
                 setLoading(false);
                 return null;
             }
@@ -101,7 +100,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', 'file');
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to share file');
             }
@@ -109,7 +108,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, listPermissions, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, listPermissions, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Delete a permission from a file
@@ -125,7 +124,7 @@ export const useDrivePermissions = (accountId: string) => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("file")) {
+            if (!hasRequiredPermission(accountId, 'drive', 'file')) {
                 setLoading(false);
                 return null;
             }
@@ -149,7 +148,7 @@ export const useDrivePermissions = (accountId: string) => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("file");
+                invalidatePermission(accountId, 'drive', 'file');
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to delete permission');
             }
@@ -157,7 +156,7 @@ export const useDrivePermissions = (accountId: string) => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     return {
         permissions,
@@ -165,7 +164,6 @@ export const useDrivePermissions = (accountId: string) => {
         error,
         listPermissions,
         shareFile,
-        deletePermission,
-        hasRequiredPermission, invalidateServicePermission
+        deletePermission
     };
 };
