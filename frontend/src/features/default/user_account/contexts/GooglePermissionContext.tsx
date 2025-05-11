@@ -1,7 +1,14 @@
 import React, { createContext, useState, useCallback, useEffect, useRef, useContext } from 'react';
 import axios from 'axios';
 import { API_BASE_URL, ApiResponse } from '../../../../conf/axios';
-import { PermissionContextValue, PermissionState, PermissionCacheEntry, ServiceType, ScopeLevel, ServiceAccessResponse } from '../types/types.google.api';
+import { 
+    PermissionContextValue, 
+    PermissionState, 
+    PermissionCacheEntry, 
+    ServiceType, 
+    ScopeLevel, 
+    ServiceAccessResponse 
+} from '../types/types.google.api';
 import { getValidScopesForService } from '../utils/utils.google';
 
 // Create the context
@@ -19,6 +26,10 @@ export const GooglePermissionsProvider: React.FC<{
         isPopupOpen: false,
         currentPermissionRequest: null,
     });
+    
+    // Added state for tracking permissions loading and errors
+    const [permissionsLoading, setPermissionsLoading] = useState<boolean>(false);
+    const [permissionError, setPermissionError] = useState<string | null>(null);
 
     const popupRef = useRef<Window | null>(null);
     const popupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -148,7 +159,7 @@ export const GooglePermissionsProvider: React.FC<{
 
             return false;
         }
-    }, [checkServiceAccess, getPermission, isCacheValid]);
+    }, [checkServiceAccess, getPermission, isCacheValid, state.pendingPermissions]);
 
     // Check if we have required permission
     const hasRequiredPermission = useCallback((
@@ -329,6 +340,52 @@ export const GooglePermissionsProvider: React.FC<{
         });
     }, []);
 
+    // NEW FUNCTION: Check all service permissions for a service
+    const checkAllServicePermissions = useCallback(async (
+        accountId: string,
+        serviceType: ServiceType,
+        requestMissing: boolean = false
+    ): Promise<boolean> => {
+        if (!accountId) return false;
+
+        setPermissionsLoading(true);
+        setPermissionError(null);
+
+        try {
+            // Get valid scopes for this service
+            const availableScopes = getValidScopesForService(serviceType);
+            
+            const results = await Promise.all(
+                availableScopes.map(scope => checkServicePermission(accountId, serviceType, scope))
+            );
+
+            const allGranted = results.every(result => result === true);
+
+            if (!allGranted && requestMissing) {
+                // Request missing permissions
+                await requestPermissions(
+                    accountId,
+                    serviceType,
+                    availableScopes.filter((_, index) => !results[index])
+                );
+                
+                // Recheck permissions after requesting
+                const newResults = await Promise.all(
+                    availableScopes.map(scope => checkServicePermission(accountId, serviceType, scope))
+                );
+                
+                return newResults.every(result => result === true);
+            }
+
+            return allGranted;
+        } catch (error) {
+            setPermissionError(error instanceof Error ? error.message : 'Failed to check permissions');
+            return false;
+        } finally {
+            setPermissionsLoading(false);
+        }
+    }, [checkServicePermission, requestPermissions]);
+
     // Handle permission result and update cache
     const handlePermissionResult = useCallback(async (
         accountId: string,
@@ -435,11 +492,14 @@ export const GooglePermissionsProvider: React.FC<{
 
     const contextValue: PermissionContextValue = {
         ...state,
+        permissionsLoading,
+        permissionError,
         checkServicePermission,
         requestPermissions,
         hasRequiredPermission,
         invalidatePermission,
-        clearAccountPermissions
+        clearAccountPermissions,
+        checkAllServicePermissions
     };
 
     return (

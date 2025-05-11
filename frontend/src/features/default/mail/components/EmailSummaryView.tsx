@@ -3,12 +3,12 @@ import { useGmailMessages } from '../hooks/useGmailMessages.google';
 import { useGmailLabels } from '../hooks/useLabels.google';
 import { ParsedEmail, GMAIL_SYSTEM_LABELS } from '../types/types.google.api';
 import { parseGmailMessage } from '../utils/utils.google.api';
-import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail, Shield } from 'lucide-react';
+import { Inbox, Send, Trash, Tag, Star, AlertCircle, RefreshCw, Search, Mail } from 'lucide-react';
 
 // Components import
 import EmailListItem from './EmailListItem';
 import { ComponentTypes, useTabStore } from '../../../required/tab_view';
-import { useServicePermissions } from '../../user_account';
+import { useGooglePermissions } from '../../user_account';
 import { GooglePermissionRequest } from '../../user_account/components/GooglePermissionRequest';
 
 interface GmailSummaryViewProps {
@@ -40,8 +40,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         hasRequiredPermission,
         permissionsLoading,
         permissionError,
-        checkAllServicePermissions: checkAllGmailPermissions
-    } = useServicePermissions(accountId, 'gmail');
+        checkAllServicePermissions
+    } = useGooglePermissions();
 
     useEffect(() => {
         console.log(permissionError);
@@ -58,14 +58,14 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
 
     useEffect(() => {
         if (accountId) {
-            checkAllGmailPermissions();
+            checkAllServicePermissions(accountId, 'gmail');
         }
-    }, [accountId]);
+    }, [accountId, checkAllServicePermissions]);
 
     // Effects
     useEffect(() => {
         // Load labels when component mounts
-        if (hasRequiredPermission("full")) {
+        if (hasRequiredPermission(accountId, 'gmail', 'full')) {
             listLabels();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +83,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         };
 
         // Only load messages if we have permissions
-        if (hasRequiredPermission("full")) {
+        if (hasRequiredPermission(accountId, 'gmail', 'full')) {
             loadMessages();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,7 +158,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleRefresh = () => {
-        if (!hasRequiredPermission("readonly")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'readonly')) {
             return;
         }
         listMessages({
@@ -169,7 +169,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleTrashEmail = async (emailId: string) => {
-        if (!hasRequiredPermission("full")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             return;
         }
         const success = await trashMessage(emailId);
@@ -182,7 +182,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleStarred = async (emailId: string, isStarred: boolean) => {
-        if (!hasRequiredPermission("full")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             return;
         }
 
@@ -198,7 +198,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const handleToggleImportant = async (emailId: string, isImportant: boolean) => {
-        if (!hasRequiredPermission("full")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             return;
         }
 
@@ -214,7 +214,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openComposeInTab = () => {
-        if (!hasRequiredPermission('send')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'send')) {
             return;
         }
 
@@ -233,7 +233,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openEmailInTab = async (emailId: string) => {
-        if (!hasRequiredPermission("full")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             return;
         }
 
@@ -264,7 +264,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
     };
 
     const openLabelManagerInTab = () => {
-        if (!hasRequiredPermission("full")) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             return;
         }
 
@@ -282,14 +282,14 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         );
     };
 
-    if (!hasRequiredPermission("full") && !permissionsLoading) {
+    if (!hasRequiredPermission(accountId, "gmail", "full") && !permissionsLoading) {
         return (
             <GooglePermissionRequest
                 serviceType="gmail"
                 requiredScopes={['full']}
                 loading={permissionsLoading}
                 error={permissionError}
-                onRequestPermission={() => checkAllGmailPermissions(true)}
+                onRequestPermission={() => checkAllServicePermissions(accountId, 'gmail', true)}
                 title="Email Access Required"
                 description="To fetch and send emails, we need your permission to access your Gmail account."
             />
@@ -455,9 +455,6 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                     </>
                 )}
             </div>
-
-            {/* Add this CSS to your global styles file */}
-
         </div>
     );
 };

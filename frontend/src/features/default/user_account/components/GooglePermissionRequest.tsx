@@ -10,6 +10,7 @@ interface PermissionRequestProps {
     onRequestPermission: () => void;
     title?: string;
     description?: string;
+    accountId?: string; // This is no longer used but kept for compatibility
 }
 
 // Helper function to generate appropriate descriptions based on service and scopes

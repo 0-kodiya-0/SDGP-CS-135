@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 import { ApiResponse, API_BASE_URL } from "../../../../conf/axios";
 import { UseGmailLabelsReturn, GmailLabel, CreateLabelParams, UpdateLabelParams } from "../types/types.google.api";
 import { handleApiError } from "../../user_account/utils/utils.google";
-import { useServicePermissions } from "../../user_account/hooks/useServicePermissions.google";
+import { useGooglePermissions } from "../../user_account";
 
 /**
  * Hook for managing Gmail Labels with centralized permission management
@@ -13,11 +13,11 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Use Gmail Permissions hook via the generic service permissions hook
+    // Use Gmail Permissions hook directly from useGooglePermissions
     const {
         hasRequiredPermission,
-        invalidateServicePermission,
-    } = useServicePermissions(accountId, 'gmail');
+        invalidatePermission
+    } = useGooglePermissions();
 
     /**
      * List all labels in the user's Gmail account
@@ -27,7 +27,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         // Check if we have readonly permission
-        if (!hasRequiredPermission('readonly')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'readonly')) {
             setError("You need additional permissions to access Gmail labels");
             setLoading(false);
             return;
@@ -47,7 +47,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } catch (err) {
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'gmail', 'readonly');
                 setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing labels');
@@ -55,7 +55,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Create a new Gmail label
@@ -67,7 +67,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         // Check if we have full permission
-        if (!hasRequiredPermission('full')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             setError("You need additional permissions to manage Gmail labels");
             setLoading(false);
             return null;
@@ -91,7 +91,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } catch (err) {
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'gmail', 'full');
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the label');
@@ -100,7 +100,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Update an existing Gmail label
@@ -113,7 +113,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         // Check if we have full permission
-        if (!hasRequiredPermission('full')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             setError("You need additional permissions to manage Gmail labels");
             setLoading(false);
             return null;
@@ -139,7 +139,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } catch (err) {
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'gmail', 'full');
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the label');
@@ -148,7 +148,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Delete a Gmail label
@@ -160,7 +160,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         // Check if we have full permission
-        if (!hasRequiredPermission('full')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'full')) {
             setError("You need additional permissions to manage Gmail labels");
             setLoading(false);
             return false;
@@ -182,7 +182,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } catch (err) {
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'gmail', 'full');
                 setError("Permission error: You need additional permissions to manage Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the label');
@@ -191,7 +191,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     /**
      * Get a specific label by ID
@@ -203,7 +203,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         setError(null);
 
         // Check if we have readonly permission
-        if (!hasRequiredPermission('readonly')) {
+        if (!hasRequiredPermission(accountId, 'gmail', 'readonly')) {
             setError("You need additional permissions to access Gmail labels");
             setLoading(false);
             return null;
@@ -224,7 +224,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } catch (err) {
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'gmail', 'readonly');
                 setError("Permission error: You need additional permissions to access Gmail labels");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the label');
@@ -233,7 +233,7 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         } finally {
             setLoading(false);
         }
-    }, [accountId, hasRequiredPermission, invalidateServicePermission]);
+    }, [accountId, hasRequiredPermission, invalidatePermission]);
 
     return {
         labels,
