@@ -2,8 +2,7 @@ import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { ApiResponse, API_BASE_URL } from '../../../../conf/axios';
 import { MeetingData, CreateMeetingParams, UpdateMeetingParams, UseMeetApiReturn } from '../types/types.google.api';
-import { useServicePermissions } from '../../user_account/hooks/useServicePermissions.google';
-import { handleApiError } from '../../user_account';
+import { useGooglePermissions, handleApiError } from '../../user_account';
 
 /**
  * Hook for managing Google Meet meetings
@@ -17,8 +16,8 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
 
     const {
         hasRequiredPermission,
-        invalidateServicePermission,
-    } = useServicePermissions(accountId, 'meet');
+        invalidatePermission,
+    } = useGooglePermissions();
 
     /**
      * Get a specific Google Meet meeting
@@ -31,7 +30,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
 
         try {
             // Verify access first
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'meet', "readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -53,7 +52,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'meet', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while getting the meeting');
             }
@@ -61,7 +60,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Check if a user is available during a proposed meeting time
@@ -76,7 +75,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
 
         try {
             // Verify access first
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'meet', "readonly")) {
                 setLoading(false);
                 return null;
             }
@@ -97,7 +96,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'meet', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while checking availability');
             }
@@ -105,7 +104,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Remove a participant from a meeting
@@ -118,7 +117,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'meet', "full")) {
                 setLoading(false);
                 return null;
             }
@@ -147,7 +146,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'meet', "full");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while removing participant');
             }
@@ -155,7 +154,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Add a participant to a meeting
@@ -169,7 +168,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'meet', "full")) {
                 setLoading(false);
                 return null;
             }
@@ -196,7 +195,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'meet', "full");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while adding participant');
             }
@@ -204,7 +203,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * List Google Meet meetings
@@ -224,7 +223,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("readonly")) {
+            if (!hasRequiredPermission(accountId, 'meet', "readonly")) {
                 setLoading(false);
                 return;
             }
@@ -263,14 +262,14 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("readonly");
+                invalidatePermission(accountId, 'meet', "readonly");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while listing meetings');
             }
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Delete a Google Meet meeting
@@ -283,7 +282,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'meet', "full")) {
                 setLoading(false);
                 return false;
             }
@@ -311,7 +310,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'meet', "full");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while deleting the meeting');
             }
@@ -319,7 +318,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Update an existing Google Meet meeting
@@ -332,7 +331,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'meet', "full")) {
                 setLoading(false);
                 return null;
             }
@@ -355,7 +354,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'meet', "full");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while updating the meeting');
             }
@@ -363,7 +362,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId]);
+    }, [hasRequiredPermission, invalidatePermission, accountId]);
 
     /**
      * Create a new Google Meet meeting
@@ -375,7 +374,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         setError(null);
 
         try {
-            if (!hasRequiredPermission("full")) {
+            if (!hasRequiredPermission(accountId, 'meet', "full")) {
                 setLoading(false);
                 return null;
             }
@@ -398,7 +397,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
             // Handle permission errors
             const permissionError = handleApiError(err);
             if (permissionError) {
-                invalidateServicePermission("full");
+                invalidatePermission(accountId, 'meet', "full");
             } else {
                 setError(err instanceof Error ? err.message : 'An error occurred while creating the meeting');
             }
@@ -406,7 +405,7 @@ export const useMeetApi = (accountId: string): UseMeetApiReturn => {
         } finally {
             setLoading(false);
         }
-    }, [hasRequiredPermission, invalidateServicePermission, accountId])
+    }, [hasRequiredPermission, invalidatePermission, accountId])
 
 
     return {
