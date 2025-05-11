@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PersonType, useContacts } from '../../contacts';
-import { GooglePermissionRequest, useServicePermissions } from '../../user_account';
+import { GooglePermissionRequest, useGooglePermissions } from '../../user_account';
 
 interface ContactSearchComponentProps {
     accountId: string;
@@ -20,13 +20,13 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<PersonType[]>([]);
 
-    // Use service permission hook
+    // Use Google permissions hook
     const {
         hasRequiredPermission,
         permissionsLoading,
         permissionError,
-        checkAllServicePermissions: checkAllPeoplePermissions,
-    } = useServicePermissions(accountId, 'people');
+        checkAllServicePermissions,
+    } = useGooglePermissions();
 
     // Use contacts hook
     const {
@@ -43,7 +43,7 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
     // Effect to perform search when query changes
     useEffect(() => {
         const performSearch = async () => {
-            if (searchQuery.trim().length >= 2 && hasRequiredPermission('full')) {
+            if (searchQuery.trim().length >= 2 && hasRequiredPermission(accountId, 'people', 'full')) {
                 const result = await searchContacts(searchQuery, {
                     pageSize: 10,
                     readMask: 'names,emailAddresses,phoneNumbers,photos'
@@ -61,24 +61,24 @@ const ContactSearchComponent: React.FC<ContactSearchComponentProps> = ({
 
         const timeoutId = setTimeout(performSearch, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchQuery]);
+    }, [searchQuery, hasRequiredPermission, accountId, searchContacts]);
 
     // Check if a contact is already selected (for group creation)
     const isContactSelected = (contact: PersonType) => {
         return selectedContacts.some(c => c.resourceName === contact.resourceName);
     };
 
-    if (!hasRequiredPermission("full")) {
+    if (!hasRequiredPermission(accountId, "people", "full")) {
         return (
             <GooglePermissionRequest
                 serviceType="people"
                 requiredScopes={['full']}
                 loading={permissionsLoading}
                 error={permissionError}
-                onRequestPermission={() => checkAllPeoplePermissions(true)}
+                onRequestPermission={() => checkAllServicePermissions(accountId, 'people', true)}
                 // Optional custom messaging
                 title="People Access Required"
-                description="To fetch and send emails, we need your permission to access your Gmail account."
+                description="To access your contacts, we need your permission to access your Google Contacts."
             />
         );
     }

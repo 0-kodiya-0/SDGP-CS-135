@@ -39,9 +39,7 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     conversations,
     loading,
     error,
-    // unreadCount,
     fetchConversations,
-    // fetchUnreadCount,
     fetchUnreadCountByConversation,
     createPrivateConversation,
     createGroupConversation,
@@ -51,35 +49,24 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   // Get the tab store functions
   const { addTab, tabs } = useTabStore();
 
-  // Load unread count data
-  // Replace the useEffect that fetches unread counts
+  // Load initial data when component mounts
   useEffect(() => {
     if (accountId) {
       fetchConversations();
     }
   }, [accountId]);
 
-  // Replace the polling interval too
+  // Load conversation names when conversations change
   useEffect(() => {
-    if (accountId) {
-      const intervalId = setInterval(() => {
-        if (loading) return;
-        fetchConversations();
-      }, 30000); // Poll every 30 seconds
-
-      return () => clearInterval(intervalId);
-    }
-  }, [accountId]);
-
-  // Load conversation names
-  useEffect(() => {
-    loadConversationNames().then(() => {
-      fetchUnreadCountByConversation().then((unreadCounts) => {
-        if (unreadCounts) {
-          setConversationsWithUnread(unreadCounts);
-        }
+    if (conversations.length > 0) {
+      loadConversationNames().then(() => {
+        fetchUnreadCountByConversation().then((unreadCounts) => {
+          if (unreadCounts) {
+            setConversationsWithUnread(unreadCounts);
+          }
+        });
       });
-    });
+    }
   }, [conversations]);
 
   // Get participant name from conversation
@@ -97,8 +84,13 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
     const names: Record<string, string> = {};
 
     for (const conversation of conversations) {
-      const name = await getConversationName(conversation);
-      names[conversation._id] = name;
+      try {
+        const name = await getConversationName(conversation);
+        names[conversation._id] = name;
+      } catch (error) {
+        console.error(`Error loading name for conversation ${conversation._id}:`, error);
+        names[conversation._id] = 'Unknown';
+      }
     }
 
     setConversationNames(names);
@@ -142,23 +134,38 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
 
   // Handle creating a private conversation
   const handleCreatePrivateConversation = async (contact: PersonType) => {
-    if (!contact.emailAddresses) return;
-
-    // Extract the contact ID from resourceName
-    const emailAddresses = contact.emailAddresses.find(v => v.metadata?.primary)?.value;
-    if (!emailAddresses) return;
-
-    // Check if the contact is a user in the system
-    const account = await searchAccounts(emailAddresses!);
-    if (!account || !account.accountId) {
-      console.error("Contact doesn't use fusion space application");
+    if (!contact.emailAddresses || contact.emailAddresses.length === 0) {
+      console.error("Contact doesn't have an email address");
       return;
     }
 
-    const conversationId = await createPrivateConversation(account.accountId);
-    if (conversationId) {
-      handleSelectConversation(conversationId);
-      setShowContactSearch(false);
+    // Extract the email address from the contact
+    const emailAddress = contact.emailAddresses.find(v => v.metadata?.primary)?.value ||
+      contact.emailAddresses[0].value;
+
+    if (!emailAddress) {
+      console.error("No valid email address found for contact");
+      return;
+    }
+
+    try {
+      // Check if the contact is a user in the system
+      const account = await searchAccounts(emailAddress);
+      if (!account || !account.accountId) {
+        console.error("Contact doesn't use fusion space application");
+        return;
+      }
+
+      const conversationId = await createPrivateConversation(account.accountId);
+      if (conversationId) {
+        // Refresh the conversation list
+        await fetchConversations();
+        // Open the new conversation
+        handleSelectConversation(conversationId);
+        setShowContactSearch(false);
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error);
     }
   };
 
@@ -166,26 +173,37 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   const handleCreateGroupConversation = async (groupName: string, contacts: PersonType[]) => {
     if (!groupName.trim() || contacts.length === 0) return;
 
-    // Extract participant IDs from resourceName
-    const participantPromises = contacts.map(async (contact) => {
-      const emailAddresses = contact.emailAddresses?.find(v => v.metadata?.primary)?.value;
-      if (!emailAddresses) return null;
-      const account = await searchAccounts(emailAddresses);
-      return account?.accountId || null;
-    });
+    try {
+      // Extract participant IDs from resourceName
+      const participantPromises = contacts.map(async (contact) => {
+        const emailAddresses = contact.emailAddresses?.find(v => v.metadata?.primary)?.value ||
+          (contact.emailAddresses && contact.emailAddresses.length > 0 ?
+            contact.emailAddresses[0].value : null);
 
-    const participantIds = (await Promise.all(participantPromises))
-      .filter((id): id is string => id !== null);
+        if (!emailAddresses) return null;
 
-    if (participantIds.length === 0) {
-      console.error("No valid participants found");
-      return;
-    }
+        const account = await searchAccounts(emailAddresses);
+        return account?.accountId || null;
+      });
 
-    const conversationId = await createGroupConversation(groupName, participantIds);
-    if (conversationId) {
-      handleSelectConversation(conversationId);
-      setShowNewGroup(false);
+      const participantIds = (await Promise.all(participantPromises))
+        .filter((id): id is string => id !== null);
+
+      if (participantIds.length === 0) {
+        console.error("No valid participants found");
+        return;
+      }
+
+      const conversationId = await createGroupConversation(groupName, participantIds);
+      if (conversationId) {
+        // Refresh the conversation list
+        await fetchConversations();
+        // Open the new conversation
+        handleSelectConversation(conversationId);
+        setShowNewGroup(false);
+      }
+    } catch (error) {
+      console.error("Error creating group conversation:", error);
     }
   };
 
@@ -200,6 +218,17 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
       tab.componentType === ComponentTypes.CHAT_CONVERSATION &&
       tab.props?.conversationId === conversationId
     );
+  };
+
+  // Handle manual refresh
+  const handleRefresh = () => {
+    fetchConversations().then(() => {
+      fetchUnreadCountByConversation().then((unreadCounts) => {
+        if (unreadCounts) {
+          setConversationsWithUnread(unreadCounts);
+        }
+      });
+    });
   };
 
   // Filter conversations based on search query
@@ -228,8 +257,9 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
             </button>
             <button
               className="p-2 rounded-full hover:bg-gray-100"
-              onClick={() => fetchConversations()}
-              title="Refresh conversation">
+              onClick={handleRefresh}
+              disabled={loading}
+              title="Refresh conversations">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
@@ -258,7 +288,7 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {loading && conversations.length === 0 ? (
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
@@ -267,7 +297,7 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
             <p>{error}</p>
             <button
               className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200"
-              onClick={fetchConversations}
+              onClick={handleRefresh}
             >
               Retry
             </button>
@@ -295,7 +325,6 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
               const isOpen = isConversationOpen(conversation._id);
               const conversationName = conversationNames[conversation._id] || 'Loading...';
               const unreadMessagesCount = conversationsWithUnread[conversation._id] || 0;
-              // const totalUnreadCount = Object.values(conversationsWithUnread).reduce((a, b) => a + b, 0);
 
               return (
                 <li
