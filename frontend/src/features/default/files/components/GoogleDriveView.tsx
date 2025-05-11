@@ -24,10 +24,16 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
   } = useServicePermissions(accountId, 'drive');
 
   useEffect(() => {
+      if (accountId) {
+        checkAllDrivePermissions();
+      }
+    }, [accountId]);
+
+  useEffect(() => {
     if (hasRequiredPermission('full')) {
       listFiles();
     }
-  }, []);
+  }, [permissionsLoading]);
 
   const handleFileClick = (file: DriveFile) => {
     setSelectedFile(file);

@@ -56,6 +56,12 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         deleteLabel
     } = useGmailLabels(accountId);
 
+    useEffect(() => {
+        if (accountId) {
+            checkAllGmailPermissions();
+        }
+    }, [accountId]);
+
     // Effects
     useEffect(() => {
         // Load labels when component mounts
@@ -276,7 +282,7 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         );
     };
 
-    if (!hasRequiredPermission("full")) {
+    if (!hasRequiredPermission("full") && !permissionsLoading) {
         return (
             <GooglePermissionRequest
                 serviceType="gmail"
@@ -284,7 +290,6 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
                 loading={permissionsLoading}
                 error={permissionError}
                 onRequestPermission={() => checkAllGmailPermissions(true)}
-                // Optional custom messaging
                 title="Email Access Required"
                 description="To fetch and send emails, we need your permission to access your Gmail account."
             />

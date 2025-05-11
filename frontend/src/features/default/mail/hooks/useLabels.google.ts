@@ -19,13 +19,6 @@ export const useGmailLabels = (accountId: string): UseGmailLabelsReturn => {
         invalidateServicePermission,
     } = useServicePermissions(accountId, 'gmail');
 
-    // Check permissions when the hook is first used
-    // useEffect(() => {
-    //     if (!permissionsLoaded && !permissionsLoading) {
-    //         checkAllServicePermissions();
-    //     }
-    // }, [permissionsLoaded, permissionsLoading, checkAllServicePermissions]);
-
     /**
      * List all labels in the user's Gmail account
      */

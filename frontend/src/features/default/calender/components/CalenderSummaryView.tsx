@@ -26,12 +26,18 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
     checkAllServicePermissions: checkAllCalendarPermissions,
   } = useServicePermissions(accountId, 'calendar');
 
+  useEffect(() => {
+    if (accountId) {
+      checkAllCalendarPermissions();
+    }
+  }, [accountId]);
+
   // Initialize data on component mount
   useEffect(() => {
     if (accountId && hasRequiredPermission("full")) {
       listCalendars();
     }
-  }, [accountId]);
+  }, [permissionsLoading]);
 
   // Set initial selected calendars once they're loaded
   useEffect(() => {
@@ -159,7 +165,7 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
     );
   };
 
-  if (!hasRequiredPermission("full")) {
+  if (!hasRequiredPermission("full") && !permissionsLoading) {
     return (
       <GooglePermissionRequest
         serviceType="calendar"

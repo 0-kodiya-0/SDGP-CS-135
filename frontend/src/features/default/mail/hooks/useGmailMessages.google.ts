@@ -21,13 +21,6 @@ export const useGmailMessages = (accountId: string): UseGmailMessagesReturn => {
         invalidateServicePermission,
     } = useServicePermissions(accountId, 'gmail');
 
-    // Check permissions when the hook is first used
-    // useEffect(() => {
-    //     if (!permissionsLoaded && !permissionsLoading) {
-    //         checkAllServicePermissions();
-    //     }
-    // }, [permissionsLoaded, permissionsLoading, checkAllServicePermissions]);
-
     /**
      * List messages in the user's Gmail account
      */

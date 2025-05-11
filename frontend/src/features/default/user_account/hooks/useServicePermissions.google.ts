@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { ServiceType, ScopeLevel } from '../types/types.google.api';
 import { getValidScopesForService } from '../utils/utils.google';
 import { useGooglePermissions } from '../contexts/GooglePermissionContext';
@@ -74,12 +74,6 @@ export const useServicePermissions = (accountId: string | null, serviceType: Ser
     invalidatePermission(accountId, serviceType, scope);
   }, [accountId, serviceType, invalidatePermission]);
 
-  // Initialize permissions when the component mounts
-  useEffect(() => {
-    if (accountId) {
-      checkAllServicePermissions();
-    }
-  }, [accountId]);
 
   return {
     permissions,

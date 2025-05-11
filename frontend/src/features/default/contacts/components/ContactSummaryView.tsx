@@ -46,10 +46,16 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
   const [currentTabContent, setCurrentTabContent] = useState<'contact' | 'group' | null>(null);
 
   useEffect(() => {
+    if (accountId) {
+      checkAllPeoplePermissions();
+    }
+  }, [accountId]);
+
+  useEffect(() => {
     if (hasRequiredPermission('full')) {
       fetchContacts();
     }
-  }, []);
+  }, [permissionsLoading]);
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {
@@ -254,7 +260,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     </svg>
   );
 
-  if (!hasRequiredPermission("full")) {
+  if (!hasRequiredPermission("full") && !permissionsLoading) {
     return (
       <GooglePermissionRequest
         serviceType="people"

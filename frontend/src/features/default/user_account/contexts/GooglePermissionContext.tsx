@@ -75,6 +75,13 @@ export const GooglePermissionsProvider: React.FC<{
     ): Promise<boolean> => {
         // Set pending permission
         const permissionKey = `${accountId}:${service}:${scope}`;
+
+        // Skip if already pending to prevent duplicate calls
+        if (state.pendingPermissions[permissionKey]) {
+            console.log(`Skipping duplicate permission check for ${permissionKey}`);
+            return false;
+        }
+
         setState(prev => ({
             ...prev,
             pendingPermissions: {
@@ -83,12 +90,21 @@ export const GooglePermissionsProvider: React.FC<{
             }
         }));
 
+        console.log(`Checking permission for ${accountId}:${service}:${scope}`);
+
         try {
             // Check cache first
             const cachedPermission = getPermission(accountId, service, scope);
             if (isCacheValid(cachedPermission)) {
                 return cachedPermission!.hasAccess;
             }
+
+            console.log('Cached permission:', {
+                service,
+                scope,
+                cachedPermission,
+                isValid: isCacheValid(cachedPermission)
+            });
 
             // If not in cache, check with the API
             const result = await checkServiceAccess(accountId, service, [scope]);
@@ -104,6 +120,8 @@ export const GooglePermissionsProvider: React.FC<{
                     hasAccess,
                     lastChecked: Date.now()
                 };
+
+                console.log(`Updated permission cache for ${service}:${scope} - hasAccess: ${hasAccess}`);
 
                 return {
                     ...prev,
@@ -357,20 +375,20 @@ export const GooglePermissionsProvider: React.FC<{
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             // More permissive origin check for handling different environments
-            const isTrustedOrigin = event.origin === window.location.origin || 
-                                    event.origin.includes(new URL(API_BASE_URL).hostname);
-            
+            const isTrustedOrigin = event.origin === window.location.origin ||
+                event.origin.includes(new URL(API_BASE_URL).hostname);
+
             if (!isTrustedOrigin) return;
 
             // Check if message is a permission result
             const data = typeof event.data === 'object' ? event.data : {};
-            
+
             if (data.type === 'GOOGLE_PERMISSION_RESULT') {
                 const { success, service, scopeLevel } = data;
-                
+
                 if (service && scopeLevel && state.accountId) {
                     handlePermissionResult(
-                        state.accountId, 
+                        state.accountId,
                         service as ServiceType,
                         scopeLevel as ScopeLevel,
                         success === true
@@ -380,7 +398,7 @@ export const GooglePermissionsProvider: React.FC<{
         };
 
         window.addEventListener('message', handleMessage);
-        
+
         return () => {
             window.removeEventListener('message', handleMessage);
             closePopup();
@@ -394,7 +412,7 @@ export const GooglePermissionsProvider: React.FC<{
         const checkPopupClosed = setInterval(() => {
             if (popupRef.current && popupRef.current.closed) {
                 clearInterval(checkPopupClosed);
-                
+
                 // If popup was closed manually, treat as cancellation
                 setState(prev => {
                     if (!prev.isPopupOpen) return prev; // Already handled
