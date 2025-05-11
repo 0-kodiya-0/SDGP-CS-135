@@ -16,7 +16,8 @@ export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDT
     provider: doc.provider,
     userDetails: doc.userDetails,
     security: doc.security,
-    // device: doc.device
+    // Include oauthScopes if available
+    oauthScopes: doc.oauthScopes
   };
 
   return account;

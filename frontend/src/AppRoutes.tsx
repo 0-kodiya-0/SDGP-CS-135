@@ -13,6 +13,7 @@ import TokenRevocationWarningPage from './features/default/user_account/pages/To
 import PermissionCallback from './pages/PermissionCallback';
 import EnvironmentSelectionPage from './features/default/environment/pages/EnvironmentSelectionPage';
 import CreateEnvironmentPage from './features/default/environment/pages/CreateEnvironmentPage';
+import PermissionConfirmationPage from './pages/PermissionConfirmationPage';
 
 export const AppRoutes: React.FC = () => {
     return (
@@ -23,6 +24,7 @@ export const AppRoutes: React.FC = () => {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/signup" element={<SignupPage />} />
                     <Route path="/auth/callback" element={<AuthCallback />} />
+                    <Route path="/auth/permission-confirmation" element={<PermissionConfirmationPage />} />
                     <Route path="/permission/callback" element={<PermissionCallback />} />
 
                     {/* Root redirects to preferred account or account selection */}

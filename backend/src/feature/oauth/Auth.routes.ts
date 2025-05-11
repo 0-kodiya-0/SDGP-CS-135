@@ -13,8 +13,9 @@ import { getGoogleScope, GoogleServiceName } from '../google/config';
 import { AuthenticateOptionsGoogle } from 'passport-google-oauth20';
 // import { getRedirectUrl } from '../../utils/redirect';
 import { asyncHandler } from '../../utils/response';
-import { getTokenInfo } from '../google/services/token';
+import { checkForAdditionalScopes, getAccountScopes, getTokenInfo, updateAccountScopes } from '../google/services/token';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
+import { createRedirectUrl, RedirectType } from '../../utils/redirect';
 
 export const router = express.Router();
 
@@ -132,6 +133,9 @@ router.get('/signup/:provider?', asyncHandler(async (req: SignUpRequest, res: Re
     next(new RedirectSuccess({ state: generatedState }, authUrls[provider as OAuthProviders], 302, undefined, frontendRedirectUrl));
 }));
 
+/**
+ * Update sign-in route to check for additional scopes after initial authentication
+ */
 router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Response, next: NextFunction) => {
     const frontendRedirectUrl = req.query.redirectUrl as string;
 
@@ -167,6 +171,7 @@ router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Re
                 return next(new RedirectError(ApiErrorCode.SERVER_ERROR, frontendRedirectUrl, 'Failed to fetch token information'));
             }
 
+            // Set the tokens in cookies
             setAccessTokenCookie(
                 res,
                 user.id,
@@ -178,13 +183,46 @@ router.get('/signin/:provider?', asyncHandler(async (req: SignInRequest, res: Re
                 setRefreshTokenCookie(res, user.id, stateDetails.oAuthResponse.tokenDetails.refreshToken);
             }
 
-            // Use the stored redirect URL if available, otherwise use the default
-            const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
+            // Here's the key change: Check if user has additional scopes we should request
+            // This runs AFTER we've set cookies, so the user is already authenticated
+            const shouldRequestAdditionalScopes = await checkForAdditionalScopes(
+                user.id,
+                stateDetails.oAuthResponse.tokenDetails.accessToken
+            );
 
-            next(new RedirectSuccess({
-                accountId: user.id,
-                name: user.userDetails.name
-            }, redirectTo));
+            if (shouldRequestAdditionalScopes.needsAdditionalScopes) {
+                // User has additional scopes in their account that aren't in the current token
+                // Redirect to get those permissions
+                console.log("User has additional scopes that need to be requested:", shouldRequestAdditionalScopes.missingScopes);
+
+                // No additional scopes needed, continue with normal flow
+                // Use the stored redirect URL if available, otherwise use the default
+                const redirectTo = createRedirectUrl(stateDetails.redirectUrl || frontendRedirectUrl, {
+                    type: RedirectType.SUCCESS, 
+                    data: {
+                        accountId: user.id,
+                        name: user.userDetails.name
+                    }
+                });
+
+                next(new RedirectSuccess({
+                    accountId: user.id,
+                    name: user.userDetails.name,
+                    skipRedirectUrl: redirectTo
+                }, '/auth/permission-confirmation', undefined, undefined, `/api/v1/oauth/permission/reauthorize?redirectUrl=${redirectTo}`));
+            } else {
+                await updateAccountScopes(user.id, stateDetails.oAuthResponse.tokenDetails.accessToken);
+
+                // No additional scopes needed, continue with normal flow
+                // Use the stored redirect URL if available, otherwise use the default
+                const redirectTo = stateDetails.redirectUrl || frontendRedirectUrl;
+
+                next(new RedirectSuccess({
+                    accountId: user.id,
+                    name: user.userDetails.name
+                }, redirectTo));
+            }
+
             return;
         } catch (error) {
             console.log(error);
@@ -319,6 +357,9 @@ router.get('/callback/permission/:provider', asyncHandler(async (req: Request, r
                 return next(new RedirectError(ApiErrorCode.SERVER_ERROR, redirectUrl, 'Failed to fetch token information'));
             }
 
+            // Update the account's scopes in the database
+            await updateAccountScopes(accountId, result.tokenDetails.accessToken);
+
             setAccessTokenCookie(
                 res,
                 accountId,
@@ -333,9 +374,9 @@ router.get('/callback/permission/:provider', asyncHandler(async (req: Request, r
             console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirectUrl}`);
 
             next(new RedirectSuccess({
+                accountId,
                 service,
                 scopeLevel,
-                success: true
             }, redirectUrl));
         } catch (error) {
             console.error('Error updating token:', error);
@@ -393,6 +434,56 @@ router.get('/permission/:service/:scopeLevel', asyncHandler(async (req: Request,
     };
 
     console.log(`Initiating permission request for service: ${service}, scope: ${scopeLevel}, account: ${userEmail}`);
+
+    // Redirect to Google authorization page
+    passport.authenticate('google-permission', authOptions)(req, res, next);
+}));
+
+/**
+ * New route specifically for re-requesting all previously granted scopes during sign-in flow
+ */
+router.get('/permission/reauthorize', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { accountId, redirectUrl } = req.query;
+
+    if (!accountId || !redirectUrl) {
+        throw new BadRequestError("Missing required parameters");
+    }
+
+    // Get the user's account details
+    const account = await findUserById(accountId as string);
+
+    if (!account || !account.userDetails.email) {
+        throw new NotFoundError('Account not found or missing email', 404, ApiErrorCode.USER_NOT_FOUND);
+    }
+
+    // Get previously granted scopes from the database
+    const storedScopes = await getAccountScopes(accountId as string);
+
+    if (!storedScopes || storedScopes.length === 0) {
+        // No additional scopes to request, just redirect to final destination
+        return next(new RedirectSuccess({ message: "No additional scopes needed" }, redirectUrl as string));
+    }
+
+    // Generate a unique state for this re-authorization
+    const state = await generatePermissionState(
+        OAuthProviders.Google,
+        redirectUrl as string,
+        accountId as string,
+        "reauthorize",
+        "all"
+    );
+
+    // Build the authentication options
+    const authOptions: AuthenticateOptionsGoogle = {
+        scope: storedScopes,
+        accessType: 'offline',
+        prompt: 'consent',
+        loginHint: account.userDetails.email,
+        state,
+        includeGrantedScopes: true
+    };
+
+    console.log(`Re-requesting scopes for account ${accountId}:`, storedScopes);
 
     // Redirect to Google authorization page
     passport.authenticate('google-permission', authOptions)(req, res, next);

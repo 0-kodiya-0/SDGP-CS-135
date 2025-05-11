@@ -3,6 +3,7 @@ import { ScopeToServiceMap } from '../../config/config';
 import { TokenScopeInfo } from './token.types';
 import { ProviderValidationError } from '../../../../types/response.types';
 import { OAuthProviders } from '../../../account/Account.types';
+import db from '../../../../config/db';
 
 /**
      * Get detailed token information from Google
@@ -69,6 +70,73 @@ export async function getTokenScopes(accessToken: string): Promise<TokenScopeInf
     } catch (error) {
         console.error('Error getting token scopes:', error);
         throw new ProviderValidationError(OAuthProviders.Google, 'Failed to get token scope information', undefined);
+    }
+}
+
+/**
+ * Update account with granted scopes from token
+ * @param accountId The account ID to update
+ * @param accessToken The access token containing scopes
+ */
+export async function updateAccountScopes(accountId: string, accessToken: string): Promise<string[]> {
+    try {
+        // Get token info for scopes
+        const tokenInfoResult = await google.oauth2('v2').tokeninfo({
+            access_token: accessToken
+        });
+
+        // Parse granted scopes
+        const grantedScopes = tokenInfoResult.data.scope ? tokenInfoResult.data.scope.split(' ') : [];
+        
+        if (grantedScopes.length === 0) {
+            return [];
+        }
+
+        // Get database models
+        const models = await db.getModels();
+        
+        // Update the account with the new scopes
+        await models.accounts.OAuthAccount.updateOne(
+            { _id: accountId },
+            { 
+                oauthScopes: {
+                    scopes: grantedScopes,
+                    lastUpdated: new Date().toISOString()
+                },
+                updated: new Date().toISOString()
+            }
+        );
+
+        return grantedScopes;
+    } catch (error) {
+        console.error('Error updating account scopes:', error);
+        throw new ProviderValidationError(OAuthProviders.Google, 'Failed to update account scopes');
+    }
+}
+
+/**
+ * Get all previously granted scopes for an account
+ * @param accountId The account ID to check
+ */
+export async function getAccountScopes(accountId: string): Promise<string[]> {
+    try {
+        // Get database models
+        const models = await db.getModels();
+        
+        // Retrieve the account
+        const account = await models.accounts.OAuthAccount.findOne(
+            { _id: accountId },
+            { oauthScopes: 1 }
+        );
+
+        if (!account || !account.oauthScopes || !account.oauthScopes.scopes) {
+            return [];
+        }
+
+        return account.oauthScopes.scopes;
+    } catch (error) {
+        console.error('Error getting account scopes:', error);
+        return [];
     }
 }
 
@@ -196,4 +264,35 @@ export function isAccessTokenExpired(expiresIn: number, issuedAt: number): boole
     const currentTime = Date.now(); // current time in milliseconds
     const expiryTime = issuedAt + expiresIn * 1000; // convert seconds to ms
     return currentTime >= expiryTime;
+}
+
+
+/**
+ * Helper function to check if a user has additional scopes in their account
+ * that aren't included in their current access token
+ */
+export async function checkForAdditionalScopes(accountId: string, accessToken: string): Promise<{
+    needsAdditionalScopes: boolean,
+    missingScopes: string[]
+}> {
+    // Get scopes from the current token
+    const tokenInfo = await getTokenInfo(accessToken);
+    const currentScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
+    
+    // Get previously granted scopes from the database
+    const storedScopes = await getAccountScopes(accountId);
+    
+    // Only care about missing scopes that aren't the basic profile and email
+    const filteredStoredScopes = storedScopes.filter(scope => 
+        !scope.includes('auth/userinfo.email') && 
+        !scope.includes('auth/userinfo.profile')
+    );
+    
+    // Find scopes that are in the database but not in the current token
+    const missingScopes = filteredStoredScopes.filter(scope => !currentScopes.includes(scope));
+    
+    return {
+        needsAdditionalScopes: missingScopes.length > 0,
+        missingScopes
+    };
 }

@@ -2,24 +2,6 @@ import mongoose, { Document, Schema } from 'mongoose';
 import dbConfig from '../../config/db.config';
 import { AccountStatus, AccountType, OAuthAccount, OAuthProviders } from '../../feature/account/Account.types';
 
-// Device preferences schema
-// const DevicePreferencesSchema = new Schema({
-//     theme: { type: String, required: true },
-//     language: { type: String, required: true },
-//     notifications: { type: Boolean, required: true }
-// }, { _id: false });
-
-// // Device schema
-// const DeviceSchema = new Schema({
-//     id: { type: String, required: true },
-//     installationDate: { type: String, required: true },
-//     name: { type: String, required: true },
-//     os: { type: String, required: true },
-//     version: { type: String, required: true },
-//     uniqueIdentifier: { type: String, required: true },
-//     preferences: { type: DevicePreferencesSchema, required: true }
-// }, { _id: false });
-
 // User details schema
 const UserDetailsSchema = new Schema({
     name: { type: String, required: true },
@@ -27,19 +9,17 @@ const UserDetailsSchema = new Schema({
     imageUrl: { type: String }
 }, { _id: false });
 
-// Token details schema
-// const TokenDetailsSchema = new Schema({
-//     accessToken: { type: String, required: true },
-//     refreshToken: { type: String, required: true },
-//     expireAt: { type: Number, required: true },
-//     tokenCreatedAt: { type: Number, required: true }
-// }, { _id: false });
-
 // Security settings schema
 const SecuritySettingsSchema = new Schema({
     twoFactorEnabled: { type: Boolean, default: false },
     sessionTimeout: { type: Number, default: 3600 },
     autoLock: { type: Boolean, default: false }
+}, { _id: false });
+
+// New schema for OAuth scopes
+const OAuthScopeInfoSchema = new Schema({
+    scopes: { type: [String], default: [] },
+    lastUpdated: { type: String, required: true }
 }, { _id: false });
 
 // OAuth Account Schema
@@ -64,7 +44,10 @@ const OAuthAccountSchema = new Schema({
     },
     userDetails: { type: UserDetailsSchema, required: true },
     // tokenDetails: { type: TokenDetailsSchema, required: true },
-    security: { type: SecuritySettingsSchema, required: true }
+    security: { type: SecuritySettingsSchema, required: true },
+    
+    // New field to track OAuth scopes
+    oauthScopes: { type: OAuthScopeInfoSchema }
 }, {
     timestamps: true,
     versionKey: false

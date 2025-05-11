@@ -57,6 +57,12 @@ export interface TokenDetails {
     tokenCreatedAt: number
 }
 
+// New interface to track OAuth granted scopes
+export interface OAuthScopeInfo {
+    scopes: string[];           // List of all granted scopes
+    lastUpdated: string;        // When the scopes were last updated
+}
+
 export interface BaseAccount {
     id: string;
     created: string;
@@ -76,6 +82,9 @@ export interface OAuthAccount extends BaseAccount {
     provider: OAuthProviders;
     security: OAuthSecuritySettings;
     // tokenDetails: TokenDetails;
+    
+    // New field to track OAuth scopes
+    oauthScopes?: OAuthScopeInfo;
 }
 
 export type OAuthAccountDTO = OAuthAccount

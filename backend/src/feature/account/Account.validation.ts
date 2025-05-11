@@ -1,5 +1,5 @@
 import { AccountValidationError } from "../../types/response.types";
-import { UserDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders } from "./Account.types";
+import { UserDetails, BaseAccount, AccountType, AccountStatus, OAuthAccount, OAuthProviders, OAuthScopeInfo } from "./Account.types";
 
 export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDetails {
     return (
@@ -11,43 +11,21 @@ export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDeta
     );
 }
 
-// export function validateTokenDetails(obj?: Partial<TokenDetails>): obj is TokenDetails {
-//     return (
-//         obj !== null &&
-//         typeof obj === "object" &&
-//         typeof obj.accessToken === "string" &&
-//         typeof obj.refreshToken === "string" && 
-//         typeof obj.expireAt === "number" &&
-//         typeof obj.tokenCreatedAt === "number"
-//     );
-// }
-
-// export function validateDevicePreferences(obj?: Partial<DevicePreferences>): obj is DevicePreferences {
-//     return (
-//         obj !== null &&
-//         typeof obj === "object" &&
-//         typeof obj.theme === "string" &&
-//         typeof obj.language === "string" &&
-//         typeof obj.notifications === "boolean"
-//     );
-// }
-
-// export function validateDevice(obj?: Partial<Device>): obj is Device {
-//     if (
-//         obj !== null &&
-//         typeof obj === "object" &&
-//         typeof obj.id === "string" &&
-//         typeof obj.installationDate === "string" &&
-//         typeof obj.name === "string" &&
-//         typeof obj.os === "string" &&
-//         typeof obj.version === "string" &&
-//         typeof obj.uniqueIdentifier === "string" &&
-//         validateDevicePreferences(obj.preferences)
-//     ) {
-//         return true;
-//     }
-//     throw new AccountValidationError("Invalid Device object");
-// }
+// New validation function for OAuth scope info
+export function validateOAuthScopeInfo(obj?: Partial<OAuthScopeInfo>): obj is OAuthScopeInfo {
+    if (
+        obj !== null &&
+        typeof obj === "object" &&
+        Array.isArray(obj.scopes) &&
+        obj.scopes.every(scope => typeof scope === "string") &&
+        typeof obj.lastUpdated === "string" &&
+        !isNaN(Date.parse(obj.lastUpdated))
+    ) {
+        return true;
+    }
+    
+    return false;
+}
 
 export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj is Omit<BaseAccount, "id"> {
     if (
@@ -55,7 +33,6 @@ export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj
         typeof obj === "object" &&
         typeof obj.created === "string" &&
         typeof obj.updated === "string" &&
-        // validateDevice(obj.device) &&
         obj.accountType &&
         Object.values(AccountType).includes(obj.accountType) &&
         obj.status &&
@@ -75,7 +52,9 @@ export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): o
         obj?.accountType === AccountType.OAuth &&
         obj.provider &&
         Object.values(OAuthProviders).includes(obj.provider) &&
-        typeof obj.security === "object"
+        typeof obj.security === "object" &&
+        // Optional validation for oauthScopes if present
+        (obj.oauthScopes === undefined || validateOAuthScopeInfo(obj.oauthScopes))
     ) {
         return true;
     }
