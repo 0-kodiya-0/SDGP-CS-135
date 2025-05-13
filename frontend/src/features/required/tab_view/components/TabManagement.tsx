@@ -1,7 +1,10 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { X } from 'lucide-react';
 import { ScrollingText } from '../../../shared/scrolling_text';
 import { useTabStore } from '../store/useTabStore';
+import { ItemTypes, DraggedTabItem, DropResult } from '../types/dnd.types';
+import { useDrag } from "react-dnd";
+import { SerializedTab } from '../types/types.data';
 
 interface TabManagementProps {
   className?: string;
@@ -9,6 +12,74 @@ interface TabManagementProps {
   tabViewId: string;
   removeGroup: () => void;
 }
+
+interface DraggableTabProps {
+  tab: SerializedTab;
+  isActive: boolean;
+  accountId: string;
+  tabViewId: string;
+  onSelect: () => void;
+  onClose: (e: React.MouseEvent) => void;
+}
+
+const DraggableTab: React.FC<DraggableTabProps> = ({
+  tab,
+  isActive,
+  accountId,
+  tabViewId,
+  onSelect,
+  onClose
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: ItemTypes.TAB,
+    item: (): DraggedTabItem => ({
+      type: ItemTypes.TAB,
+      id: tab.id,
+      title: tab.title,
+      componentType: tab.componentType,
+      props: tab.props,
+      sourceTabViewId: tabViewId,
+      accountId
+    }),
+    end: (item, monitor) => {
+      const dropResult = monitor.getDropResult<DropResult>();
+      if (!dropResult) return;
+      console.log('Tab dropped:', { item, dropResult });
+    },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging()
+    }),
+  }));
+
+  // Connect the drag ref to our element ref
+  drag(ref);
+
+  return (
+    <div
+      ref={ref}  // Use the regular ref
+      className={`
+        group relative flex items-center min-w-[100px] max-w-[200px] px-3 py-2 
+        border-r border-gray-200 cursor-pointer transition-opacity
+        ${isActive ? 'bg-white border-b-2 border-b-blue-500' : 'bg-gray-50'}
+        ${isDragging ? 'opacity-50' : 'opacity-100'}
+      `}
+      onClick={onSelect}
+    >
+      <ScrollingText
+        text={tab.title}
+        className="text-sm py-2"
+      />
+      <button
+        className="opacity-0 group-hover:opacity-100 ml-2"
+        onClick={onClose}
+      >
+        <X className="w-3 h-3 text-gray-600" />
+      </button>
+    </div>
+  );
+};
 
 export const TabManagement: React.FC<TabManagementProps> = ({
   className = '',
@@ -69,31 +140,17 @@ export const TabManagement: React.FC<TabManagementProps> = ({
           No tabs open
         </div>
       ) : (
-        tabs.map((tab) => {
-          const isActive = activeTabId === tab.id;
-          return (
-            <div
-              key={tab.id}
-              className={`
-                group relative flex items-center min-w-[100px] max-w-[200px] px-3 py-2 
-                border-r border-gray-200 cursor-pointer
-                ${isActive ? 'bg-white border-b-2 border-b-blue-500' : 'bg-gray-50'}
-              `}
-              onClick={() => handleTabClick(tab.id)}
-            >
-              <ScrollingText
-                text={tab.title}
-                className="text-sm py-2"
-              />
-              <button
-                className="opacity-0 group-hover:opacity-100 ml-2"
-                onClick={() => handleCloseTab(tab.id)}
-              >
-                <X className="w-3 h-3 text-gray-600" />
-              </button>
-            </div>
-          );
-        })
+        tabs.map((tab) => (
+          <DraggableTab
+            key={tab.id}
+            tab={tab}
+            isActive={activeTabId === tab.id}
+            accountId={accountId}
+            tabViewId={tabViewId}
+            onSelect={() => handleTabClick(tab.id)}
+            onClose={() => handleCloseTab(tab.id)}
+          />
+        ))
       )}
     </div>
   );

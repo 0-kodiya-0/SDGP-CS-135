@@ -7,6 +7,8 @@ import { TreeView } from "../../features/required/tree_view";
 import { useTreeStore } from "../../features/required/tree_view";
 import { useAccount } from "../../features/default/user_account";
 import { TreeNode } from "../../features/required/tree_view/types/types.data";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 
 interface HeaderProps {
     environment: Environment | null;
@@ -74,13 +76,16 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
 
                 {/* TreeView Panel - Replace TabView with TreeView */}
                 <Panel defaultSize={80} minSize={10} className="h-full">
-                    <TreeView
-                        tree={tree}
-                        selectedGroupId={selectedGroupId}
-                        onSelectGroup={handleSelectGroup}
-                        onRemoveItem={handleRemoveItem}
-                        accountId={currentAccount?.id || 'default'}
-                    />
+                    <DndProvider backend={HTML5Backend}>
+                        <TreeView
+                            tree={tree}
+                            selectedGroupId={selectedGroupId}
+                            onSelectGroup={handleSelectGroup}
+                            onRemoveItem={handleRemoveItem}
+                            accountId={currentAccount?.id || 'default'}
+                        />
+                    </DndProvider>
+
                 </Panel>
             </PanelGroup>
         </div>
