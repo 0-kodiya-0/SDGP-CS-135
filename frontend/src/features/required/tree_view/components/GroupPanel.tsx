@@ -24,8 +24,32 @@ const GroupPanel = ({
     const [dropZone, setDropZone] = useState<'center' | 'left' | 'right' | 'top' | 'bottom' | null>(null);
     const groupRef = useRef<HTMLDivElement>(null);
 
-    const { moveTab } = useTabStore();
+    const { moveTab, createTabView, removeTabView } = useTabStore();
     const { addItem } = useTreeStore();
+
+    useEffect(() => {
+        const handleTabViewEmpty = (event: CustomEvent) => {
+            const { accountId: eventAccountId, tabViewId } = event.detail;
+            
+            // Check if this event is for our TabView
+            if (eventAccountId === accountId && node.tabItem?.tabViewId === tabViewId) {
+                // Remove the TabView from the store
+                removeTabView(accountId, tabViewId);
+                
+                // Remove this GroupPanel (trigger the tree update)
+                if (node.tabItem) {
+                    onRemove(node.tabItem.id);
+                }
+            }
+        };
+
+        // Add event listener for TabView empty events
+        window.addEventListener('tabview-empty', handleTabViewEmpty as EventListener);
+        
+        return () => {
+            window.removeEventListener('tabview-empty', handleTabViewEmpty as EventListener);
+        };
+    }, [accountId, node.tabItem]);
 
     // Calculate drop zone based on mouse position
     const calculateDropZone = (x: number, y: number, width: number, height: number): 'center' | 'left' | 'right' | 'top' | 'bottom' => {
@@ -84,11 +108,16 @@ const GroupPanel = ({
                 // Create new split
                 const splitDirection = currentDropZone === 'left' || currentDropZone === 'right' ? SplitDirection.HORIZONTAL : SplitDirection.VERTICAL;
 
-                // Add the tab with the proper split direction
+                // Generate new TabView ID
                 const newTabViewId = crypto.randomUUID();
+                
+                // First create the TabView in the store
+                createTabView(accountId, newTabViewId);
+                
+                // Then add the tree item with the proper split direction
                 addItem(item.title, node.id, splitDirection, newTabViewId);
 
-                // Move the tab to the new TabView
+                // Finally move the tab to the new TabView
                 moveTab(item.accountId, item.id, newTabViewId);
             }
 

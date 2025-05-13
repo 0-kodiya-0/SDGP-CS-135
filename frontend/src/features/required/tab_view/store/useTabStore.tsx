@@ -317,9 +317,23 @@ export const useTabStore = create<TabState>()(
 
         // Get tab details before removing
         const tabToMove = { ...tabInfo.tab };
+        const sourceTabViewId = tabInfo.tabViewId;
 
         // Remove from source
-        get().closeTabInTabView(accountId, tabInfo.tabViewId, tabId);
+        get().closeTabInTabView(accountId, sourceTabViewId, tabId);
+
+        // Check if source TabView is now empty and should be removed
+        const sourceTabsAfterMove = get().getTabsForTabView(accountId, sourceTabViewId);
+        if (sourceTabsAfterMove.length === 0) {
+          // Signal that this TabView should be removed
+          // We'll use the event system to notify any GroupPanel that might need to remove itself
+          // For now, we'll set a flag in the window object that GroupPanel can check
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('tabview-empty', {
+              detail: { accountId, tabViewId: sourceTabViewId }
+            }));
+          }
+        }
 
         // Add to target with new tabViewId
         const updatedTab = { ...tabToMove, tabViewId: targetTabViewId };

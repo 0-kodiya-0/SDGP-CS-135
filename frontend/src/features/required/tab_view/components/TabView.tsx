@@ -20,15 +20,25 @@ export const TabView: React.FC<TabViewProps> = ({
   const tabViewIdRef = useRef<string | null>(propTabViewId || null);
 
   const {
-    createTabView
+    createTabView,
+    getTabsForTabView,
+    getActiveTabIdForTabView
   } = useTabStore();
 
   // Create tab view on mount if not provided
   useEffect(() => {
     if (tabViewIdRef.current) {
-      // Create a new TabView and get its ID
-      const newTabViewId = createTabView(accountId, tabViewIdRef.current);
-      tabViewIdRef.current = newTabViewId;
+      const tabViewId = tabViewIdRef.current;
+
+      // Check if TabView already exists
+      const existingTabs = getTabsForTabView(accountId, tabViewId);
+      const hasActiveTab = getActiveTabIdForTabView(accountId, tabViewId);
+
+      // Only create if both tabs array is empty and there's no active tab
+      // This indicates the TabView doesn't exist in the store yet
+      if (existingTabs.length === 0 && !hasActiveTab) {
+        createTabView(accountId, tabViewId);
+      }
     }
   }, [accountId]);
 
