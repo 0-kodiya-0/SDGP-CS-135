@@ -47,7 +47,7 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   } = useChat(accountId);
 
   // Get the tab store functions
-  const { addTab, tabs } = useTabStore();
+  const { addTab } = useTabStore();
 
   // Load initial data when component mounts
   useEffect(() => {
@@ -115,8 +115,8 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
 
     // Add a new tab with ChatConversation component
     addTab(
+      accountId,
       tabTitle,
-      null,
       ComponentTypes.CHAT_CONVERSATION,
       {
         accountId,
@@ -213,12 +213,12 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
   };
 
   // Check if a conversation is already open in a tab
-  const isConversationOpen = (conversationId: string) => {
-    return tabs.some(tab =>
-      tab.componentType === ComponentTypes.CHAT_CONVERSATION &&
-      tab.props?.conversationId === conversationId
-    );
-  };
+  // const isConversationOpen = (conversationId: string) => {
+  //   return tabs.some(tab =>
+  //     tab.componentType === ComponentTypes.CHAT_CONVERSATION &&
+  //     tab.props?.conversationId === conversationId
+  //   );
+  // };
 
   // Handle manual refresh
   const handleRefresh = () => {
@@ -322,7 +322,7 @@ export const ChatSummaryView: React.FC<ChatSummaryViewProps> = ({
         ) : (
           <ul>
             {filteredConversations.map((conversation) => {
-              const isOpen = isConversationOpen(conversation._id);
+              const isOpen = false;
               const conversationName = conversationNames[conversation._id] || 'Loading...';
               const unreadMessagesCount = conversationsWithUnread[conversation._id] || 0;
 

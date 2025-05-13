@@ -1,2 +1,2 @@
 export { TreeView } from "./components/TreeView.tsx";
-export { useStore } from "./store";
+export { useTreeStore } from "./store/useTreeStore.ts";

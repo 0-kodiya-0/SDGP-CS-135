@@ -11,6 +11,8 @@ import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
 interface CalendarViewProps {
     accountId: string;
+    tabViewId: string;
+    tabId: string;
 }
 
 export default function CalendarView({ accountId }: CalendarViewProps) {
@@ -62,7 +64,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
         let timeMin: Date, timeMax: Date;
         const year = date.getFullYear();
         const month = date.getMonth();
-    
+
         if (view === 'month') {
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
@@ -79,7 +81,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
             timeMin = new Date(year, month, date.getDate());
             timeMax = new Date(year, month, date.getDate(), 23, 59, 59);
         }
-    
+
         // Use the enhanced hook to fetch events for all selected calendars
         fetchEventsFromCalendars(
             selectedCalendarIds,
@@ -87,7 +89,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
             timeMax.toISOString()
         );
     };
-    
+
 
     // Navigate to previous period
     const handlePrev = () => {
@@ -126,9 +128,9 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
     // Handle event creation
     const handleAddEvent = () => {
         addTab(
-            "New Event", 
-            null, 
-            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW, 
+            accountId,
+            "New Event",
+            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW,
             { accountId }
         );
     };
@@ -137,12 +139,12 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
     const handleEventClick = (event: any) => {
         const eventDetails = event.event;
         addTab(
-            `Event: ${event.title || 'Untitled'}`, 
-            null,
-            ComponentTypes.CALENDAR_EVENT_VIEW, 
-            { 
-                accountId, 
-                eventId: eventDetails.id, 
+            accountId,
+            `Event: ${event.title || 'Untitled'}`,
+            ComponentTypes.CALENDAR_EVENT_VIEW,
+            {
+                accountId,
+                eventId: eventDetails.id,
                 calendarId: eventDetails.calendarId
             }
         );
@@ -268,8 +270,8 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                         <button
                             onClick={() => setShowCalendarSelector(!showCalendarSelector)}
                             className={`flex items-center px-3 py-1 text-sm font-medium rounded border ${showCalendarSelector
-                                    ? 'bg-gray-100 border-gray-400 text-gray-800'
-                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                ? 'bg-gray-100 border-gray-400 text-gray-800'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                                 }`}
                             aria-expanded={showCalendarSelector}
                         >
@@ -364,9 +366,9 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
 
                     <button
                         onClick={() => addTab(
-                            "Create Calendar", 
-                            null,
-                            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW ,
+                            accountId,
+                            "Create Calendar",
+                            ComponentTypes.CALENDAR_CREATE_EVENT_VIEW,
                             { accountId }
                         )}
                         className="flex items-center px-3 py-1 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded"
@@ -431,7 +433,7 @@ export default function CalendarView({ accountId }: CalendarViewProps) {
                                 taskView: false
                             }}
                             template={{
-                                milestone(event : any) {
+                                milestone(event: any) {
                                     return `<span style="color: ${event.color}">${event.title}</span>`;
                                 },
                                 allday(event: any) {

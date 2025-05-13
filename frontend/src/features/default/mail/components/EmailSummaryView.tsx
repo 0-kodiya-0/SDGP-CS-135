@@ -219,8 +219,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         }
 
         addTab(
+            accountId,
             "Compose Email",
-            null,
             ComponentTypes.EMAIL_CREATE_EMAIL_VIEW,
             {
                 accountId,
@@ -241,8 +241,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         if (fullMessage) {
             const parsedEmail = parseGmailMessage(fullMessage);
             addTab(
+                accountId,
                 parsedEmail.subject || 'No Subject',
-                null,
                 ComponentTypes.EMAIL_DETAILS_VIEW,
                 {
                     email: parsedEmail,
@@ -269,8 +269,8 @@ const GmailSummaryView: React.FC<GmailSummaryViewProps> = ({ accountId }) => {
         }
 
         addTab(
+            accountId,
             "Manage Labels",
-            null,
             ComponentTypes.EMAIL_LABEL_MANAGER,
             {
                 labels,

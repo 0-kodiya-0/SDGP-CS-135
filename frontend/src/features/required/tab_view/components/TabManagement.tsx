@@ -1,26 +1,66 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { X } from 'lucide-react';
 import { ScrollingText } from '../../../shared/scrolling_text';
 import { useTabStore } from '../store/useTabStore';
 
 interface TabManagementProps {
   className?: string;
+  accountId: string;
+  tabViewId: string;
+  removeGroup: () => void;
 }
 
-export const TabManagement: React.FC<TabManagementProps> = ({ className = '' }) => {
-  // The useTabStore hook now automatically uses the current account
-  const { tabs, activeTabId, closeTab, setActiveTab } = useTabStore();
+export const TabManagement: React.FC<TabManagementProps> = ({
+  className = '',
+  accountId,
+  tabViewId,
+  removeGroup
+}) => {
+  const {
+    removeTabView,
+    getTabsForTabView,
+    closeTab,
+    setActiveTab,
+    getActiveTabIdForTabView,
+    getAllTabViewsForAccount
+  } = useTabStore();
 
-  // Handle tab close
-  const handleCloseTab = (tabId: string, e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    closeTab(tabId);
-  };
+  // Check if this tab view should be removed
+  const handleCloseTab = useCallback((tabId: string) => {
+    if (!tabViewId) return;
+
+    const tabs = getTabsForTabView(accountId, tabViewId);
+    const allTabViews = getAllTabViewsForAccount(accountId);
+
+    // Close the tab first
+    closeTab(accountId, tabId);
+
+    // Check conditions for removing the GroupPanel
+    const remainingTabs = tabs.filter(tab => tab.id !== tabId);
+
+    // Remove GroupPanel if:
+    // 1. This was the last tab in this TabView
+    // 2. There are other TabViews remaining (this is not the last TabView)
+    if (remainingTabs.length === 0 && allTabViews.length > 1 && removeGroup) {
+      // Remove this TabView from the store
+      removeTabView(accountId, tabViewId);
+      // Trigger GroupPanel removal
+      removeGroup();
+    }
+  }, [accountId, closeTab, getAllTabViewsForAccount, getTabsForTabView, removeGroup, removeTabView, tabViewId]);
 
   // Handle tab selection
-  const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
-  };
+  const handleTabClick = useCallback((tabId: string) => {
+    setActiveTab(accountId, tabViewId, tabId);
+  }, [accountId, setActiveTab, tabViewId]);
+
+  // Ensure tabViewId is valid before making calls
+  if (!tabViewId) {
+    return <div className={`${className} p-2 text-sm text-gray-500`}>Loading tabs...</div>;
+  }
+
+  const tabs = getTabsForTabView(accountId, tabViewId);
+  const activeTabId = getActiveTabIdForTabView(accountId, tabViewId);
 
   return (
     <div className={`flex border-b border-gray-200 ${className}`}>
@@ -47,7 +87,7 @@ export const TabManagement: React.FC<TabManagementProps> = ({ className = '' }) 
               />
               <button
                 className="opacity-0 group-hover:opacity-100 ml-2"
-                onClick={(e) => handleCloseTab(tab.id, e)}
+                onClick={() => handleCloseTab(tab.id)}
               >
                 <X className="w-3 h-3 text-gray-600" />
               </button>

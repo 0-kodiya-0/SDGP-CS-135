@@ -15,7 +15,7 @@ export enum DropZone {
 
 export interface TabItemInfo {
     title: string
-    content: React.ReactNode
+    // Removed content property
 }
 
 export interface DropInfo {
@@ -24,11 +24,12 @@ export interface DropInfo {
     newTabInfo?: TabItemInfo
 }
 
+// Updated TabItem without content
 export interface TabItem {
     id: ID
     tabGroupId: string
     title: string
-    content: React.ReactNode
+    tabViewId: string  // Add tabViewId to associate with TabView
 }
 
 export interface TabGroup {
@@ -36,9 +37,10 @@ export interface TabGroup {
     splitDirection: SplitDirection | null;
     tabItem: ID | null;
     parentId?: ID;
-    order: number;  // Added order property
+    order: number;
 }
 
+// Updated TreeNode without content
 export interface TreeNode {
     id: ID
     type: 'group'

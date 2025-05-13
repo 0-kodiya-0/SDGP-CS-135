@@ -27,7 +27,7 @@ interface FileSummaryViewProps {
   featureName?: string;
   icon?: LucideIcon;
   environment?: Environment;
-  accountId?: string;
+  accountId: string;
 }
 
 export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
@@ -39,7 +39,7 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { addTab, closeTab, activeTabId, setActiveTab, tabs } = useTabStore();
+  const { addTab, closeTab } = useTabStore();
   const [showGoogleDrive, setShowGoogleDrive] = useState(false);
 
   // Using a Record<string, string> is more efficient for simple key-value storage than Map
@@ -54,7 +54,7 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
 
   useEffect(() => {
     refreshFiles();
-  }, [refreshTrigger, refreshFiles]);
+  }, [refreshTrigger]);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -67,11 +67,11 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
     }
   }, [searchQuery, files]);
 
-  useEffect(() => {
-    if (activeTabId && tabIdFileNameAssociations[activeTabId]) {
-      setSelectedFileName(tabIdFileNameAssociations[activeTabId]);
-    }
-  }, [activeTabId, tabIdFileNameAssociations]);
+  // useEffect(() => {
+  //   if (activeTabId && tabIdFileNameAssociations[activeTabId]) {
+  //     setSelectedFileName(tabIdFileNameAssociations[activeTabId]);
+  //   }
+  // }, [activeTabId, tabIdFileNameAssociations]);
 
   const handleDeleteFile = (e: React.MouseEvent, fileName: string) => {
     e.stopPropagation();
@@ -90,13 +90,13 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
 
   const handleFileClick = (fileName: string) => {
     // Check if we already have a tab for this file
-    const existingTabId = findTabIdByFileName(fileName);
+    // const existingTabId = findTabIdByFileName(fileName);
 
-    // If the tab already exists, just activate it
-    if (existingTabId) {
-      setActiveTab(existingTabId);
-      return;
-    }
+    // // If the tab already exists, just activate it
+    // if (existingTabId) {
+    //   setActiveTabById(accountId, existingTabId);
+    //   return;
+    // }
 
     // Check for unsaved changes in any current editor
     if (window.handleFileSelectionChange && typeof window.handleFileSelectionChange === "function") {
@@ -113,24 +113,24 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
   };
 
   // Helper function to find tab ID by filename
-  const findTabIdByFileName = (fileName: string): string | undefined => {
-    for (const [tabId, fname] of Object.entries(tabIdFileNameAssociations)) {
-      if (fname === fileName) {
-        // Check if the tab still exists in the current tabs list
-        if (tabs.some((tab: { id: string }) => tab.id === tabId)) {
-          return tabId;
-        } else {
-          // Remove stale association if the tab is no longer open
-          setTabIdFileNameAssociations(prev => {
-            const updated = { ...prev };
-            delete updated[tabId];
-            return updated;
-          });
-        }
-      }
-    }
-    return undefined;
-  };
+  // const findTabIdByFileName = (fileName: string): string | undefined => {
+  //   for (const [tabId, fname] of Object.entries(tabIdFileNameAssociations)) {
+  //     if (fname === fileName) {
+  //       // Check if the tab still exists in the current tabs list
+  //       if (tabs.some((tab: { id: string }) => tab.id === tabId)) {
+  //         return tabId;
+  //       } else {
+  //         // Remove stale association if the tab is no longer open
+  //         setTabIdFileNameAssociations(prev => {
+  //           const updated = { ...prev };
+  //           delete updated[tabId];
+  //           return updated;
+  //         });
+  //       }
+  //     }
+  //   }
+  //   return undefined;
+  // };
 
   // Helper function to create a new file tab
   const createNewFileTab = (fileName: string) => {
@@ -138,8 +138,8 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
   
     // Add the file to a tab
     const tabId = addTab(
+      accountId,
       fileName,
-      null,
       ComponentTypes.FILES_DETAIL_VIEW,
       {
         selectedFile: fileName,
@@ -304,7 +304,7 @@ export const FileSummaryView : React.FC<FileSummaryViewProps> = ({
           // Iterate through tab associations and close any tab that has the deleted file open
           Object.entries(tabIdFileNameAssociations).forEach(([tabId, fName]) => {
             if (fName === deleteFileName) {
-              closeTab(tabId);
+              closeTab(accountId, tabId);
               // Remove this association from state
               setTabIdFileNameAssociations(prev => {
                 const updated = { ...prev };

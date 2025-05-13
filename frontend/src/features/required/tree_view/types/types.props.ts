@@ -1,10 +1,11 @@
-import { SplitDirection, TreeNode } from "./data.ts";
+import { SplitDirection, TreeNode } from "./types.data";
 
 export interface TreeViewProps {
     tree: TreeNode | null;
     selectedGroupId: string | null;
     onSelectGroup: (id: string) => void;
-    onRemoveItem: (itemId: string, e: React.MouseEvent) => void;
+    onRemoveItem: (itemId: string) => void;
+    accountId: string; // Add accountId to TreeViewProps
 }
 
 export interface ResizeHandleProps {
@@ -15,7 +16,7 @@ export interface ResizeHandleProps {
 export interface GroupPanelProps {
     node: TreeNode;
     isSelected: boolean;
-    content?: React.ReactNode;
     onSelect: (id: string) => void;
-    onRemove: (itemId: string, e: React.MouseEvent) => void;
+    onRemove: (itemId: string) => void;
+    accountId: string; // Add accountId to GroupPanelProps
 }

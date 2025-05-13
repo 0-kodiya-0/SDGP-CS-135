@@ -13,7 +13,7 @@ interface GoogleDriveViewProps {
 export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
   const { files, loading, error, listFiles, getDownloadUrl } = useDriveFiles(accountId);
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
-  const { addTab, setActiveTab } = useTabStore();
+  const { addTab } = useTabStore();
 
   const {
     hasRequiredPermission,
@@ -36,9 +36,9 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
 
   const handleFileClick = (file: DriveFile) => {
     setSelectedFile(file);
-    const tabId = addTab(
+    addTab(
+      accountId,
       file.name,
-      null,
       ComponentTypes.FILES_DETAIL_VIEW,
       {
         selectedFile: file,
@@ -46,7 +46,6 @@ export default function GoogleDriveView({ accountId }: GoogleDriveViewProps) {
         accountId: accountId
       }
     );
-    setActiveTab(tabId);
   };
 
   const handleDownload = (e: React.MouseEvent, file: DriveFile) => {

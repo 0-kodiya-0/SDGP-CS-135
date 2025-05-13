@@ -30,7 +30,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
   } = useGooglePermissions();
 
   // Use the tabs hook
-  const { addTab, updateTab, closeTab, setActiveTab: setActiveTabInContext, tabs } = useTabStore();
+  const { addTab, updateTab, closeTab, setActiveTabById: setActiveTabInContext } = useTabStore();
 
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [activeSummaryTab, setActiveSummaryTab] = useState<'all' | 'groups'>('all');
@@ -102,7 +102,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     // Check if we already have a main tab
     if (mainTabId) {
       // Update the existing tab with new title and props
-      updateTab(mainTabId, {
+      updateTab(accountId, mainTabId, {
         title: contactName,
         componentType: ComponentTypes.CONTACT_EXPAND_VIEW,
         props: {
@@ -112,7 +112,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
             fetchContacts();
             // If the current contact is deleted, close its tab
             if (mainTabId) {
-              closeTab(mainTabId);
+              closeTab(accountId, mainTabId);
               setMainTabId(null);
               setCurrentTabContent(null);
             }
@@ -124,12 +124,12 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
       });
 
       // Activate the tab
-      setActiveTabInContext(mainTabId);
+      setActiveTabInContext(accountId, mainTabId);
     } else {
       // Create a new tab with componentType and props
       const newTabId = addTab(
+        accountId,
         contactName,
-        null,
         ComponentTypes.CONTACT_EXPAND_VIEW,
         {
           selectedContact: contact,
@@ -138,7 +138,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
             fetchContacts();
             // If the current contact is deleted, close its tab
             if (mainTabId) {
-              closeTab(mainTabId);
+              closeTab(accountId, mainTabId);
               setMainTabId(null);
               setCurrentTabContent(null);
             }
@@ -203,7 +203,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
     // Check if we already have a main tab
     if (mainTabId) {
       // Update the existing tab with new title and props
-      updateTab(mainTabId, {
+      updateTab(accountId, mainTabId, {
         title: groupName,
         componentType: ComponentTypes.CONTACT_GROUP_DETAIL_VIEW,
         props: {
@@ -216,12 +216,12 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
       });
 
       // Activate the tab
-      setActiveTabInContext(mainTabId);
+      setActiveTabInContext(accountId, mainTabId);
     } else {
       // Create a new tab with componentType and props
       const newTabId = addTab(
+        accountId,
         groupName,
-        null,
         ComponentTypes.CONTACT_GROUP_DETAIL_VIEW,
         {
           group: group,
@@ -239,16 +239,16 @@ const SummaryView: React.FC<SummaryViewProps> = ({ accountId, compact = false })
   };
 
   // When a tab is closed, check if it's our main tab and update state accordingly
-  useEffect(() => {
-    if (mainTabId && !tabs.some(tab => tab.id === mainTabId)) {
-      setMainTabId(null);
-      setCurrentTabContent(null);
+  // useEffect(() => {
+  //   if (mainTabId && !tabs.some(tab => tab.id === mainTabId)) {
+  //     setMainTabId(null);
+  //     setCurrentTabContent(null);
 
-      if (currentTabContent === 'contact') {
-        setSelectedContactId(null);
-      }
-    }
-  }, [tabs, mainTabId, currentTabContent]);
+  //     if (currentTabContent === 'contact') {
+  //       setSelectedContactId(null);
+  //     }
+  //   }
+  // }, [mainTabId, currentTabContent]);
 
   // Google icon SVG for indicating Google-synced contacts
   const GoogleIcon = () => (

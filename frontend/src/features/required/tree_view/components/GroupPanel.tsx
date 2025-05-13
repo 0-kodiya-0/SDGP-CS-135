@@ -1,13 +1,20 @@
-import { X } from 'lucide-react';
-import { GroupPanelProps } from '../types/props.ts';
+import { TabView } from '../../tab_view';
+import { GroupPanelProps } from '../types/types.props';
 
 const GroupPanel = ({
     node,
     isSelected,
-    content,
     onSelect,
-    onRemove
+    onRemove,
+    accountId
 }: GroupPanelProps) => {
+    // Handle removal callback from TabView
+    const handleRemoval = () => {
+        if (node.tabItem) {
+            onRemove(node.tabItem.id);
+        }
+    };
+
     return (
         <div
             className={`
@@ -19,36 +26,13 @@ const GroupPanel = ({
                 onSelect(node.id);
             }}
         >
-            <div className="flex items-center justify-between p-2 bg-white border-b">
-                <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium text-gray-700 truncate">
-                        Group {node.id.slice(0, 4)}
-                    </span>
-                </div>
-                {node.tabItem && (
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded text-sm">
-                            <span className="font-medium text-blue-700">
-                                {node.tabItem.title}
-                            </span>
-                        </div>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRemove(node.tabItem!.id, e);
-                            }}
-                            className="p-1 rounded-full hover:bg-red-100 group"
-                        >
-                            <X className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
-                        </button>
-                    </div>
-                )}
-            </div>
-            {content && (
-                <div className="flex-1 bg-gray-50">
-                    {content}
-                </div>
-            )}
+            {/* TabView replaces the previous content section */}
+            <TabView
+                accountId={accountId}
+                tabViewId={node.tabItem?.tabViewId || undefined}
+                removeGroup={handleRemoval}
+                className="h-full"
+            />
         </div>
     );
 }

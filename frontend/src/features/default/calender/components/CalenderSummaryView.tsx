@@ -90,8 +90,8 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
   // Open the full calendar view in a tab
   const handleOpenCalendarView = () => {
     addTab(
+      accountId,
       "Calendar",
-      null,
       ComponentTypes.CALENDAR_VIEW,
       { accountId }
     );
@@ -100,8 +100,8 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
   // Open an event detail view in a tab
   const handleViewEvent = (event: CalendarEvent) => {
     addTab(
+      accountId,
       `Event: ${event.summary || 'Untitled'}`,
-      null,
       ComponentTypes.CALENDAR_EVENT_VIEW,
       {
         accountId,
@@ -114,8 +114,8 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
   // Open create event view in a tab
   const handleAddEvent = () => {
     addTab(
+      accountId,
       "New Event",
-      null,
       ComponentTypes.CALENDAR_CREATE_EVENT_VIEW,
       { accountId }
     );
@@ -158,8 +158,8 @@ export const CalendarSummaryView: React.FC<SummaryViewProps> = ({ accountId }) =
   // Handle opening the create calendar view
   const handleOpenCreateCalendarView = () => {
     addTab(
+      accountId,
       "Create Calendar",
-      null,
       ComponentTypes.CALENDAR_CREATE_CALENDAR_VIEW,
       { accountId }
     );

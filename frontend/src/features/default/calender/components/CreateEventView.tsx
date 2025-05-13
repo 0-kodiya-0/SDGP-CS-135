@@ -10,12 +10,14 @@ interface CalendarEventViewProps {
     accountId: string;
     eventId: string;
     calendarId?: string;
+    tabViewId: string;
+    tabId: string;
 }
 
-export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
+export default function CalendarEventView({ accountId, eventId, calendarId, tabViewId }: CalendarEventViewProps) {
     const [event, setEvent] = useState<CalendarEvent | null>(null);
     const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
-    const { addTab, closeTab } = useTabStore();
+    const { addTab, closeActiveTab } = useTabStore();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
 
@@ -37,12 +39,12 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
     const handleEditEvent = () => {
         if (event) {
             addTab(
-                `Edit: ${event.summary || 'Untitled'}`, 
-                null,
-                ComponentTypes.CALENDAR_EDIT_EVENT_VIEW, 
-                { 
-                    accountId, 
-                    event 
+                accountId,
+                `Edit: ${event.summary || 'Untitled'}`,
+                ComponentTypes.CALENDAR_EDIT_EVENT_VIEW,
+                {
+                    accountId,
+                    event
                 }
             );
         }
@@ -56,7 +58,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
                 setDeleteSuccess(true);
                 // Close the tab after a short delay
                 setTimeout(() => {
-                    closeTab("current"); // Assuming closeTab can take "current" to close the active tab
+                    closeActiveTab(accountId, tabViewId); // Assuming closeTab can take "current" to close the active tab
                 }, 2000);
             }
         } else {
@@ -84,7 +86,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
                 <div className="text-red-500 mb-4">Error: {error}</div>
                 <button
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-                    onClick={() => closeTab("current")}
+                    onClick={() => closeActiveTab(accountId, tabViewId)}
                 >
                     Close
                 </button>
@@ -107,7 +109,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
                 <div className="text-gray-500 mb-4">Event not found</div>
                 <button
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-                    onClick={() => closeTab("current")}
+                    onClick={() => closeActiveTab(accountId, tabViewId)}
                 >
                     Close
                 </button>
@@ -121,7 +123,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div className="flex items-center">
                     <button
-                        onClick={() => closeTab("current")}
+                        onClick={() => closeActiveTab(accountId, tabViewId)}
                         className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded mr-2"
                     >
                         <ArrowLeft className="w-5 h-5" />

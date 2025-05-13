@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Edit, Trash2, ArrowLeft, Clock, MapPin, Users, Video, Loader2 } from 'lucide-react';
 import { useTabStore } from '../../../required/tab_view';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.google';
@@ -8,16 +8,45 @@ import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 
 interface CalendarEventViewProps {
     accountId: string;
+    tabViewId: string;
+    tabId: string;
     eventId: string;
     calendarId?: string;
 }
 
-export default function CalendarEventView({ accountId, eventId, calendarId }: CalendarEventViewProps) {
+export default function CalendarEventView({ accountId, eventId, calendarId, tabViewId }: CalendarEventViewProps) {
     const [event, setEvent] = useState<CalendarEvent | null>(null);
     const { getEvent, deleteEvent, loading, error } = useCalendarEvents(accountId);
-    const { addTab, closeTab } = useTabStore();
+    const { addTab, closeActiveTab } = useTabStore();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
+
+    // Handle edit event
+    const handleEditEvent = useCallback(() => {
+        if (event) {
+            addTab(accountId, `Edit: ${event.summary || 'Untitled'}`, ComponentTypes.CALENDAR_EDIT_EVENT_VIEW, { accountId, event });
+        }
+    }, [accountId, addTab, event]);
+
+    // Handle delete event
+    const handleDeleteEvent = useCallback(async () => {
+        if (confirmDelete && event?.id) {
+            const success = await deleteEvent(event.id);
+            if (success) {
+                setDeleteSuccess(true);
+                setTimeout(() => {
+                    closeActiveTab(accountId, tabViewId);
+                }, 2000);
+            }
+        } else {
+            setConfirmDelete(true);
+        }
+    }, [confirmDelete, event, deleteEvent, closeActiveTab, accountId, tabViewId]);
+
+    // Reset delete confirmation if canceled
+    const handleCancelDelete = () => {
+        setConfirmDelete(false);
+    };
 
     // Fetch event data on component mount
     useEffect(() => {
@@ -32,34 +61,6 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
             fetchEvent();
         }
     }, [accountId, eventId, calendarId]);
-
-    // Handle edit event
-    const handleEditEvent = () => {
-        if (event) {
-            addTab(`Edit: ${event.summary || 'Untitled'}`, null, ComponentTypes.CALENDAR_EDIT_EVENT_VIEW, { accountId, event });
-        }
-    };
-
-    // Handle delete event
-    const handleDeleteEvent = async () => {
-        if (confirmDelete && event?.id) {
-            const success = await deleteEvent(event.id);
-            if (success) {
-                setDeleteSuccess(true);
-                // Close the tab after a short delay
-                setTimeout(() => {
-                    closeTab("current"); // Assuming closeTab can take "current" to close the active tab
-                }, 2000);
-            }
-        } else {
-            setConfirmDelete(true);
-        }
-    };
-
-    // Reset delete confirmation if canceled
-    const handleCancelDelete = () => {
-        setConfirmDelete(false);
-    };
 
     if (loading) {
         return (
@@ -76,7 +77,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
                 <div className="text-red-500 mb-4">Error: {error}</div>
                 <button
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-                    onClick={() => closeTab("current")}
+                    onClick={() => closeActiveTab(accountId, tabViewId)}
                 >
                     Close
                 </button>
@@ -99,7 +100,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
                 <div className="text-gray-500 mb-4">Event not found</div>
                 <button
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-                    onClick={() => closeTab("current")}
+                    onClick={() => closeActiveTab(accountId, tabViewId)}
                 >
                     Close
                 </button>
@@ -113,7 +114,7 @@ export default function CalendarEventView({ accountId, eventId, calendarId }: Ca
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div className="flex items-center">
                     <button
-                        onClick={() => closeTab("current")}
+                        onClick={() => closeActiveTab(accountId, tabViewId)}
                         className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded mr-2"
                     >
                         <ArrowLeft className="w-5 h-5" />

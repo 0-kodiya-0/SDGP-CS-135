@@ -1,26 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ID, SplitDirection, TabGroup, TabItem, TreeNode } from '../types/data.ts';
-import { StoreState } from '../types/store.ts';
+import { ID, SplitDirection, TabGroup, TabItem, TreeNode } from '../types/types.data.ts';
+import { StoreState } from '../types/types.store.ts';
 
-export const useStore = create<StoreState>()(
+export const useTreeStore = create<StoreState>()(
     persist(
         (set, get) => ({
             groups: {},
             items: {},
-            addItem: (title: string, content: React.ReactNode, groupId?: ID, splitDirection?: SplitDirection) => {
+            
+            addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string) => {
                 const items = get().items;
                 const groups = get().groups;
 
-                // Create the new item
+                // Create the new item (without content)
                 const item: TabItem = {
                     id: crypto.randomUUID(),
                     title: title,
                     tabGroupId: "",
-                    content: content
+                    tabViewId: tabViewId || crypto.randomUUID() // Generate tabViewId if not provided
                 }
 
-                // Handle first item case
+                // Handle first item case - auto-initialize if tree is empty
                 if (Object.keys(groups).length <= 0) {
                     const group: TabGroup = {
                         id: crypto.randomUUID(),
@@ -218,7 +219,14 @@ export const useStore = create<StoreState>()(
                     };
                 };
 
-                const rootGroup = get().getRootGroup();
+                // Auto-initialize if no root group exists
+                let rootGroup = get().getRootGroup();
+                if (!rootGroup) {
+                    // Create initial empty tree item
+                    get().addItem("Initial", undefined, undefined);
+                    rootGroup = get().getRootGroup();
+                }
+
                 if (!rootGroup) return null;
 
                 return buildTree(rootGroup);
@@ -229,4 +237,4 @@ export const useStore = create<StoreState>()(
             version: 1,
         }
     )
-);
+)

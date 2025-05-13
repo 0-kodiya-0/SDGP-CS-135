@@ -1,21 +1,18 @@
 import GroupPanel from './GroupPanel.tsx';
 import ResizeHandle from './ResizeHandle.tsx';
-import { useStore } from '../store';
 import React, { JSX } from 'react';
 
-import { LayoutGrid } from 'lucide-react';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-import { TreeNode } from '../types/data.ts';
-import { TreeViewProps } from '../types/props.ts';
+import { TreeNode } from '../types/types.data.ts';
+import { TreeViewProps } from '../types/types.props.ts';
 
 export const TreeView = ({
     tree,
     selectedGroupId,
     onSelectGroup,
-    onRemoveItem
+    onRemoveItem,
+    accountId
 }: TreeViewProps) => {
-    const items = useStore(state => state.items);
-
     const flattenSimilarDirections = (node: TreeNode): { nodes: TreeNode[], totalSize: number } => {
         if (node.children.length === 0 || node.tabItem) {
             return { nodes: [node], totalSize: 100 };
@@ -44,9 +41,9 @@ export const TreeView = ({
                 <GroupPanel
                     node={node}
                     isSelected={selectedGroupId === node.id}
-                    content={node.tabItem && items[node.tabItem.id]?.content}
                     onSelect={onSelectGroup}
                     onRemove={onRemoveItem}
+                    accountId={accountId}
                 />
             );
         }
@@ -82,18 +79,9 @@ export const TreeView = ({
         );
     };
 
+    // Remove the empty state UI as per requirements
     if (!tree) {
-        return (
-            <div className="h-full flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <LayoutGrid className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500">No tabs added yet</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                        Click the 'Add Tab' button to start
-                    </p>
-                </div>
-            </div>
-        );
+        return <div>Loading...</div>;
     }
 
     return renderTreeNode(tree);

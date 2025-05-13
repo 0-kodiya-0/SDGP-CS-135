@@ -1,259 +1,369 @@
-import React, { useCallback } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Tab, SerializedTab } from '../types/types.data';
-import { ComponentLoader } from '../utils/componentRegistry';
-import { useAccount } from '../../../default/user_account';
 
-// Define user-tab map to track tabs by accountId
+// Define user-tab map to track tabs by accountId and tabViewId
 type AccountTabMap = {
   [accountId: string]: {
-    tabs: SerializedTab[];
-    activeTabId: string | null;
+    tabViews: {
+      [tabViewId: string]: {
+        tabs: SerializedTab[];
+        activeTabId: string | null;
+      };
+    };
   };
 };
 
-interface TabStateBase {
-  // Map of account IDs to their tabs and active tab
+interface TabState {
+  // Map of account IDs to their tab views
   accountTabs: AccountTabMap;
   
-  // Methods to manipulate tabs for a specific account
-  addTabForAccount: (
-    accountId: string, 
-    title: string, 
-    content: React.ReactNode, 
-    componentType?: string, 
-    props?: Record<string, any>
-  ) => string;
+  // Tab view operations
+  createTabView: (accountId: string, tabViewId: string) => string; // Now generates and returns tabViewId
+  removeTabView: (accountId: string, tabViewId: string) => void;
   
-  closeTabForAccount: (accountId: string, tabId: string) => void;
-  updateTabForAccount: (accountId: string, tabId: string, updates: Partial<Omit<Tab, 'id'>>) => void;
-  setActiveTabForAccount: (accountId: string, tabId: string) => void;
+  // Tab operations
+  addTab: (accountId: string, title: string, componentType?: string, props?: Record<string, any>) => string;
+  closeTab: (accountId: string, tabId: string) => void; // Close tab by tabId only
+  closeTabInTabView: (accountId: string, tabViewId: string, tabId: string) => void; // Close specific tab in specific TabView
+  closeActiveTab: (accountId: string, tabViewId: string) => void; // Close active tab in TabView
+  updateTab: (accountId: string, tabId: string, updates: Partial<Omit<Tab, 'id'>>) => void;
+  setActiveTab: (accountId: string, tabViewId: string, tabId: string) => void;
+  setActiveTabById: (accountId: string, tabId: string) => void; // Set active tab by tabId only
   
-  // Get tabs and active tab for a specific account
-  getTabsForAccount: (accountId: string) => SerializedTab[];
-  getActiveTabIdForAccount: (accountId: string) => string | null;
+  // Getters
+  getTabsForTabView: (accountId: string, tabViewId: string) => SerializedTab[];
+  getActiveTabIdForTabView: (accountId: string, tabViewId: string) => string | null;
+  getAllTabViewsForAccount: (accountId: string) => string[];
+  getActiveTabView: (accountId: string) => string | null;
+  
+  // Tab view management
+  getTabViewForTab: (accountId: string, tabId: string) => string | null;
+  getTabInfo: (accountId: string, tabId: string) => { tab: SerializedTab; tabViewId: string } | null; // Get tab info with tabViewId
 }
 
 // Generate unique ID
 const generateId = (): string =>
   `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-// Create the base Zustand store
-export const useTabStoreBase = create<TabStateBase>()(
+// Create the Zustand store
+export const useTabStore = create<TabState>()(
   persist(
     (set, get) => ({
       accountTabs: {},
       
-      getTabsForAccount: (accountId) => {
-        const { accountTabs } = get();
-        return accountTabs[accountId]?.tabs || [];
+      createTabView: (accountId, tabViewId) => {
+        set((state) => ({
+          accountTabs: {
+            ...state.accountTabs,
+            [accountId]: {
+              ...state.accountTabs[accountId],
+              tabViews: {
+                ...(state.accountTabs[accountId]?.tabViews || {}),
+                [tabViewId]: {
+                  tabs: [],
+                  activeTabId: null
+                }
+              }
+            }
+          }
+        }));
+        return tabViewId;
       },
       
-      getActiveTabIdForAccount: (accountId) => {
-        const { accountTabs } = get();
-        return accountTabs[accountId]?.activeTabId || null;
-      },
-      
-      addTabForAccount: (accountId, title, _content, componentType, props = {}) => {
-        console.log(`[TabStore] Adding tab for account: ${accountId}, title: ${title}, componentType: ${componentType}`);
-        
-        const tabs = get().getTabsForAccount(accountId);
-        
-        // Check if a tab with this title already exists for this account
-        const existingTab = tabs.find(tab => tab.title === title);
-        if (existingTab) {
-          set(state => ({
+      removeTabView: (accountId, tabViewId) => {
+        set((state) => {
+          const accountData = state.accountTabs[accountId];
+          if (!accountData) return state;
+          
+          const { [tabViewId]: removed, ...remainingTabViews } = accountData.tabViews;
+          
+          return {
             accountTabs: {
               ...state.accountTabs,
               [accountId]: {
-                ...state.accountTabs[accountId],
-                activeTabId: existingTab.id
+                ...accountData,
+                tabViews: remainingTabViews
               }
             }
-          }));
-          return existingTab.id;
+          };
+        });
+      },
+      
+      addTab: (accountId, title, componentType, props = {}) => {
+        const newTabId = generateId();
+        let targetTabViewId: string | null = null;
+        
+        // Find the active TabView by looking for the one with a currently active tab
+        const accountData = get().accountTabs[accountId];
+        if (accountData) {
+          // Try to find a TabView with an active tab
+          for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+            if (tabViewData.activeTabId) {
+              targetTabViewId = tabViewId;
+              break;
+            }
+          }
+          
+          // If no TabView has an active tab, use the first available TabView
+          if (!targetTabViewId && Object.keys(accountData.tabViews).length > 0) {
+            targetTabViewId = Object.keys(accountData.tabViews)[0];
+          }
         }
         
-        const newTabId = generateId();
+        // If no TabView exists, create a new one
+        if (!targetTabViewId) {
+          targetTabViewId = generateId();
+        }
+        
         const newTab: SerializedTab = {
           id: newTabId,
           title,
           componentType,
-          props
+          props,
+          tabViewId: targetTabViewId
         };
         
-        set(state => ({
-          accountTabs: {
-            ...state.accountTabs,
-            [accountId]: {
-              tabs: [...(state.accountTabs[accountId]?.tabs || []), newTab],
-              activeTabId: newTabId
-            }
+        set((state) => {
+          const accountData = state.accountTabs[accountId];
+          const tabViewData = accountData?.tabViews?.[targetTabViewId];
+          
+          if (!tabViewData) {
+            // Create tab view if it doesn't exist
+            return {
+              accountTabs: {
+                ...state.accountTabs,
+                [accountId]: {
+                  ...accountData,
+                  tabViews: {
+                    ...(accountData?.tabViews || {}),
+                    [targetTabViewId]: {
+                      tabs: [newTab],
+                      activeTabId: newTabId
+                    }
+                  }
+                }
+              }
+            };
           }
-        }));
+          
+          return {
+            accountTabs: {
+              ...state.accountTabs,
+              [accountId]: {
+                ...accountData,
+                tabViews: {
+                  ...accountData.tabViews,
+                  [targetTabViewId]: {
+                    tabs: [...tabViewData.tabs, newTab],
+                    activeTabId: newTabId
+                  }
+                }
+              }
+            }
+          };
+        });
         
         return newTabId;
       },
       
-      closeTabForAccount: (accountId, tabId) => {
-        const { accountTabs } = get();
-        const accountData = accountTabs[accountId];
-        
+      closeTab: (accountId, tabId) => {
+        const accountData = get().accountTabs[accountId];
         if (!accountData) return;
         
-        const tabs = accountData.tabs;
-        const activeTabId = accountData.activeTabId;
-        const tabIndex = tabs.findIndex(tab => tab.id === tabId);
-        
-        if (tabIndex === -1) return;
-        
-        // Calculate new active tab ID if closing the active tab
-        let newActiveTabId = activeTabId;
-        if (activeTabId === tabId) {
-          const nextTab = tabs[tabIndex + 1] || tabs[tabIndex - 1];
-          newActiveTabId = nextTab?.id || null;
+        // Find which tab view contains this tab
+        let targetTabViewId: string | null = null;
+        for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+          if (tabViewData.tabs.some(tab => tab.id === tabId)) {
+            targetTabViewId = tabViewId;
+            break;
+          }
         }
         
-        // Update the store
-        set(state => ({
-          accountTabs: {
-            ...state.accountTabs,
-            [accountId]: {
-              tabs: tabs.filter(tab => tab.id !== tabId),
-              activeTabId: newActiveTabId
+        if (!targetTabViewId) return;
+        
+        // Use the closeTabInTabView function
+        get().closeTabInTabView(accountId, targetTabViewId, tabId);
+      },
+      
+      closeTabInTabView: (accountId, tabViewId, tabId) => {
+        set((state) => {
+          const accountData = state.accountTabs[accountId];
+          if (!accountData) return state;
+          
+          const tabViewData = accountData.tabViews[tabViewId];
+          if (!tabViewData) return state;
+          
+          const tabIndex = tabViewData.tabs.findIndex(tab => tab.id === tabId);
+          if (tabIndex === -1) return state;
+          
+          // Calculate new active tab ID if closing the active tab
+          let newActiveTabId = tabViewData.activeTabId;
+          if (tabViewData.activeTabId === tabId) {
+            const nextTab = tabViewData.tabs[tabIndex + 1] || tabViewData.tabs[tabIndex - 1];
+            newActiveTabId = nextTab?.id || null;
+          }
+          
+          return {
+            accountTabs: {
+              ...state.accountTabs,
+              [accountId]: {
+                ...accountData,
+                tabViews: {
+                  ...accountData.tabViews,
+                  [tabViewId]: {
+                    tabs: tabViewData.tabs.filter(tab => tab.id !== tabId),
+                    activeTabId: newActiveTabId
+                  }
+                }
+              }
+            }
+          };
+        });
+      },
+      
+      closeActiveTab: (accountId, tabViewId) => {
+        const state = get();
+        const accountData = state.accountTabs[accountId];
+        if (!accountData) return;
+        
+        const tabViewData = accountData.tabViews[tabViewId];
+        if (!tabViewData || !tabViewData.activeTabId) return;
+        
+        state.closeTabInTabView(accountId, tabViewId, tabViewData.activeTabId);
+      },
+      
+      updateTab: (accountId, tabId, updates) => {
+        set((state) => {
+          const accountData = state.accountTabs[accountId];
+          if (!accountData) return state;
+          
+          // Find which tab view contains this tab
+          let targetTabViewId: string | null = null;
+          for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+            if (tabViewData.tabs.some(tab => tab.id === tabId)) {
+              targetTabViewId = tabViewId;
+              break;
             }
           }
-        }));
-      },
-      
-      updateTabForAccount: (accountId, tabId, updates) => {
-        set(state => {
-          const accountData = state.accountTabs[accountId];
-          if (!accountData) return state;
+          
+          if (!targetTabViewId) return state;
+          
+          const tabViewData = accountData.tabViews[targetTabViewId];
           
           return {
             accountTabs: {
               ...state.accountTabs,
               [accountId]: {
                 ...accountData,
-                tabs: accountData.tabs.map(tab =>
-                  tab.id === tabId ? { ...tab, ...updates } : tab
-                )
+                tabViews: {
+                  ...accountData.tabViews,
+                  [targetTabViewId]: {
+                    ...tabViewData,
+                    tabs: tabViewData.tabs.map(tab =>
+                      tab.id === tabId ? { ...tab, ...updates } : tab
+                    )
+                  }
+                }
               }
             }
           };
         });
       },
       
-      setActiveTabForAccount: (accountId, tabId) => {
-        set(state => {
+      setActiveTab: (accountId, tabViewId, tabId) => {
+        set((state) => {
           const accountData = state.accountTabs[accountId];
-          if (!accountData) return state;
+          const tabViewData = accountData?.tabViews?.[tabViewId];
+          
+          if (!tabViewData) return state;
           
           return {
             accountTabs: {
               ...state.accountTabs,
               [accountId]: {
                 ...accountData,
-                activeTabId: tabId
+                tabViews: {
+                  ...accountData.tabViews,
+                  [tabViewId]: {
+                    ...tabViewData,
+                    activeTabId: tabId
+                  }
+                }
               }
             }
           };
         });
+      },
+      
+      setActiveTabById: (accountId, tabId) => {
+        const accountData = get().accountTabs[accountId];
+        if (!accountData) return;
+        
+        // Find which tab view contains this tab
+        for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+          if (tabViewData.tabs.some(tab => tab.id === tabId)) {
+            get().setActiveTab(accountId, tabViewId, tabId);
+            return;
+          }
+        }
+      },
+      
+      getTabsForTabView: (accountId, tabViewId) => {
+        const accountData = get().accountTabs[accountId];
+        return accountData?.tabViews?.[tabViewId]?.tabs || [];
+      },
+      
+      getActiveTabIdForTabView: (accountId, tabViewId) => {
+        const accountData = get().accountTabs[accountId];
+        return accountData?.tabViews?.[tabViewId]?.activeTabId || null;
+      },
+      
+      getAllTabViewsForAccount: (accountId) => {
+        const accountData = get().accountTabs[accountId];
+        return Object.keys(accountData?.tabViews || {});
+      },
+      
+      getActiveTabView: (accountId) => {
+        const accountData = get().accountTabs[accountId];
+        if (!accountData) return null;
+        
+        // Find the TabView with an active tab
+        for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+          if (tabViewData.activeTabId) {
+            return tabViewId;
+          }
+        }
+        
+        // If no TabView has an active tab, return the first TabView
+        const tabViewIds = Object.keys(accountData.tabViews);
+        return tabViewIds.length > 0 ? tabViewIds[0] : null;
+      },
+      
+      getTabViewForTab: (accountId, tabId) => {
+        const tabInfo = get().getTabInfo(accountId, tabId);
+        return tabInfo ? tabInfo.tabViewId : null;
+      },
+      
+      getTabInfo: (accountId, tabId) => {
+        const accountData = get().accountTabs[accountId];
+        if (!accountData) return null;
+        
+        // Find which tab view contains this tab and return both tab and tabViewId
+        for (const [tabViewId, tabViewData] of Object.entries(accountData.tabViews)) {
+          const tab = tabViewData.tabs.find(tab => tab.id === tabId);
+          if (tab) {
+            return { tab, tabViewId };
+          }
+        }
+        
+        return null;
       }
     }),
     {
-      name: 'account-tab-storage',
+      name: 'tab-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ accountTabs: state.accountTabs })
     }
   )
 );
-
-/**
- * Hook that combines AccountContext with the tab store
- * to provide account-specific tab management
- */
-export const useTabStore = () => {
-  // Get the current account from your existing AccountContext
-  const { currentAccount } = useAccount();
-  
-  // Get the account ID
-  const accountId = currentAccount?.id || 'default';
-  
-  // Get the base store methods
-  const {
-    getTabsForAccount,
-    getActiveTabIdForAccount,
-    addTabForAccount,
-    closeTabForAccount,
-    updateTabForAccount,
-    setActiveTabForAccount
-  } = useTabStoreBase();
-  
-  // Get the tabs and active tab ID for the current account
-  const tabs = getTabsForAccount(accountId);
-  const activeTabId = getActiveTabIdForAccount(accountId);
-  
-  // Provide simplified API that automatically uses the current account
-  const addTab = useCallback(
-    (title: string, content: React.ReactNode, componentType?: string, props?: Record<string, any>) => {
-      return addTabForAccount(accountId, title, content, componentType, props);
-    },
-    [accountId, addTabForAccount]
-  );
-  
-  const closeTab = useCallback(
-    (tabId: string) => {
-      closeTabForAccount(accountId, tabId);
-    },
-    [accountId, closeTabForAccount]
-  );
-  
-  const updateTab = useCallback(
-    (tabId: string, updates: Partial<Omit<Tab, 'id'>>) => {
-      updateTabForAccount(accountId, tabId, updates);
-    },
-    [accountId, updateTabForAccount]
-  );
-  
-  const setActiveTab = useCallback(
-    (tabId: string) => {
-      setActiveTabForAccount(accountId, tabId);
-    },
-    [accountId, setActiveTabForAccount]
-  );
-  
-  // Function to restore content from a serialized tab
-  const restoreContent = useCallback(
-    (tab: SerializedTab) => {
-      if (!tab.componentType) return null;
-      
-      // Use the ComponentLoader to dynamically load the component
-      return (
-        <ComponentLoader 
-          componentType={tab.componentType} 
-          props={tab.props || {}} 
-        />
-      );
-    },
-    []
-  );
-  
-  return {
-    // Current account's tabs and active tab
-    tabs,
-    activeTabId,
-    
-    // Methods that automatically use the current account
-    addTab,
-    closeTab,
-    updateTab,
-    setActiveTab,
-    restoreContent,
-    
-    // Additional context
-    accountId
-  };
-};
