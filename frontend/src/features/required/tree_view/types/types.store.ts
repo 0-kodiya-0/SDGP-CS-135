@@ -11,12 +11,14 @@ export interface TabItem {
     tabViewId: string  // Add tabViewId to associate with TabView
 }
 
+export type ItemPosition = 'before' | 'after';
+
 export interface StoreState {
     groups: Groups;
     items: Items;
 
     // Updated addItem without content parameter
-    addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string) => TabItem;
+    addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string, position?: ItemPosition) => TabItem;
 
     removeItem: (itemId: ID) => TabItem;
 

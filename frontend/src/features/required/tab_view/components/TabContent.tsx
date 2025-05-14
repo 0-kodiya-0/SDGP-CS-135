@@ -27,19 +27,20 @@ export const TabContent: React.FC<TabContentProps> = ({
         if (activeTab.componentType) {
             return (
                 <ComponentLoader
+                    key={`component-${activeTab.id}`}
                     componentType={activeTab.componentType}
                     props={{ ...activeTab.props, accountId, tabViewId, tabId: activeTab }}
                 />
             );
         }
 
-        return <div>Unable to restore tab content</div>;
+        return <div key={`error-${activeTab.id}`}>Unable to restore tab content</div>;
     }, [accountId, tabViewId]);
 
     // Ensure tabViewId is valid before making calls
     if (!tabViewId) {
         return (
-            <div className={`flex-grow overflow-hidden ${className}`}>
+            <div key={`loading-${tabViewId}`} className={`flex-grow overflow-hidden ${className}`}>
                 <div className="p-4 text-gray-500 flex items-center justify-center h-full">
                     Loading content...
                 </div>
@@ -53,16 +54,16 @@ export const TabContent: React.FC<TabContentProps> = ({
     const activeTab = tabs.find(tab => tab.id === activeTabId);
 
     return (
-        <div className={`flex-grow overflow-hidden ${className}`}>
+        <div key={`tabcontent-${tabViewId}`} className={`flex-grow overflow-hidden ${className}`}>
             {!activeTab ? (
-                <div className="p-4 text-gray-500 flex items-center justify-center h-full">
+                <div key={`empty-${tabViewId}`} className="p-4 text-gray-500 flex items-center justify-center h-full">
                     {tabs.length === 0
                         ? "No tabs open. Use addTab function to open a new tab."
                         : "Select a tab to view content"
                     }
                 </div>
             ) : (
-                <div className="h-full">{renderContent(activeTab)}</div>
+                <div key={`content-${activeTab.id}`} className="h-full">{renderContent(activeTab)}</div>
             )}
         </div>
     );

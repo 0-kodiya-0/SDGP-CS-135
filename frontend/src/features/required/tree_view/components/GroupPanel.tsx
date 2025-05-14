@@ -22,44 +22,63 @@ const GroupPanel = ({
     accountId
 }: GroupPanelProps) => {
     const [dropZone, setDropZone] = useState<'center' | 'left' | 'right' | 'top' | 'bottom' | null>(null);
+    const [dropThresholds, setDropThresholds] = useState<{ horizontal: number, vertical: number }>({ horizontal: 80, vertical: 80 });
     const groupRef = useRef<HTMLDivElement>(null);
 
     const { moveTab, createTabView, removeTabView } = useTabStore();
     const { addItem } = useTreeStore();
 
+    // This useEffect handles the case where a TabView becomes empty due to tabs being moved/closed
+    // It's necessary because the TabManagement component can't directly trigger tree updates
     useEffect(() => {
         const handleTabViewEmpty = (event: CustomEvent) => {
             const { accountId: eventAccountId, tabViewId } = event.detail;
             
             // Check if this event is for our TabView
             if (eventAccountId === accountId && node.tabItem?.tabViewId === tabViewId) {
-                // Remove the TabView from the store
+                // Remove the TabView from the store first
                 removeTabView(accountId, tabViewId);
                 
-                // Remove this GroupPanel (trigger the tree update)
+                // Then remove this GroupPanel from the tree structure
                 if (node.tabItem) {
                     onRemove(node.tabItem.id);
                 }
             }
         };
 
-        // Add event listener for TabView empty events
+        // Listen for custom events from TabManagement when a TabView becomes empty
         window.addEventListener('tabview-empty', handleTabViewEmpty as EventListener);
         
         return () => {
             window.removeEventListener('tabview-empty', handleTabViewEmpty as EventListener);
         };
-    }, [accountId, node.tabItem]);
+    }, [accountId, node.tabItem, removeTabView, onRemove]);
 
     // Calculate drop zone based on mouse position
-    const calculateDropZone = (x: number, y: number, width: number, height: number): 'center' | 'left' | 'right' | 'top' | 'bottom' => {
-        const threshold = 50; // pixels from edge
+    const calculateDropZone = (x: number, y: number, width: number, height: number): { zone: 'center' | 'left' | 'right' | 'top' | 'bottom', thresholds: { horizontal: number, vertical: number } } => {
+        // Use a percentage-based threshold that's smaller for larger panels
+        const percentageThreshold = 0.2; // 20% of the dimension
+        const minimumThreshold = 30; // Minimum 30 pixels
+        const maximumThreshold = 80; // Maximum 80 pixels
+        
+        // Calculate thresholds based on panel size, but keep them within bounds
+        const horizontalThreshold = Math.min(
+            maximumThreshold,
+            Math.max(minimumThreshold, width * percentageThreshold)
+        );
+        const verticalThreshold = Math.min(
+            maximumThreshold,
+            Math.max(minimumThreshold, height * percentageThreshold)
+        );
 
-        if (x < threshold) return 'left';
-        if (x > width - threshold) return 'right';
-        if (y < threshold) return 'top';
-        if (y > height - threshold) return 'bottom';
-        return 'center';
+        // Check edges with calculated thresholds
+        let zone: 'center' | 'left' | 'right' | 'top' | 'bottom' = 'center';
+        if (x < horizontalThreshold) zone = 'left';
+        else if (x > width - horizontalThreshold) zone = 'right';
+        else if (y < verticalThreshold) zone = 'top';
+        else if (y > height - verticalThreshold) zone = 'bottom';
+        
+        return { zone, thresholds: { horizontal: horizontalThreshold, vertical: verticalThreshold } };
     };
 
     const [{ isOver }, drop] = useDrop(() => ({
@@ -79,8 +98,9 @@ const GroupPanel = ({
             const y = clientOffset.y - rect.top;
 
             // Calculate drop zone for visual feedback only
-            const zone = calculateDropZone(x, y, rect.width, rect.height);
+            const { zone, thresholds } = calculateDropZone(x, y, rect.width, rect.height);
             setDropZone(zone);
+            setDropThresholds(thresholds);
         },
         drop: (item: DraggedTabItem, monitor): DropResult => {
             // Calculate drop zone at the moment of drop
@@ -95,7 +115,8 @@ const GroupPanel = ({
             if (clientOffset) {
                 const x = clientOffset.x - rect.left;
                 const y = clientOffset.y - rect.top;
-                currentDropZone = calculateDropZone(x, y, rect.width, rect.height);
+                const { zone } = calculateDropZone(x, y, rect.width, rect.height);
+                currentDropZone = zone;
             }
 
             // Handle the drop based on calculated zone
@@ -114,8 +135,13 @@ const GroupPanel = ({
                 // First create the TabView in the store
                 createTabView(accountId, newTabViewId);
                 
-                // Then add the tree item with the proper split direction
-                addItem(item.title, node.id, splitDirection, newTabViewId);
+                // Determine position based on drop zone
+                // For left/top, new item should come before existing item
+                // For right/bottom, new item should come after existing item
+                const position = (currentDropZone === 'left' || currentDropZone === 'top') ? 'before' : 'after';
+                
+                // Then add the tree item with the proper split direction and position
+                addItem(item.title, node.id, splitDirection, newTabViewId, position);
 
                 // Finally move the tab to the new TabView
                 moveTab(item.accountId, item.id, newTabViewId);
@@ -148,7 +174,7 @@ const GroupPanel = ({
         }
     }, [isOver]);
 
-    // Handle removal callback
+    // Handle removal callback (for manual removal, not automatic due to empty TabView)
     const handleRemoval = () => {
         if (node.tabItem) {
             onRemove(node.tabItem.id);
@@ -157,6 +183,7 @@ const GroupPanel = ({
 
     return (
         <div
+            key={node.id}
             ref={combinedRef}
             className={`
                 relative flex flex-col w-full h-full
@@ -170,19 +197,27 @@ const GroupPanel = ({
         >
             {/* Drop zone indicators */}
             {isOver && dropZone && (
-                <div className="absolute inset-0 pointer-events-none z-10">
+                <div key={`dropzone-${node.id}-${dropZone}`} className="absolute inset-0 pointer-events-none z-10">
                     <div className={`
                         absolute bg-blue-500 bg-opacity-30 transition-all duration-200
-                        ${dropZone === 'left' ? 'left-0 top-0 bottom-0 w-8' : ''}
-                        ${dropZone === 'right' ? 'right-0 top-0 bottom-0 w-8' : ''}
-                        ${dropZone === 'top' ? 'top-0 left-0 right-0 h-8' : ''}
-                        ${dropZone === 'bottom' ? 'bottom-0 left-0 right-0 h-8' : ''}
+                        ${dropZone === 'left' ? `left-0 top-0 bottom-0` : ''}
+                        ${dropZone === 'right' ? `right-0 top-0 bottom-0` : ''}
+                        ${dropZone === 'top' ? `top-0 left-0 right-0` : ''}
+                        ${dropZone === 'bottom' ? `bottom-0 left-0 right-0` : ''}
                         ${dropZone === 'center' ? 'inset-2 border-2 border-blue-500 border-dashed rounded' : ''}
-                    `} />
+                    `} 
+                    style={{
+                        ...(dropZone === 'left' && { width: `${dropThresholds.horizontal}px` }),
+                        ...(dropZone === 'right' && { width: `${dropThresholds.horizontal}px` }),
+                        ...(dropZone === 'top' && { height: `${dropThresholds.vertical}px` }),
+                        ...(dropZone === 'bottom' && { height: `${dropThresholds.vertical}px` }),
+                    }}
+                    />
                 </div>
             )}
 
             <TabView
+                key={`tabview-${node.tabItem?.tabViewId || node.id}`}
                 accountId={accountId}
                 tabViewId={node.tabItem?.tabViewId || undefined}
                 removeGroup={handleRemoval}

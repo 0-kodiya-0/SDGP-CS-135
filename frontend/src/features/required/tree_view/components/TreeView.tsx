@@ -39,6 +39,7 @@ export const TreeView = ({
         if (node.children.length === 0) {
             return (
                 <GroupPanel
+                    key={node.id}
                     node={node}
                     isSelected={selectedGroupId === node.id}
                     onSelect={onSelectGroup}
@@ -53,6 +54,7 @@ export const TreeView = ({
 
         return (
             <PanelGroup
+                key={node.id}
                 direction={node.splitDirection === 'horizontal' ? 'horizontal' : 'vertical'}
                 className="h-full"
                 id={`pg-${node.id}`}
@@ -69,6 +71,7 @@ export const TreeView = ({
                         </Panel>
                         {node.splitDirection != null && index < flattenedChildren.length - 1 && (
                             <ResizeHandle
+                                key={`handle-${child.id}-${index}`}
                                 id={`handle-${node.id}-${index}`}
                                 direction={node.splitDirection}
                             />

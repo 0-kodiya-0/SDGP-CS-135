@@ -58,7 +58,8 @@ const DraggableTab: React.FC<DraggableTabProps> = ({
 
   return (
     <div
-      ref={ref}  // Use the regular ref
+      key={tab.id}
+      ref={ref}
       className={`
         group relative flex items-center min-w-[100px] max-w-[200px] px-3 py-2 
         border-r border-gray-200 cursor-pointer transition-opacity
@@ -127,16 +128,16 @@ export const TabManagement: React.FC<TabManagementProps> = ({
 
   // Ensure tabViewId is valid before making calls
   if (!tabViewId) {
-    return <div className={`${className} p-2 text-sm text-gray-500`}>Loading tabs...</div>;
+    return <div key={`tabmgmt-loading-${tabViewId}`} className={`${className} p-2 text-sm text-gray-500`}>Loading tabs...</div>;
   }
 
   const tabs = getTabsForTabView(accountId, tabViewId);
   const activeTabId = getActiveTabIdForTabView(accountId, tabViewId);
 
   return (
-    <div className={`flex border-b border-gray-200 ${className}`}>
+    <div key={`tabmgmt-${tabViewId}`} className={`flex border-b border-gray-200 ${className}`}>
       {tabs.length === 0 ? (
-        <div className="p-2 text-sm text-gray-500">
+        <div key={`notabs-${tabViewId}`} className="p-2 text-sm text-gray-500">
           No tabs open
         </div>
       ) : (

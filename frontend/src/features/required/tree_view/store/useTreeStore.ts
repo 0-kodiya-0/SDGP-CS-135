@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ID, SplitDirection, TabGroup, TabItem, TreeNode } from '../types/types.data.ts';
-import { StoreState } from '../types/types.store.ts';
+import { ItemPosition, StoreState } from '../types/types.store.ts';
 
 export const useTreeStore = create<StoreState>()(
     persist(
@@ -9,7 +9,7 @@ export const useTreeStore = create<StoreState>()(
             groups: {},
             items: {},
             
-            addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string) => {
+            addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string, position?: ItemPosition) => {
                 const items = get().items;
                 const groups = get().groups;
 
@@ -71,28 +71,34 @@ export const useTreeStore = create<StoreState>()(
                 const maxOrder = Math.max(-1, ...siblingOrders);
 
                 // Create new groups with order based on split direction
-                const newGroups: TabGroup[] = [
-                    {
-                        id: crypto.randomUUID(),
-                        splitDirection: null,
-                        tabItem: targetGroup.tabItem,  // Existing item goes in first group
-                        parentId: groupId,
-                        order: maxOrder + 1
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        splitDirection: null,
-                        tabItem: item.id,  // New item goes in second group
-                        parentId: groupId,
-                        order: maxOrder + 2
-                    }
-                ];
+                const firstGroup = {
+                    id: crypto.randomUUID(),
+                    splitDirection: null,
+                    tabItem: position === 'before' ? item.id : targetGroup.tabItem,
+                    parentId: groupId,
+                    order: maxOrder + 1
+                };
 
-                // Update existing item's group reference
-                items[targetGroup.tabItem].tabGroupId = newGroups[0].id;
+                const secondGroup = {
+                    id: crypto.randomUUID(),
+                    splitDirection: null,
+                    tabItem: position === 'before' ? targetGroup.tabItem : item.id,
+                    parentId: groupId,
+                    order: maxOrder + 2
+                };
+
+                const newGroups: TabGroup[] = [firstGroup, secondGroup];
+
+                items[targetGroup.tabItem].tabGroupId = position === 'before' ? secondGroup.id : firstGroup.id;
 
                 // Set new item's group reference
-                item.tabGroupId = newGroups[1].id;
+                item.tabGroupId = position === 'before' ? firstGroup.id : secondGroup.id;
+
+                // Update existing item's group reference
+                // items[targetGroup.tabItem].tabGroupId = newGroups[0].id;
+
+                // // Set new item's group reference
+                // item.tabGroupId = newGroups[1].id;
 
                 // Update target group
                 targetGroup.splitDirection = splitDirection;

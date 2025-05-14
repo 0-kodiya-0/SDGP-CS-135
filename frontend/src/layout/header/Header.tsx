@@ -44,7 +44,7 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
 
     if (isLoading) {
         return (
-            <div className="w-full h-full flex justify-center items-center overflow-hidden">
+            <div key="header-loading" className="w-full h-full flex justify-center items-center overflow-hidden">
                 <div className="flex flex-col items-center">
                     <Loader2 className="w-6 h-6 animate-spin text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">Creating default environment...</p>
@@ -55,29 +55,31 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
 
     if (!environment) {
         return (
-            <div className="w-full h-full flex justify-center items-center overflow-hidden">
+            <div key="header-no-env" className="w-full h-full flex justify-center items-center overflow-hidden">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-900" />
             </div>
         );
     }
 
     return (
-        <div className="w-full h-full overflow-hidden">
+        <div key={`header-${environment.id}`} className="w-full h-full overflow-hidden">
             <PanelGroup direction="horizontal" className="w-full h-full">
                 {/* Navigation Panel - Fixed Width */}
                 <Navigation
+                    key={`nav-${environment.id}`}
                     environment={environment}
                     summaryBarClassName="w-[65px] h-full"
                     detailPaneClassName="min-w-64 h-full overflow-hidden"
                 />
 
                 {/* Resize Handle */}
-                <PanelResizeHandle className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
+                <PanelResizeHandle key={`resize-${environment.id}`} className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
 
                 {/* TreeView Panel - Replace TabView with TreeView */}
                 <Panel defaultSize={80} minSize={10} className="h-full">
                     <DndProvider backend={HTML5Backend}>
                         <TreeView
+                            key={`tree-${currentAccount?.id || 'default'}`}
                             tree={tree}
                             selectedGroupId={selectedGroupId}
                             onSelectGroup={handleSelectGroup}
@@ -85,7 +87,6 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
                             accountId={currentAccount?.id || 'default'}
                         />
                     </DndProvider>
-
                 </Panel>
             </PanelGroup>
         </div>

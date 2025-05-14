@@ -16,8 +16,9 @@ export const TabView: React.FC<TabViewProps> = ({
   tabViewId: propTabViewId,
   removeGroup
 }) => {
-  // Generate a unique ID if not provided
-  const tabViewIdRef = useRef<string | null>(propTabViewId || null);
+  // Generate a stable ID if not provided
+  const tabViewIdRef = useRef<string>(propTabViewId || crypto.randomUUID());
+  const tabViewId = tabViewIdRef.current;
 
   const {
     createTabView,
@@ -25,35 +26,24 @@ export const TabView: React.FC<TabViewProps> = ({
     getActiveTabIdForTabView
   } = useTabStore();
 
-  // Create tab view on mount if not provided
+  // Create tab view on mount if it doesn't exist
   useEffect(() => {
-    if (tabViewIdRef.current) {
-      const tabViewId = tabViewIdRef.current;
+    // Check if TabView already exists
+    const existingTabs = getTabsForTabView(accountId, tabViewId);
+    const hasActiveTab = getActiveTabIdForTabView(accountId, tabViewId);
 
-      // Check if TabView already exists
-      const existingTabs = getTabsForTabView(accountId, tabViewId);
-      const hasActiveTab = getActiveTabIdForTabView(accountId, tabViewId);
-
-      // Only create if both tabs array is empty and there's no active tab
-      // This indicates the TabView doesn't exist in the store yet
-      if (existingTabs.length === 0 && !hasActiveTab) {
-        createTabView(accountId, tabViewId);
-      }
+    // Only create if both tabs array is empty and there's no active tab
+    // This indicates the TabView doesn't exist in the store yet
+    if (existingTabs.length === 0 && !hasActiveTab) {
+      createTabView(accountId, tabViewId);
     }
-  }, [accountId]);
-
-  // Get the current tabViewId, ensuring it's never null
-  const tabViewId = tabViewIdRef.current;
-
-  // If tabViewId is still null (shouldn't happen), don't render
-  if (!tabViewId) {
-    return <div>Loading...</div>;
-  }
+  }, [accountId, tabViewId]);
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div key={tabViewId} className={`flex flex-col h-full ${className}`}>
       {/* Tab Bar */}
       <TabManagement
+        key={`management-${tabViewId}`}
         className="flex-shrink-0"
         accountId={accountId}
         tabViewId={tabViewId}
@@ -62,6 +52,7 @@ export const TabView: React.FC<TabViewProps> = ({
 
       {/* Tab Content */}
       <TabContent
+        key={`content-${tabViewId}`}
         accountId={accountId}
         tabViewId={tabViewId}
       />
