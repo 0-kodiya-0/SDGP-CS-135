@@ -1,4 +1,3 @@
-// src/features/default/chat/utils/registerChatComponents.ts
 import { registerComponent } from '../../../required/tab_view/utils/componentRegistry';
 import { ComponentTypes } from '../../../required/tab_view/types/types.views';
 

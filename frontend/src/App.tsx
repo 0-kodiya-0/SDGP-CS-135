@@ -1,4 +1,3 @@
-// frontend/src/App.tsx
 import React, { useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";

@@ -9,6 +9,7 @@ import { useAccount } from "../../features/default/user_account";
 import { TreeNode } from "../../features/required/tree_view/types/types.data";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { ChatProvider } from "../../features/default/chat";
 
 interface HeaderProps {
     environment: Environment | null;
@@ -57,38 +58,50 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
         return (
             <div key="header-no-env" className="w-full h-full flex justify-center items-center overflow-hidden">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-900" />
+                <p className="text-sm text-gray-500">Loading environment...</p>
+            </div>
+        );
+    }
+
+    if (!currentAccount) {
+        return (
+            <div key="header-no-env" className="w-full h-full flex justify-center items-center overflow-hidden">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-900" />
+                <p className="text-sm text-gray-500">Loading account...</p>
             </div>
         );
     }
 
     return (
         <div key={`header-${environment.id}`} className="w-full h-full overflow-hidden">
-            <PanelGroup direction="horizontal" className="w-full h-full">
-                {/* Navigation Panel - Fixed Width */}
-                <Navigation
-                    key={`nav-${environment.id}`}
-                    environment={environment}
-                    summaryBarClassName="w-[65px] h-full"
-                    detailPaneClassName="min-w-64 h-full overflow-hidden"
-                />
+            <ChatProvider accountId={currentAccount.id}>
+                <PanelGroup direction="horizontal" className="w-full h-full">
+                    {/* Navigation Panel - Fixed Width */}
+                    <Navigation
+                        key={`nav-${environment.id}`}
+                        environment={environment}
+                        summaryBarClassName="w-[65px] h-full"
+                        detailPaneClassName="min-w-64 h-full overflow-hidden"
+                    />
 
-                {/* Resize Handle */}
-                <PanelResizeHandle key={`resize-${environment.id}`} className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
+                    {/* Resize Handle */}
+                    <PanelResizeHandle key={`resize-${environment.id}`} className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
 
-                {/* TreeView Panel - Replace TabView with TreeView */}
-                <Panel defaultSize={80} minSize={10} className="h-full">
-                    <DndProvider backend={HTML5Backend}>
-                        <TreeView
-                            key={`tree-${currentAccount?.id || 'default'}`}
-                            tree={tree}
-                            selectedGroupId={selectedGroupId}
-                            onSelectGroup={handleSelectGroup}
-                            onRemoveItem={handleRemoveItem}
-                            accountId={currentAccount?.id || 'default'}
-                        />
-                    </DndProvider>
-                </Panel>
-            </PanelGroup>
+                    {/* TreeView Panel - Replace TabView with TreeView */}
+                    <Panel defaultSize={80} minSize={10} className="h-full">
+                        <DndProvider backend={HTML5Backend}>
+                            <TreeView
+                                key={`tree-${currentAccount.id}`}
+                                tree={tree}
+                                selectedGroupId={selectedGroupId}
+                                onSelectGroup={handleSelectGroup}
+                                onRemoveItem={handleRemoveItem}
+                                accountId={currentAccount.id}
+                            />
+                        </DndProvider>
+                    </Panel>
+                </PanelGroup>
+            </ChatProvider>
         </div>
     );
 };
