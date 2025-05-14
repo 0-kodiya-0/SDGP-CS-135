@@ -25,7 +25,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, accountId 
   const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const {
-    initializeAccount,
     setSocket,
     getSocket,
     addMessage,
@@ -35,9 +34,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, accountId 
   } = useChatStore();
   
   // Initialize account data
-  useEffect(() => {
-    initializeAccount(accountId);
-  }, [accountId]);
+  // useEffect(() => {
+  //   initializeAccount(accountId);
+  // }, [accountId]);
   
   // Socket management
   useEffect(() => {

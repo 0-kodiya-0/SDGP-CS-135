@@ -1,8 +1,7 @@
-// frontend/src/features/default/chat/hooks/useChatData.ts
-import { useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import { useEffect, useCallback } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useChatSocket } from '../contexts/ChatContext';
+import axios from 'axios';
 import { API_BASE_URL } from '../../../../conf/axios';
 import { ChatData, Participant } from '../types/types.data';
 
@@ -25,12 +24,12 @@ interface UseChatDataReturn {
  * Hook for managing individual conversation data with caching
  */
 export const useChatData = (accountId: string, conversationId: string | null): UseChatDataReturn => {
+    const store = useChatStore();
     const {
         getCachedChat,
         setCachedChat,
         markChatAsAccessed,
-        accountData,
-    } = useChatStore();
+    } = store;
 
     const {
         joinConversation,
@@ -38,19 +37,15 @@ export const useChatData = (accountId: string, conversationId: string | null): U
         markAsRead,
     } = useChatSocket(accountId);
 
-    // Get cached chat data
-    const chatData = useMemo(() => {
-        return conversationId ? getCachedChat(accountId, conversationId) : null;
-    }, [accountId, conversationId, getCachedChat]);
+    // Get cached chat data directly from store
+    const chatData = conversationId ? getCachedChat(accountId, conversationId) : null;
 
-    // Get typing users for this conversation
-    const typingUsers = useMemo(() => {
-        if (!conversationId || !accountData[accountId]) return [];
-
-        return accountData[accountId].typingUsers
+    // Get typing users for this conversation directly from store
+    const typingUsers = conversationId && store.accountData[accountId] 
+        ? store.accountData[accountId].typingUsers
             .filter(user => user.conversationId === conversationId)
-            .map(user => ({ userId: user.userId, displayName: user.displayName }));
-    }, [accountData, accountId, conversationId]);
+            .map(user => ({ userId: user.userId, displayName: user.displayName }))
+        : [];
 
     // Load conversation data
     const loadConversation = useCallback(async () => {
@@ -169,7 +164,7 @@ export const useChatData = (accountId: string, conversationId: string | null): U
                 lastAccessed: now,
             });
         }
-    }, [accountId, conversationId, getCachedChat, setCachedChat, markChatAsAccessed, joinConversation, markAsRead]);
+    }, [accountId, conversationId, getCachedChat, joinConversation, markAsRead, markChatAsAccessed, setCachedChat]);
 
     // Refresh messages only
     const refreshMessages = useCallback(async () => {
@@ -191,7 +186,7 @@ export const useChatData = (accountId: string, conversationId: string | null): U
         } catch (error) {
             console.error('Error refreshing messages:', error);
         }
-    }, [accountId, conversationId, setCachedChat, markAsRead]);
+    }, [accountId, conversationId, markAsRead, setCachedChat]);
 
     // Reload participants
     const reloadParticipants = useCallback(async () => {
@@ -236,7 +231,7 @@ export const useChatData = (accountId: string, conversationId: string | null): U
         }
     }, [accountId, conversationId, chatData?.conversation, setCachedChat]);
 
-    // Join/leave conversation on mount/unmount - FIXED: Added proper dependencies
+    // Join/leave conversation on mount/unmount
     useEffect(() => {
         if (conversationId) {
             // Load conversation data on mount
@@ -247,7 +242,7 @@ export const useChatData = (accountId: string, conversationId: string | null): U
                 leaveConversation(conversationId);
             };
         }
-    }, [conversationId]); // Added missing dependencies
+    }, [conversationId]);
 
     return {
         chatData,

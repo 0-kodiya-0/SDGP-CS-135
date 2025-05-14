@@ -31,7 +31,6 @@ interface UseChatManagementReturn {
  */
 export const useChatManagement = (accountId: string): UseChatManagementReturn => {
   const {
-    initializeAccount,
     accountData,
     setConversations,
     setConversationsLoading,
@@ -41,9 +40,9 @@ export const useChatManagement = (accountId: string): UseChatManagementReturn =>
   } = useChatStore();
   
   // Initialize account data
-  useEffect(() => {
-    initializeAccount(accountId);
-  }, [accountId]);
+  // useEffect(() => {
+  //   initializeAccount(accountId);
+  // }, [accountId]);
   
   const accountInfo = accountData[accountId] || {
     conversations: [],

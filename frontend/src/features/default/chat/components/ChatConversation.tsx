@@ -33,11 +33,6 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = memo(({
     isConnected,
   } = useChatSocket(accountId);
 
-  // Auto-scroll to new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatData?.messages]);
-
   // Handle typing indicators
   const handleTyping = useCallback(() => {
     if (!conversationId || !isConnected) return;
@@ -82,6 +77,12 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = memo(({
     }
   };
 
+  // Auto-scroll to new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatData?.messages]);
+
+
   // Cleanup typing timeout on unmount
   useEffect(() => {
     return () => {
@@ -99,7 +100,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = memo(({
     );
   }
 
-  if (isLoading && !chatData) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="flex items-center space-x-3">
@@ -132,13 +133,7 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = memo(({
     );
   }
 
-  const { conversation, messages, participants } = chatData || {
-    conversation: null,
-    messages: [],
-    participants: {}
-  };
-
-  if (!conversation) {
+  if (!chatData) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 text-gray-500">
         <p>Conversation not found</p>
@@ -162,14 +157,14 @@ export const ChatConversation: React.FC<ChatDetailViewProps> = memo(({
         ref={messageContainerRef}
         className="flex-1 overflow-y-auto p-3 space-y-3"
       >
-        {messages.length === 0 ? (
+        {chatData.messages.length === 0 ? (
           <div className="flex justify-center items-center h-16 text-gray-400 text-sm">
             No messages yet
           </div>
         ) : (
           <>
-            {messages.map(message => {
-              const participant = participants[message.sender];
+            {chatData.messages.map(message => {
+              const participant = chatData.participants[message.sender];
               const participantImage = participant?.imageUrl;
               const participantName = participant?.name || `User ${message.sender.slice(0, 6)}...`;
 

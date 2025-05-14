@@ -18,6 +18,9 @@ interface TabState {
   // Map of account IDs to their tab views
   accountTabs: AccountTabMap;
 
+  // Account initialization
+  initializeAccount: (accountId: string) => void;
+
   // Tab view operations
   createTabView: (accountId: string, tabViewId: string) => string; // Now generates and returns tabViewId
   removeTabView: (accountId: string, tabViewId: string) => void;
@@ -54,7 +57,24 @@ export const useTabStore = create<TabState>()(
     (set, get) => ({
       accountTabs: {},
 
+      initializeAccount: (accountId) => {
+        const state = get();
+        if (!state.accountTabs[accountId]) {
+          set({
+            accountTabs: {
+              ...state.accountTabs,
+              [accountId]: {
+                tabViews: {}
+              }
+            }
+          });
+        }
+      },
+
       createTabView: (accountId, tabViewId) => {
+        // Ensure account is initialized
+        get().initializeAccount(accountId);
+
         set((state) => ({
           accountTabs: {
             ...state.accountTabs,
@@ -74,6 +94,8 @@ export const useTabStore = create<TabState>()(
       },
 
       removeTabView: (accountId, tabViewId) => {
+        get().initializeAccount(accountId);
+
         set((state) => {
           const accountData = state.accountTabs[accountId];
           if (!accountData) return state;
@@ -93,6 +115,9 @@ export const useTabStore = create<TabState>()(
       },
 
       addTab: (accountId, title, componentType, props = {}) => {
+        // Ensure account is initialized
+        get().initializeAccount(accountId);
+
         const newTabId = generateId();
         let targetTabViewId: string | null = null;
 
@@ -170,6 +195,8 @@ export const useTabStore = create<TabState>()(
       },
 
       closeTab: (accountId, tabId) => {
+        get().initializeAccount(accountId);
+
         const accountData = get().accountTabs[accountId];
         if (!accountData) return;
 
@@ -189,6 +216,8 @@ export const useTabStore = create<TabState>()(
       },
 
       closeTabInTabView: (accountId, tabViewId, tabId) => {
+        get().initializeAccount(accountId);
+
         set((state) => {
           const accountData = state.accountTabs[accountId];
           if (!accountData) return state;
@@ -225,6 +254,8 @@ export const useTabStore = create<TabState>()(
       },
 
       closeActiveTab: (accountId, tabViewId) => {
+        get().initializeAccount(accountId);
+
         const state = get();
         const accountData = state.accountTabs[accountId];
         if (!accountData) return;
@@ -236,6 +267,8 @@ export const useTabStore = create<TabState>()(
       },
 
       updateTab: (accountId, tabId, updates) => {
+        get().initializeAccount(accountId);
+
         set((state) => {
           const accountData = state.accountTabs[accountId];
           if (!accountData) return state;
@@ -274,6 +307,8 @@ export const useTabStore = create<TabState>()(
       },
 
       setActiveTab: (accountId, tabViewId, tabId) => {
+        get().initializeAccount(accountId);
+
         set((state) => {
           const accountData = state.accountTabs[accountId];
           const tabViewData = accountData?.tabViews?.[tabViewId];
@@ -299,6 +334,8 @@ export const useTabStore = create<TabState>()(
       },
 
       setActiveTabById: (accountId, tabId) => {
+        get().initializeAccount(accountId);
+
         const accountData = get().accountTabs[accountId];
         if (!accountData) return;
 
@@ -312,6 +349,8 @@ export const useTabStore = create<TabState>()(
       },
 
       moveTab: (accountId, tabId, targetTabViewId) => {
+        get().initializeAccount(accountId);
+
         const tabInfo = get().getTabInfo(accountId, tabId);
         if (!tabInfo || tabInfo.tabViewId === targetTabViewId) return;
 
@@ -363,21 +402,25 @@ export const useTabStore = create<TabState>()(
       },
 
       getTabsForTabView: (accountId, tabViewId) => {
+        get().initializeAccount(accountId);
         const accountData = get().accountTabs[accountId];
         return accountData?.tabViews?.[tabViewId]?.tabs || [];
       },
 
       getActiveTabIdForTabView: (accountId, tabViewId) => {
+        get().initializeAccount(accountId);
         const accountData = get().accountTabs[accountId];
         return accountData?.tabViews?.[tabViewId]?.activeTabId || null;
       },
 
       getAllTabViewsForAccount: (accountId) => {
+        get().initializeAccount(accountId);
         const accountData = get().accountTabs[accountId];
         return Object.keys(accountData?.tabViews || {});
       },
 
       getActiveTabView: (accountId) => {
+        get().initializeAccount(accountId);
         const accountData = get().accountTabs[accountId];
         if (!accountData) return null;
 
@@ -394,11 +437,13 @@ export const useTabStore = create<TabState>()(
       },
 
       getTabViewForTab: (accountId, tabId) => {
+        get().initializeAccount(accountId);
         const tabInfo = get().getTabInfo(accountId, tabId);
         return tabInfo ? tabInfo.tabViewId : null;
       },
 
       getTabInfo: (accountId, tabId) => {
+        get().initializeAccount(accountId);
         const accountData = get().accountTabs[accountId];
         if (!accountData) return null;
 
@@ -416,7 +461,8 @@ export const useTabStore = create<TabState>()(
     {
       name: 'tab-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ accountTabs: state.accountTabs })
+      partialize: (state) => ({ accountTabs: state.accountTabs }),
+      version: 1
     }
   )
 );

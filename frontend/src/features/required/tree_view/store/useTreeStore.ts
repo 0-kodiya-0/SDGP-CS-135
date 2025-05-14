@@ -6,12 +6,36 @@ import { ItemPosition, StoreState } from '../types/types.store.ts';
 export const useTreeStore = create<StoreState>()(
     persist(
         (set, get) => ({
-            groups: {},
-            items: {},
-            
-            addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string, position?: ItemPosition) => {
-                const items = get().items;
-                const groups = get().groups;
+            accountTrees: {},
+
+            initializeAccount: (accountId: string) => {
+                const state = get();
+                if (!state.accountTrees[accountId]) {
+                    set({
+                        accountTrees: {
+                            ...state.accountTrees,
+                            [accountId]: {
+                                groups: {},
+                                items: {},
+                            }
+                        }
+                    });
+                }
+            },
+
+            addItem: (
+                accountId: string,
+                title: string,
+                groupId?: ID,
+                splitDirection?: SplitDirection,
+                tabViewId?: string,
+                position?: ItemPosition
+            ) => {
+                // Ensure account is initialized
+                get().initializeAccount(accountId);
+
+                const items = get().getAccountItems(accountId);
+                const groups = get().getAccountGroups(accountId);
 
                 // Create the new item (without content)
                 const item: TabItem = {
@@ -19,7 +43,7 @@ export const useTreeStore = create<StoreState>()(
                     title: title,
                     tabGroupId: "",
                     tabViewId: tabViewId || crypto.randomUUID() // Generate tabViewId if not provided
-                }
+                };
 
                 // Handle first item case - auto-initialize if tree is empty
                 if (Object.keys(groups).length <= 0) {
@@ -28,17 +52,22 @@ export const useTreeStore = create<StoreState>()(
                         splitDirection: null,
                         tabItem: item.id,
                         order: 0
-                    }
+                    };
                     item.tabGroupId = group.id;
+
                     set(state => ({
-                        ...state,
-                        groups: {
-                            ...state.groups,
-                            [group.id]: group
-                        },
-                        items: {
-                            ...state.items,
-                            [item.id]: item
+                        accountTrees: {
+                            ...state.accountTrees,
+                            [accountId]: {
+                                groups: {
+                                    ...groups,
+                                    [group.id]: group
+                                },
+                                items: {
+                                    ...items,
+                                    [item.id]: item
+                                }
+                            }
                         }
                     }));
                     return item;
@@ -94,38 +123,37 @@ export const useTreeStore = create<StoreState>()(
                 // Set new item's group reference
                 item.tabGroupId = position === 'before' ? firstGroup.id : secondGroup.id;
 
-                // Update existing item's group reference
-                // items[targetGroup.tabItem].tabGroupId = newGroups[0].id;
-
-                // // Set new item's group reference
-                // item.tabGroupId = newGroups[1].id;
-
                 // Update target group
                 targetGroup.splitDirection = splitDirection;
                 targetGroup.tabItem = null;
 
                 // Update store
                 set(state => ({
-                    ...state,
-                    groups: {
-                        ...state.groups,
-                        [newGroups[0].id]: newGroups[0],
-                        [newGroups[1].id]: newGroups[1],
-                        [groupId]: targetGroup,
-                    },
-                    items: {
-                        ...items,
-                        [item.id]: item
+                    accountTrees: {
+                        ...state.accountTrees,
+                        [accountId]: {
+                            groups: {
+                                ...groups,
+                                [newGroups[0].id]: newGroups[0],
+                                [newGroups[1].id]: newGroups[1],
+                                [groupId]: targetGroup,
+                            },
+                            items: {
+                                ...items,
+                                [item.id]: item
+                            }
+                        }
                     }
                 }));
 
                 return item;
             },
 
-            removeItem: (itemId: ID) => {
-                const state = get();
-                const items = { ...state.items };
-                const groups = { ...state.groups };
+            removeItem: (accountId: string, itemId: ID) => {
+                get().initializeAccount(accountId);
+
+                const items = { ...get().getAccountItems(accountId) };
+                const groups = { ...get().getAccountGroups(accountId) };
 
                 // Get the item and its group
                 const item = items[itemId];
@@ -136,7 +164,12 @@ export const useTreeStore = create<StoreState>()(
 
                 // If this is the only item in the store, clear everything
                 if (Object.keys(items).length === 1) {
-                    set({ items: {}, groups: {} });
+                    set(state => ({
+                        accountTrees: {
+                            ...state.accountTrees,
+                            [accountId]: { items: {}, groups: {} }
+                        }
+                    }));
                     return item;
                 }
 
@@ -153,6 +186,12 @@ export const useTreeStore = create<StoreState>()(
                     // If no parent (root group), just remove the item and group
                     delete items[itemId];
                     delete groups[itemGroup.id];
+                    set(state => ({
+                        accountTrees: {
+                            ...state.accountTrees,
+                            [accountId]: { items, groups }
+                        }
+                    }));
                     return item;
                 }
 
@@ -182,36 +221,39 @@ export const useTreeStore = create<StoreState>()(
                 delete groups[parentGroup.id];
 
                 // Update the store
-                set({
-                    items,
-                    groups
-                });
+                set(state => ({
+                    accountTrees: {
+                        ...state.accountTrees,
+                        [accountId]: { items, groups }
+                    }
+                }));
 
                 return item;
             },
 
-            getItem: (itemId: ID) => {
-                const item = get().items[itemId];
-                if (!item) return null;
-                return item;
+            getItem: (accountId: string, itemId: ID) => {
+                const items = get().getAccountItems(accountId);
+                return items[itemId] || null;
             },
 
-            getRootGroup: () => {
-                const groups = get().groups;
+            getRootGroup: (accountId: string) => {
+                const groups = get().getAccountGroups(accountId);
                 return Object.values(groups).find(group => !group.parentId) || null;
             },
 
-            getGroupChildren: (groupId: ID) => {
-                const groups = get().groups;
+            getGroupChildren: (accountId: string, groupId: ID) => {
+                const groups = get().getAccountGroups(accountId);
                 return Object.values(groups)
                     .filter(group => group.parentId === groupId)
                     .sort((a, b) => a.order - b.order);
             },
 
-            getTreeStructure: () => {
+            getTreeStructure: (accountId: string) => {
+                get().initializeAccount(accountId);
+
                 const buildTree = (group: TabGroup): TreeNode => {
-                    const items = get().items;
-                    const children = get().getGroupChildren(group.id);
+                    const items = get().getAccountItems(accountId);
+                    const children = get().getGroupChildren(accountId, group.id);
 
                     return {
                         id: group.id,
@@ -226,21 +268,33 @@ export const useTreeStore = create<StoreState>()(
                 };
 
                 // Auto-initialize if no root group exists
-                let rootGroup = get().getRootGroup();
+                let rootGroup = get().getRootGroup(accountId);
                 if (!rootGroup) {
                     // Create initial empty tree item
-                    get().addItem("Initial", undefined, undefined);
-                    rootGroup = get().getRootGroup();
+                    get().addItem(accountId, "Initial", undefined, undefined);
+                    rootGroup = get().getRootGroup(accountId);
                 }
 
                 if (!rootGroup) return null;
 
                 return buildTree(rootGroup);
-            }
+            },
+
+            // Utility methods
+            getAccountGroups: (accountId: string) => {
+                get().initializeAccount(accountId);
+                return get().accountTrees[accountId]?.groups || {};
+            },
+
+            getAccountItems: (accountId: string) => {
+                get().initializeAccount(accountId);
+                return get().accountTrees[accountId]?.items || {};
+            },
         }),
         {
-            name: 'layout-store',
+            name: 'tree-layout-store',
             version: 1,
+            partialize: (state) => ({ accountTrees: state.accountTrees }),
         }
     )
-)
+);

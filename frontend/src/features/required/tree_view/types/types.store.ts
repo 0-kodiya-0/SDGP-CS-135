@@ -13,18 +13,38 @@ export interface TabItem {
 
 export type ItemPosition = 'before' | 'after';
 
-export interface StoreState {
+// Account-specific tree data
+export interface AccountTreeData {
     groups: Groups;
     items: Items;
+}
 
-    // Updated addItem without content parameter
-    addItem: (title: string, groupId?: ID, splitDirection?: SplitDirection, tabViewId?: string, position?: ItemPosition) => TabItem;
+export interface StoreState {
+    // Map of account IDs to their tree data
+    accountTrees: Record<string, AccountTreeData>;
 
-    removeItem: (itemId: ID) => TabItem;
+    // Account management
+    initializeAccount: (accountId: string) => void;
 
-    getItem: (itemId: ID) => TabItem | null;
+    // Updated addItem without content parameter, now includes accountId
+    addItem: (
+        accountId: string,
+        title: string,
+        groupId?: ID,
+        splitDirection?: SplitDirection,
+        tabViewId?: string,
+        position?: ItemPosition
+    ) => TabItem;
 
-    getRootGroup: () => TabGroup | null
-    getGroupChildren: (groupId: ID) => TabGroup[]
-    getTreeStructure: () => TreeNode | null
+    removeItem: (accountId: string, itemId: ID) => TabItem;
+
+    getItem: (accountId: string, itemId: ID) => TabItem | null;
+
+    getRootGroup: (accountId: string) => TabGroup | null
+    getGroupChildren: (accountId: string, groupId: ID) => TabGroup[]
+    getTreeStructure: (accountId: string) => TreeNode | null
+
+    // Utilities for getting account-specific data
+    getAccountGroups: (accountId: string) => Groups;
+    getAccountItems: (accountId: string) => Items;
 }

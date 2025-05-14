@@ -19,7 +19,7 @@ interface HeaderProps {
 export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     const { currentAccount } = useAccount();
     const { removeItem, getTreeStructure } = useTreeStore();
-    const [tree, setTree] = useState<TreeNode | null>(getTreeStructure());
+    const [tree, setTree] = useState<TreeNode | null>(null);
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
     const handleSelectGroup = useCallback((id: string) => {
@@ -27,16 +27,27 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     }, []);
 
     const handleRemoveItem = useCallback((itemId: string) => {
-        removeItem(itemId);
-    }, [removeItem]);
+        if (currentAccount?.id) {
+            removeItem(currentAccount.id, itemId);
+        }
+    }, [removeItem, currentAccount?.id]);
 
-    // Update tree when store changes
+    // Initialize account and get tree structure
     useEffect(() => {
+        if (currentAccount?.id) {
+            setTree(getTreeStructure(currentAccount.id));
+        }
+    }, [currentAccount?.id]);
+
+    // Update tree when store changes for the current account
+    useEffect(() => {
+        if (!currentAccount?.id) return;
+
         const unsubscribe = useTreeStore.subscribe((state) => {
-            setTree(state.getTreeStructure());
+            setTree(state.getTreeStructure(currentAccount.id));
         });
         return unsubscribe;
-    }, []);
+    }, [currentAccount?.id]);
 
     // Add an effect to log when Header re-renders with a new environment
     useEffect(() => {
@@ -65,7 +76,7 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
 
     if (!currentAccount) {
         return (
-            <div key="header-no-env" className="w-full h-full flex justify-center items-center overflow-hidden">
+            <div key="header-no-account" className="w-full h-full flex justify-center items-center overflow-hidden">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-900" />
                 <p className="text-sm text-gray-500">Loading account...</p>
             </div>
@@ -73,19 +84,19 @@ export const Header = ({ environment, isLoading = false }: HeaderProps) => {
     }
 
     return (
-        <div key={`header-${environment.id}`} className="w-full h-full overflow-hidden">
+        <div key={`header-${environment.id}-${currentAccount.id}`} className="w-full h-full overflow-hidden">
             <ChatProvider accountId={currentAccount.id}>
                 <PanelGroup direction="horizontal" className="w-full h-full">
                     {/* Navigation Panel - Fixed Width */}
                     <Navigation
-                        key={`nav-${environment.id}`}
+                        key={`nav-${environment.id}-${currentAccount.id}`}
                         environment={environment}
                         summaryBarClassName="w-[65px] h-full"
                         detailPaneClassName="min-w-64 h-full overflow-hidden"
                     />
 
                     {/* Resize Handle */}
-                    <PanelResizeHandle key={`resize-${environment.id}`} className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
+                    <PanelResizeHandle key={`resize-${environment.id}-${currentAccount.id}`} className="w-[1px] bg-gray-100 hover:bg-blue-500 transition-colors cursor-col-resize" />
 
                     {/* TreeView Panel - Replace TabView with TreeView */}
                     <Panel defaultSize={80} minSize={10} className="h-full">

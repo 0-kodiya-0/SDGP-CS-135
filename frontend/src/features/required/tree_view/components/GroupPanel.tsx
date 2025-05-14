@@ -28,32 +28,6 @@ const GroupPanel = ({
     const { moveTab, createTabView, removeTabView } = useTabStore();
     const { addItem } = useTreeStore();
 
-    // This useEffect handles the case where a TabView becomes empty due to tabs being moved/closed
-    // It's necessary because the TabManagement component can't directly trigger tree updates
-    useEffect(() => {
-        const handleTabViewEmpty = (event: CustomEvent) => {
-            const { accountId: eventAccountId, tabViewId } = event.detail;
-            
-            // Check if this event is for our TabView
-            if (eventAccountId === accountId && node.tabItem?.tabViewId === tabViewId) {
-                // Remove the TabView from the store first
-                removeTabView(accountId, tabViewId);
-                
-                // Then remove this GroupPanel from the tree structure
-                if (node.tabItem) {
-                    onRemove(node.tabItem.id);
-                }
-            }
-        };
-
-        // Listen for custom events from TabManagement when a TabView becomes empty
-        window.addEventListener('tabview-empty', handleTabViewEmpty as EventListener);
-        
-        return () => {
-            window.removeEventListener('tabview-empty', handleTabViewEmpty as EventListener);
-        };
-    }, [accountId, node.tabItem, removeTabView, onRemove]);
-
     // Calculate drop zone based on mouse position
     const calculateDropZone = (x: number, y: number, width: number, height: number): { zone: 'center' | 'left' | 'right' | 'top' | 'bottom', thresholds: { horizontal: number, vertical: number } } => {
         // Use a percentage-based threshold that's smaller for larger panels
@@ -141,7 +115,8 @@ const GroupPanel = ({
                 const position = (currentDropZone === 'left' || currentDropZone === 'top') ? 'before' : 'after';
                 
                 // Then add the tree item with the proper split direction and position
-                addItem(item.title, node.id, splitDirection, newTabViewId, position);
+                // Pass the accountId to the addItem method
+                addItem(accountId, item.title, node.id, splitDirection, newTabViewId, position);
 
                 // Finally move the tab to the new TabView
                 moveTab(item.accountId, item.id, newTabViewId);
@@ -167,19 +142,45 @@ const GroupPanel = ({
         drop(el);
     };
 
-    // Reset dropZone when drag leaves
-    useEffect(() => {
-        if (!isOver) {
-            setDropZone(null);
-        }
-    }, [isOver]);
-
     // Handle removal callback (for manual removal, not automatic due to empty TabView)
     const handleRemoval = () => {
         if (node.tabItem) {
             onRemove(node.tabItem.id);
         }
     };
+
+    // This useEffect handles the case where a TabView becomes empty due to tabs being moved/closed
+    // It's necessary because the TabManagement component can't directly trigger tree updates
+    useEffect(() => {
+        const handleTabViewEmpty = (event: CustomEvent) => {
+            const { accountId: eventAccountId, tabViewId } = event.detail;
+            
+            // Check if this event is for our TabView
+            if (eventAccountId === accountId && node.tabItem?.tabViewId === tabViewId) {
+                // Remove the TabView from the store first
+                removeTabView(accountId, tabViewId);
+                
+                // Then remove this GroupPanel from the tree structure
+                if (node.tabItem) {
+                    onRemove(node.tabItem.id);
+                }
+            }
+        };
+
+        // Listen for custom events from TabManagement when a TabView becomes empty
+        window.addEventListener('tabview-empty', handleTabViewEmpty as EventListener);
+        
+        return () => {
+            window.removeEventListener('tabview-empty', handleTabViewEmpty as EventListener);
+        };
+    }, [accountId, node.tabItem]);
+    
+    // Reset dropZone when drag leaves
+    useEffect(() => {
+        if (!isOver) {
+            setDropZone(null);
+        }
+    }, [isOver]);
 
     return (
         <div

@@ -56,6 +56,27 @@ const DraggableTab: React.FC<DraggableTabProps> = ({
   // Connect the drag ref to our element ref
   drag(ref);
 
+  // Handle tab click - but not when clicking the close button
+  const handleTabClick = (e: React.MouseEvent) => {
+    // Check if the click was on the close button or its children
+    const target = e.target as HTMLElement;
+    const closeButton = target.closest('button');
+    
+    // If we clicked on a button (the close button), don't select the tab
+    if (closeButton) {
+      return;
+    }
+    
+    onSelect();
+  };
+
+  // Handle close button click
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent the tab click handler from firing
+    onClose(e);
+  };
+
   return (
     <div
       key={tab.id}
@@ -66,7 +87,7 @@ const DraggableTab: React.FC<DraggableTabProps> = ({
         ${isActive ? 'bg-white border-b-2 border-b-blue-500' : 'bg-gray-50'}
         ${isDragging ? 'opacity-50' : 'opacity-100'}
       `}
-      onClick={onSelect}
+      onClick={handleTabClick} // Use our custom handler
     >
       <ScrollingText
         text={tab.title}
@@ -74,7 +95,7 @@ const DraggableTab: React.FC<DraggableTabProps> = ({
       />
       <button
         className="opacity-0 group-hover:opacity-100 ml-2"
-        onClick={onClose}
+        onClick={handleCloseClick} // Use our custom handler
       >
         <X className="w-3 h-3 text-gray-600" />
       </button>
@@ -91,7 +112,7 @@ export const TabManagement: React.FC<TabManagementProps> = ({
   const {
     removeTabView,
     getTabsForTabView,
-    closeTab,
+    closeTabInTabView,
     setActiveTab,
     getActiveTabIdForTabView,
     getAllTabViewsForAccount
@@ -105,7 +126,7 @@ export const TabManagement: React.FC<TabManagementProps> = ({
     const allTabViews = getAllTabViewsForAccount(accountId);
 
     // Close the tab first
-    closeTab(accountId, tabId);
+    closeTabInTabView(accountId, tabViewId, tabId);
 
     // Check conditions for removing the GroupPanel
     const remainingTabs = tabs.filter(tab => tab.id !== tabId);
@@ -119,7 +140,7 @@ export const TabManagement: React.FC<TabManagementProps> = ({
       // Trigger GroupPanel removal
       removeGroup();
     }
-  }, [accountId, closeTab, getAllTabViewsForAccount, getTabsForTabView, removeGroup, removeTabView, tabViewId]);
+  }, [accountId, closeTabInTabView, getAllTabViewsForAccount, getTabsForTabView, removeGroup, removeTabView, tabViewId]);
 
   // Handle tab selection
   const handleTabClick = useCallback((tabId: string) => {
