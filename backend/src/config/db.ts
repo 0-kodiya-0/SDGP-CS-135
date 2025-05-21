@@ -2,6 +2,7 @@ import initAccountModels from '../feature/account/Account.model';
 import initChatModels from '../feature/chat/chat.model';
 import initEnvironmentModel from '../feature/environment/Environment.model';
 import initActiveEnvironmentModel from '../feature/environment/ActiveEnvironment.model';
+import initNotificationModel from '../feature/notifications/Notification.model';
 import dbConfig from './db.config';
 
 // Define model types for type safety
@@ -11,12 +12,16 @@ export type EnvironmentModels = {
   Environment: Awaited<ReturnType<typeof initEnvironmentModel>>;
   ActiveEnvironment: Awaited<ReturnType<typeof initActiveEnvironmentModel>>;
 };
+export type NotificationModels = {
+  Notification: Awaited<ReturnType<typeof initNotificationModel>>;
+};
 
 // Database models container with proper typing
 interface DatabaseModels {
     accounts: AccountModels;
     chat: ChatModels;
     environments: EnvironmentModels;
+    notifications: NotificationModels;
 }
 
 // Track initialization state
@@ -42,6 +47,7 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         const accountsConnection = dbConfig.connections.accounts!;
         const environmentModel = await initEnvironmentModel(accountsConnection);
         const activeEnvironmentModel = await initActiveEnvironmentModel(accountsConnection);
+        const notificationModel = await initNotificationModel();
 
         // Store initialized models
         models = {
@@ -50,6 +56,9 @@ const initializeDB = async (): Promise<DatabaseModels> => {
             environments: {
                 Environment: environmentModel,
                 ActiveEnvironment: activeEnvironmentModel
+            },
+            notifications: {
+                Notification: notificationModel
             }
         };
 

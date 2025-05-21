@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { Environment } from '../../../default/environment/types/types.data';
 import { Loader2 } from 'lucide-react';
 import { useFeatureStore } from '../store/useFeatureStore';

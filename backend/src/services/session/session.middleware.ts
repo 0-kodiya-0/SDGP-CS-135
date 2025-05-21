@@ -2,13 +2,16 @@ import { Request, Response, NextFunction } from 'express';
 import { ApiErrorCode, BadRequestError, NotFoundError, RedirectError, ServerError } from '../../types/response.types';
 import db from '../../config/db';
 import { asyncHandler } from '../../utils/response';
-import { validateOAuthAccount } from '../../feature/account/Account.validation';
+import { validateOAuthAccount, validateLocalAccount } from '../../feature/account/Account.validation';
 import { extractAccessToken, extractRefreshToken, verifySession } from './session.manager';
 import { removeRootUrl } from '../../utils/url';
 import mongoose from 'mongoose';
+import { AccountType } from '../../feature/account/Account.types';
+import { getAccountTypeById } from '../../feature/account/Account.utils';
+import { verifyJwtToken } from './session.jwt';
 
 /**
- * Middleware to verify JWT token from cookies and add accessToken to request
+ * Middleware to verify token from cookies and add accountId to request
  */
 export const authenticateSession = (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
@@ -26,29 +29,59 @@ export const authenticateSession = (req: Request, res: Response, next: NextFunct
 
 /**
  * Middleware to validate access to a specific account
+ * Handles both OAuth and Local accounts
  */
 export const validateAccountAccess = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
 
     const models = await db.getModels();
 
-    const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
+    // Determine account type (OAuth or Local)
+    const accountType = await getAccountTypeById(accountId);
 
-    if (!account) {
+    if (!accountType) {
         throw new NotFoundError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
     }
 
-    try {
-        validateOAuthAccount(account);
-    } catch {
-        throw new ServerError('Invalid user object. Please contact system admins.');
+    // Load the appropriate account type
+    let account;
+    if (accountType === AccountType.OAuth) {
+        account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
+        
+        if (!account) {
+            throw new NotFoundError('OAuth account not found', 404, ApiErrorCode.USER_NOT_FOUND);
+        }
+        
+        try {
+            validateOAuthAccount(account);
+        } catch {
+            throw new ServerError('Invalid OAuth account object. Please contact system admins.');
+        }
+    } else {
+        account = await models.accounts.LocalAccount.findOne({ _id: accountId });
+        
+        if (!account) {
+            throw new NotFoundError('Local account not found', 404, ApiErrorCode.USER_NOT_FOUND);
+        }
+        
+        try {
+            validateLocalAccount(account);
+        } catch {
+            throw new ServerError('Invalid local account object. Please contact system admins.');
+        }
     }
 
-    req.oauthAccount = account;
+    // Attach the account to the request for downstream middleware/handlers
+    req.oauthAccount = accountType === AccountType.OAuth ? account : undefined;
+    req.localAccount = accountType === AccountType.Local ? account : undefined;
 
     next();
 });
 
+/**
+ * Middleware to validate token access
+ * Handles both OAuth and Local auth tokens
+ */
 export const validateTokenAccess = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
 
@@ -69,21 +102,48 @@ export const validateTokenAccess = asyncHandler(async (req: Request, res: Respon
             }
         }
 
-        const tokenPayload = verifySession(token);
-
-        if (typeof tokenPayload !== "string") {
-            throw new BadRequestError("Invalid payload format");
-        }
-
-        if (isRefreshTokenPath) {
-            req.refreshToken = tokenPayload;
+        // For JWT tokens (used in local auth), we need to verify differently
+        const accountType = await getAccountTypeById(accountId);
+        
+        if (accountType === AccountType.Local) {
+            // For local auth, verify JWT token
+            try {
+                const { accountId: tokenAccountId } = verifyJwtToken(token);
+                
+                // Check if token belongs to the right account
+                if (tokenAccountId !== accountId) {
+                    throw new Error('Invalid token for this account');
+                }
+                
+                if (isRefreshTokenPath) {
+                    req.refreshToken = token;
+                } else {
+                    req.accessToken = token;
+                }
+            } catch {
+                throw new Error('Invalid or expired token');
+            }
         } else {
-            req.accessToken = tokenPayload;
+            // For OAuth, use the existing flow
+            const tokenPayload = verifySession(token);
+
+            if (typeof tokenPayload !== "string") {
+                throw new BadRequestError("Invalid payload format");
+            }
+
+            if (isRefreshTokenPath) {
+                req.refreshToken = tokenPayload;
+            } else {
+                req.accessToken = tokenPayload;
+            }
         }
 
         next();
     } catch {
-        const accountPath = req.oauthAccount?.id || req.oauthAccount?._id?.toHexString?.() || accountId;
+        const accountPath = req.oauthAccount?.id || req.localAccount?.id || 
+                          req.oauthAccount?._id?.toHexString?.() || 
+                          req.localAccount?._id?.toHexString?.() || 
+                          accountId;
 
         if (isRefreshTokenPath) {
             throw new RedirectError(
