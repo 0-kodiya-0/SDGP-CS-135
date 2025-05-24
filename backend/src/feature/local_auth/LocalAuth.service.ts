@@ -1,3 +1,5 @@
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { 
     AccountStatus, 
     AccountType, 
@@ -12,13 +14,22 @@ import {
 } from '../account/Account.types';
 import db from '../../config/db';
 import { BadRequestError, NotFoundError, ValidationError, ApiErrorCode } from '../../types/response.types';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import { toLocalAccount } from '../account/Account.utils';
 import { sendPasswordResetEmail, sendVerificationEmail, sendPasswordChangedNotification } from '../email/Email.service';
 import { authenticator } from 'otplib';
 import { addUserNotification } from '../notifications/Notification.service';
 import { ValidationUtils } from '../../utils/validation';
+import { 
+    saveEmailVerificationToken, 
+    getEmailVerificationToken, 
+    removeEmailVerificationToken,
+    getPasswordResetToken,
+    removePasswordResetToken,
+    saveTwoFactorTempToken,
+    getTwoFactorTempToken,
+    markTwoFactorTempTokenAsUsed,
+    removeTwoFactorTempToken
+} from './LocalAuth.cache';
 
 /**
  * Create a new local account
@@ -26,7 +37,7 @@ import { ValidationUtils } from '../../utils/validation';
 export async function createLocalAccount(signupData: SignupRequest): Promise<LocalAccount> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
+    // Use ValidationUtils for validation
     ValidationUtils.validateRequiredFields(signupData, ['firstName', 'lastName', 'email', 'password']);
     ValidationUtils.validateEmail(signupData.email);
     ValidationUtils.validatePasswordStrength(signupData.password);
@@ -64,9 +75,6 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
     // Create account with validated fields
     const timestamp = new Date().toISOString();
     
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    
     const newAccount = await models.accounts.LocalAccount.create({
         created: timestamp,
         updated: timestamp,
@@ -79,9 +87,8 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
             email: signupData.email,
             username: signupData.username,
             birthdate: signupData.birthdate,
-            emailVerified: false,
-            verificationToken: crypto.createHash('sha256').update(verificationToken).digest('hex'),
-            verificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+            emailVerified: false
+            // No verification token in database - using cache now
         },
         security: {
             password: signupData.password, // Will be hashed by the model's pre-save hook
@@ -91,6 +98,12 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
             failedLoginAttempts: 0
         }
     });
+    
+    // Generate verification token and store in cache
+    const verificationToken = saveEmailVerificationToken(
+        newAccount._id.toString(),
+        signupData.email
+    );
     
     // Send verification email (async - don't wait for it)
     sendVerificationEmail(signupData.email, signupData.firstName, verificationToken).catch(err => {
@@ -103,10 +116,10 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
 /**
  * Authenticate a user with local credentials
  */
-export async function authenticateLocalUser(authData: LocalAuthRequest): Promise<LocalAccount> {
+export async function authenticateLocalUser(authData: LocalAuthRequest): Promise<LocalAccount | { requiresTwoFactor: true, tempToken: string, accountId: string }> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
+    // Use ValidationUtils for validation
     if (!authData.email && !authData.username) {
         throw new BadRequestError('Email or username is required');
     }
@@ -191,40 +204,61 @@ export async function authenticateLocalUser(authData: LocalAuthRequest): Promise
         await account.save();
     }
     
+    // Check if 2FA is enabled
+    if (account.security.twoFactorEnabled) {
+        // Generate temporary token for 2FA verification
+        const tempToken = saveTwoFactorTempToken(
+            account._id.toString(),
+            account.userDetails.email as string
+        );
+        
+        return {
+            requiresTwoFactor: true,
+            tempToken,
+            accountId: account._id.toString()
+        };
+    }
+    
     // Return account
     return toLocalAccount(account) as LocalAccountDTO;
 }
 
 /**
- * Verify a user's email address
+ * Verify a user's email address using cached token
  */
 export async function verifyEmail(token: string): Promise<boolean> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateRequiredFields({ token }, ['token']);
     ValidationUtils.validateStringLength(token, 'Verification token', 10, 200);
     
-    // Hash the token to compare with stored value
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Get token from cache
+    const tokenData = getEmailVerificationToken(token);
     
-    // Find account with matching verification token
-    const account = await models.accounts.LocalAccount.findOne({
-        'userDetails.verificationToken': hashedToken,
-        'userDetails.verificationExpires': { $gt: new Date() }
-    });
+    if (!tokenData) {
+        throw new ValidationError('Invalid or expired verification token', 400, ApiErrorCode.TOKEN_INVALID);
+    }
+    
+    // Find account by ID
+    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
     
     if (!account) {
-        throw new ValidationError('Invalid or expired verification token', 400, ApiErrorCode.TOKEN_INVALID);
+        throw new ValidationError('Account not found', 400, ApiErrorCode.USER_NOT_FOUND);
+    }
+    
+    // Verify email matches
+    if (account.userDetails.email !== tokenData.email) {
+        throw new ValidationError('Token email mismatch', 400, ApiErrorCode.TOKEN_INVALID);
     }
     
     // Mark email as verified
     account.userDetails.emailVerified = true;
     account.status = AccountStatus.Active;
-    account.userDetails.verificationToken = undefined;
-    account.userDetails.verificationExpires = undefined;
     
     await account.save();
+    
+    // Remove token from cache
+    removeEmailVerificationToken(token);
     
     // Add welcome notification
     await addUserNotification({
@@ -238,12 +272,11 @@ export async function verifyEmail(token: string): Promise<boolean> {
 }
 
 /**
- * Request a password reset
+ * Request a password reset using cache for token storage
  */
 export async function requestPasswordReset(data: PasswordResetRequest): Promise<boolean> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateRequiredFields(data, ['email']);
     ValidationUtils.validateEmail(data.email);
     
@@ -258,7 +291,7 @@ export async function requestPasswordReset(data: PasswordResetRequest): Promise<
         return true;
     }
     
-    // Generate reset token
+    // Generate reset token using the model method (which now uses cache)
     const resetToken = await account.generatePasswordResetToken();
     
     // Send password reset email (async - don't wait for it)
@@ -274,27 +307,32 @@ export async function requestPasswordReset(data: PasswordResetRequest): Promise<
 }
 
 /**
- * Reset password with token
+ * Reset password with cached token
  */
 export async function resetPassword(token: string, newPassword: string): Promise<boolean> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateRequiredFields({ token, newPassword }, ['token', 'newPassword']);
     ValidationUtils.validateStringLength(token, 'Reset token', 10, 200);
     ValidationUtils.validatePasswordStrength(newPassword);
     
-    // Hash the token to compare with stored value
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Get token from cache
+    const tokenData = getPasswordResetToken(token);
     
-    // Find account with matching reset token that hasn't expired
-    const account = await models.accounts.LocalAccount.findOne({
-        'security.passwordResetToken': hashedToken,
-        'security.passwordResetExpires': { $gt: new Date() }
-    });
+    if (!tokenData) {
+        throw new ValidationError('Password reset token is invalid or has expired', 400, ApiErrorCode.TOKEN_INVALID);
+    }
+    
+    // Find account by ID
+    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
     
     if (!account) {
-        throw new ValidationError('Password reset token is invalid or has expired', 400, ApiErrorCode.TOKEN_INVALID);
+        throw new ValidationError('Account not found', 400, ApiErrorCode.USER_NOT_FOUND);
+    }
+    
+    // Verify email matches
+    if (account.userDetails.email !== tokenData.email) {
+        throw new ValidationError('Token email mismatch', 400, ApiErrorCode.TOKEN_INVALID);
     }
     
     // Check if new password matches any of the previous passwords
@@ -317,6 +355,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
     
     // Reset the password
     await account.resetPassword(newPassword);
+    
+    // Remove token from cache
+    removePasswordResetToken(token);
     
     // Send notification email (async - don't wait)
     sendPasswordChangedNotification(
@@ -343,7 +384,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
 export async function changePassword(accountId: string, data: PasswordChangeRequest): Promise<boolean> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateObjectId(accountId, 'Account ID');
     ValidationUtils.validateRequiredFields(data, ['oldPassword', 'newPassword']);
     ValidationUtils.validatePasswordStrength(data.newPassword);
@@ -401,13 +441,15 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
     return true;
 }
 
+// ... Rest of the methods remain the same (setupTwoFactor, verifyAndEnableTwoFactor, etc.)
+// They don't use tokens so no changes needed
+
 /**
  * Set up two-factor authentication
  */
 export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequest): Promise<{ secret?: string, qrCodeUrl?: string }> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateObjectId(accountId, 'Account ID');
     ValidationUtils.validateRequiredFields(data, ['password', 'enableTwoFactor']);
     
@@ -501,7 +543,6 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
 export async function verifyAndEnableTwoFactor(accountId: string, token: string): Promise<boolean> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateObjectId(accountId, 'Account ID');
     ValidationUtils.validateRequiredFields({ token }, ['token']);
     ValidationUtils.validateStringLength(token, '2FA token', 6, 6); // TOTP codes are exactly 6 digits
@@ -533,27 +574,36 @@ export async function verifyAndEnableTwoFactor(accountId: string, token: string)
 /**
  * Verify two-factor code during login
  */
-export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFactorRequest): Promise<boolean> {
+export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: string): Promise<LocalAccount> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
-    ValidationUtils.validateObjectId(accountId, 'Account ID');
-    ValidationUtils.validateRequiredFields(data, ['token']);
-    ValidationUtils.validateStringLength(data.token, '2FA token', 6, 8); // TOTP or backup code
+    ValidationUtils.validateRequiredFields({ tempToken, twoFactorCode }, ['tempToken', 'twoFactorCode']);
+    ValidationUtils.validateStringLength(twoFactorCode, '2FA token', 6, 8); // TOTP or backup code
+    
+    // Get temporary token from cache
+    const tokenData = getTwoFactorTempToken(tempToken);
+    
+    if (!tokenData) {
+        throw new ValidationError('Invalid or expired temporary token', 401, ApiErrorCode.TOKEN_INVALID);
+    }
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(accountId);
+    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
     
     if (!account || !account.security.twoFactorEnabled || !account.security.twoFactorSecret) {
         throw new NotFoundError('Account not found or 2FA not enabled', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
+    // Verify email matches (additional security check)
+    if (account.userDetails.email !== tokenData.email) {
+        throw new ValidationError('Token account mismatch', 401, ApiErrorCode.AUTH_FAILED);
+    }
+    
     // Check if token is a backup code
     if (account.security.twoFactorBackupCodes && account.security.twoFactorBackupCodes.length > 0) {
-        // Check if the token matches any backup code
         const backupCodeIndex = await Promise.all(
             account.security.twoFactorBackupCodes.map(async (hashedCode, index) => {
-                const isMatch = await bcrypt.compare(data.token, hashedCode);
+                const isMatch = await bcrypt.compare(twoFactorCode, hashedCode);
                 return isMatch ? index : -1;
             })
         ).then(results => results.find(index => index !== -1));
@@ -562,6 +612,10 @@ export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFac
             // Remove used backup code
             account.security.twoFactorBackupCodes?.splice(backupCodeIndex, 1);
             await account.save();
+            
+            // Mark temp token as used and remove it
+            markTwoFactorTempTokenAsUsed(tempToken);
+            removeTwoFactorTempToken(tempToken);
             
             // Add notification about backup code usage
             await addUserNotification({
@@ -573,13 +627,13 @@ export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFac
                 type: 'warning'
             });
             
-            return true;
+            return toLocalAccount(account) as LocalAccountDTO;
         }
     }
     
-    // Verify regular token
+    // Verify regular TOTP token
     const isValid = authenticator.verify({
-        token: data.token,
+        token: twoFactorCode,
         secret: account.security.twoFactorSecret
     });
     
@@ -587,7 +641,11 @@ export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFac
         throw new ValidationError('Invalid two-factor code', 401, ApiErrorCode.AUTH_FAILED);
     }
     
-    return true;
+    // Mark temp token as used and remove it
+    markTwoFactorTempTokenAsUsed(tempToken);
+    removeTwoFactorTempToken(tempToken);
+    
+    return toLocalAccount(account) as LocalAccountDTO;
 }
 
 /**
@@ -596,7 +654,6 @@ export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFac
 export async function generateNewBackupCodes(accountId: string, password: string): Promise<string[]> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateObjectId(accountId, 'Account ID');
     ValidationUtils.validateRequiredFields({ password }, ['password']);
     
@@ -647,7 +704,6 @@ export async function generateNewBackupCodes(accountId: string, password: string
 export async function convertOAuthToLocalAccount(oauthAccountId: string, password: string, username?: string): Promise<LocalAccount> {
     const models = await db.getModels();
     
-    // UPDATED: Use ValidationUtils for validation
     ValidationUtils.validateObjectId(oauthAccountId, 'OAuth Account ID');
     ValidationUtils.validateRequiredFields({ password }, ['password']);
     ValidationUtils.validatePasswordStrength(password);

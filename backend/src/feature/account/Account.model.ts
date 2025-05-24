@@ -2,9 +2,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 import dbConfig from '../../config/db.config';
 import { AccountStatus, AccountType, LocalAccount, OAuthAccount, OAuthProviders } from '../../feature/account/Account.types';
 import bcrypt from 'bcrypt';
-import crypto from "crypto";
+import { savePasswordResetToken } from '../local_auth/LocalAuth.cache';
 
-// User details schema
+// User details schema - removed verification fields
 const UserDetailsSchema = new Schema({
     firstName: { type: String },
     lastName: { type: String },
@@ -14,6 +14,7 @@ const UserDetailsSchema = new Schema({
     birthdate: { type: String },
     username: { type: String },
     emailVerified: { type: Boolean, default: false }
+    // Removed: verificationToken, verificationExpires
 }, { _id: false });
 
 // Base security settings schema
@@ -28,20 +29,19 @@ const BaseSecuritySettingsSchema = {
 // OAuth Security settings schema
 const OAuthSecuritySettingsSchema = new Schema(BaseSecuritySettingsSchema, { _id: false });
 
-// Local Security settings schema
+// Local Security settings schema - removed password reset fields
 const LocalSecuritySettingsSchema = new Schema({
     ...BaseSecuritySettingsSchema,
     password: { type: String, required: true },
     passwordSalt: { type: String },
-    passwordResetToken: { type: String },
-    passwordResetExpires: { type: Date },
+    // Removed: passwordResetToken, passwordResetExpires
     lastPasswordChange: { type: Date },
     previousPasswords: { type: [String], default: [] },
     failedLoginAttempts: { type: Number, default: 0 },
     lockoutUntil: { type: Date }
 }, { _id: false });
 
-// New schema for OAuth scopes
+// OAuth scope info schema
 const OAuthScopeInfoSchema = new Schema({
     scopes: { type: [String], default: [] },
     lastUpdated: { type: String, required: true }
@@ -118,24 +118,18 @@ LocalAccountSchema.methods.comparePassword = async function(candidatePassword: s
     return bcrypt.compare(candidatePassword, this.security.password);
 };
 
-// Password reset token generation
+// Password reset token generation - now uses cache instead of database
 LocalAccountSchema.methods.generatePasswordResetToken = async function(): Promise<string> {
-    const resetToken = crypto.randomBytes(32).toString('hex');
-
-    // Hash the token before storing
-    this.security.passwordResetToken = crypto.createHash('sha256')
-        .update(resetToken)
-        .digest('hex');
-        
-    // Set expiration to 10 minutes from now
-    this.security.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
+    // Generate token and store in cache instead of database
+    const token = savePasswordResetToken(
+        this._id.toString(),
+        this.userDetails.email
+    );
     
-    await this.save();
-    
-    return resetToken;
+    return token;
 };
 
-// Password reset method
+// Password reset method - updated to not clear database fields
 LocalAccountSchema.methods.resetPassword = async function(newPassword: string): Promise<void> {
     // Store the current password in previous passwords array (limited to last 5)
     if (this.security.password) {
@@ -151,10 +145,6 @@ LocalAccountSchema.methods.resetPassword = async function(newPassword: string): 
     // Hash the new password
     const salt = await bcrypt.genSalt(10);
     this.security.password = await bcrypt.hash(newPassword, salt);
-    
-    // Clear reset token and expiration
-    this.security.passwordResetToken = undefined;
-    this.security.passwordResetExpires = undefined;
     
     // Update last password change timestamp
     this.security.lastPasswordChange = new Date();

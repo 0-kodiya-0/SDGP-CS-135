@@ -1,24 +1,24 @@
 import { NextFunction, Request, Response } from 'express';
 import { asyncHandler } from '../../utils/response';
-import { 
-    JsonSuccess, 
-    RedirectSuccess, 
-    ValidationError, 
-    ApiErrorCode, 
+import {
+    JsonSuccess,
+    RedirectSuccess,
+    ValidationError,
+    ApiErrorCode,
     BadRequestError,
     AuthError
 } from '../../types/response.types';
 import * as LocalAuthService from './LocalAuth.service';
-import { 
-    validateSignupRequest, 
+import {
+    validateSignupRequest,
     validateLoginRequest,
     validatePasswordChangeRequest,
     validatePasswordStrength
 } from '../account/Account.validation';
-import { 
-    LocalAuthRequest, 
-    SignupRequest, 
-    PasswordResetRequest, 
+import {
+    LocalAuthRequest,
+    SignupRequest,
+    PasswordResetRequest,
     PasswordChangeRequest,
     SetupTwoFactorRequest,
     VerifyTwoFactorRequest,
@@ -38,16 +38,16 @@ import { ValidationUtils } from '../../utils/validation';
  */
 export const signup = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const signupData = req.body as SignupRequest;
-    
+
     // Validate signup request
     const validationError = validateSignupRequest(signupData);
     if (validationError) {
         throw new ValidationError(validationError, 400, ApiErrorCode.VALIDATION_ERROR);
     }
-    
+
     // Create account
     const account = await LocalAuthService.createLocalAccount(signupData);
-    
+
     // Return success response
     next(new JsonSuccess({
         message: 'Account created successfully. Please check your email to verify your account.',
@@ -60,45 +60,46 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
  */
 export const login = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const loginData = req.body as LocalAuthRequest;
-    
+
     // Validate login request
     const validationError = validateLoginRequest(loginData);
     if (validationError) {
         throw new ValidationError(validationError, 400, ApiErrorCode.VALIDATION_ERROR);
     }
-    
+
     // Authenticate user
-    const account = await LocalAuthService.authenticateLocalUser(loginData);
-    
-    // Check if 2FA is enabled
-    if (account.security.twoFactorEnabled) {
-        // Generate temporary token for 2FA verification
-        const tempToken = await createLocalJwtToken(account.id, 5 * 60); // 5 minutes
-        
+    const result = await LocalAuthService.authenticateLocalUser(loginData);
+
+    // Check if 2FA is required
+    if ('requiresTwoFactor' in result && result.requiresTwoFactor) {
         next(new JsonSuccess({
             requiresTwoFactor: true,
-            tempToken,
-            accountId: account.id
+            tempToken: result.tempToken,
+            accountId: result.accountId,
+            message: 'Please enter your two-factor authentication code'
         }));
         return;
     }
-    
+
+    // Normal login (no 2FA)
+    const account = result as LocalAccount;
+
     // Generate JWT token
     const token = await createLocalJwtToken(account.id);
-    
+
     // Set cookies
     const expiresIn = account.security.sessionTimeout || 3600;
     setAccessTokenCookie(res, account.id, token, expiresIn * 1000);
-    
+
     // Set remember me cookie if requested
     if (loginData.rememberMe) {
-        setRefreshTokenCookie(res, account.id, token); // Uses longer expiration
+        setRefreshTokenCookie(res, account.id, token);
     }
-    
+
     // Track login for security monitoring
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const ipAddress = req.ip || 'Unknown';
-    
+
     // Add notification about login (async, don't wait)
     addUserNotification({
         accountId: account.id,
@@ -108,7 +109,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     }).catch(err => {
         console.error('Failed to add login notification:', err);
     });
-    
+
     // Return success response
     next(new JsonSuccess({
         accountId: account.id,
@@ -120,59 +121,48 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
  * Verify two-factor authentication during login
  */
 export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const accountId = req.params.accountId;
     const { token, tempToken } = req.body as VerifyTwoFactorRequest & { tempToken: string };
-    
+
     if (!token || !tempToken) {
         throw new BadRequestError('Verification token and temporary token are required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
+
     // Verify the temporary token first (ensures this is a valid 2FA session)
     try {
-        const decoded = await createLocalJwtToken(tempToken, 0, true); // Verify only, don't create new
-        
-        if (decoded !== accountId) {
-            throw new AuthError('Invalid temporary token', 401, ApiErrorCode.AUTH_FAILED);
-        }
+        // Verify 2FA using the temporary token system
+        const account = await LocalAuthService.verifyTwoFactorLogin(tempToken, token);
+
+        // Generate JWT token
+        const jwtToken = await createLocalJwtToken(account.id);
+
+        // Set cookies
+        const expiresIn = account.security.sessionTimeout || 3600;
+        setAccessTokenCookie(res, account.id, jwtToken, expiresIn * 1000);
+
+        // Return success response
+        next(new JsonSuccess({
+            accountId: account.id,
+            name: account.userDetails.name,
+            message: 'Two-factor authentication successful'
+        }));
     } catch {
         throw new AuthError('Temporary token expired or invalid', 401, ApiErrorCode.AUTH_FAILED);
     }
-    
-    // Verify 2FA token
-    const isValid = await LocalAuthService.verifyTwoFactorLogin(accountId, { token });
-    
-    if (!isValid) {
-        throw new AuthError('Invalid verification code', 401, ApiErrorCode.AUTH_FAILED);
-    }
-    
-    // Generate full JWT token
-    const newToken = await createLocalJwtToken(accountId);
-    
-    // Set cookies
-    const account = await findLocalUserById(accountId) as LocalAccount;
-    const expiresIn = account.security.sessionTimeout || 3600;
-    setAccessTokenCookie(res, accountId, newToken, expiresIn * 1000);
-    
-    // Return success response
-    next(new JsonSuccess({
-        accountId,
-        name: account.userDetails.name
-    }));
 });
 
 /**
- * Verify email address
+ * Verify email address - now uses cache
  */
 export const verifyEmail = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { token } = req.query as unknown as VerifyEmailRequest;
-    
+
     if (!token) {
         throw new BadRequestError('Verification token is required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
-    // Verify email
+
+    // Verify email using cached token
     await LocalAuthService.verifyEmail(token);
-    
+
     // Redirect to login page with success message
     next(new RedirectSuccess(
         { message: 'Email verified successfully. You can now log in.' },
@@ -182,18 +172,18 @@ export const verifyEmail = asyncHandler(async (req: Request, res: Response, next
 });
 
 /**
- * Request password reset
+ * Request password reset - now uses cache
  */
 export const requestPasswordReset = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const data = req.body as PasswordResetRequest;
-    
+
     if (!data.email) {
         throw new BadRequestError('Email is required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
-    // Request password reset
+
+    // Request password reset using cached tokens
     await LocalAuthService.requestPasswordReset(data);
-    
+
     // Return success response (even if email not found for security)
     next(new JsonSuccess({
         message: 'If your email is registered, you will receive instructions to reset your password.'
@@ -201,25 +191,25 @@ export const requestPasswordReset = asyncHandler(async (req: Request, res: Respo
 });
 
 /**
- * Reset password with token
+ * Reset password with token - now uses cache
  */
 export const resetPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { token } = req.query;
     const { password, confirmPassword } = req.body;
-    
+
     ValidationUtils.validateRequiredFields(req.query, ['token']);
     ValidationUtils.validateRequiredFields(req.body, ['password', 'confirmPassword']);
-    
+
     if (password !== confirmPassword) {
         throw new ValidationError('Passwords do not match', 400, ApiErrorCode.VALIDATION_ERROR);
     }
-    
+
     // Use centralized password validation
     ValidationUtils.validatePasswordStrength(password);
-    
-    // Reset password
+
+    // Reset password using cached token
     await LocalAuthService.resetPassword(token as string, password);
-    
+
     next(new JsonSuccess({
         message: 'Password reset successfully. You can now log in with your new password.'
     }));
@@ -231,16 +221,16 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response, ne
 export const changePassword = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
     const data = req.body as PasswordChangeRequest;
-    
+
     // Validate change password request
     const validationError = validatePasswordChangeRequest(data);
     if (validationError) {
         throw new ValidationError(validationError, 400, ApiErrorCode.VALIDATION_ERROR);
     }
-    
+
     // Change password
     await LocalAuthService.changePassword(accountId, data);
-    
+
     // Return success response
     next(new JsonSuccess({
         message: 'Password changed successfully.'
@@ -253,22 +243,22 @@ export const changePassword = asyncHandler(async (req: Request, res: Response, n
 export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
     const data = req.body as SetupTwoFactorRequest;
-    
+
     if (!data.password) {
         throw new BadRequestError('Password is required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
+
     // Set up 2FA
     const result = await LocalAuthService.setupTwoFactor(accountId, data);
-    
+
     // If enabling 2FA, generate QR code
     if (data.enableTwoFactor && result.secret && result.qrCodeUrl) {
         try {
             const qrCodeDataUrl = await QRCode.toDataURL(result.qrCodeUrl);
-            
+
             // Generate backup codes if not already present
             const backupCodes = await LocalAuthService.generateNewBackupCodes(accountId, data.password);
-            
+
             // Send notification email (async - don't wait)
             const account = await findLocalUserById(accountId) as LocalAccount;
             if (account.userDetails.email) {
@@ -279,7 +269,7 @@ export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, n
                     console.error('Failed to send 2FA enabled notification:', err);
                 });
             }
-            
+
             next(new JsonSuccess({
                 message: '2FA setup successful. Please scan the QR code with your authenticator app.',
                 qrCode: qrCodeDataUrl,
@@ -304,14 +294,14 @@ export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, n
 export const verifyAndEnableTwoFactor = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
     const { token } = req.body;
-    
+
     if (!token) {
         throw new BadRequestError('Verification token is required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
+
     // Verify and enable 2FA
     const success = await LocalAuthService.verifyAndEnableTwoFactor(accountId, token);
-    
+
     if (success) {
         next(new JsonSuccess({
             message: 'Two-factor authentication has been successfully enabled for your account.'
@@ -327,14 +317,14 @@ export const verifyAndEnableTwoFactor = asyncHandler(async (req: Request, res: R
 export const generateBackupCodes = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
     const { password } = req.body;
-    
+
     if (!password) {
         throw new BadRequestError('Password is required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
+
     // Generate new backup codes
     const backupCodes = await LocalAuthService.generateNewBackupCodes(accountId, password);
-    
+
     next(new JsonSuccess({
         message: 'New backup codes generated successfully. Please save these codes in a secure location.',
         backupCodes
@@ -347,15 +337,15 @@ export const generateBackupCodes = asyncHandler(async (req: Request, res: Respon
 export const convertOAuthToLocal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const oauthAccountId = req.params.accountId;
     const { password, confirmPassword, username } = req.body;
-    
+
     if (!password || !confirmPassword) {
         throw new BadRequestError('Password and password confirmation are required', 400, ApiErrorCode.MISSING_DATA);
     }
-    
+
     if (password !== confirmPassword) {
         throw new ValidationError('Passwords do not match', 400, ApiErrorCode.VALIDATION_ERROR);
     }
-    
+
     if (!validatePasswordStrength(password)) {
         throw new ValidationError(
             'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
@@ -363,10 +353,10 @@ export const convertOAuthToLocal = asyncHandler(async (req: Request, res: Respon
             ApiErrorCode.VALIDATION_ERROR
         );
     }
-    
+
     // Convert OAuth account to local account
     const localAccount = await LocalAuthService.convertOAuthToLocalAccount(oauthAccountId, password, username);
-    
+
     next(new JsonSuccess({
         message: 'OAuth account successfully converted to local account.',
         accountId: localAccount.id

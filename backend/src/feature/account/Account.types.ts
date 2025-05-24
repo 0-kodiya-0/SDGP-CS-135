@@ -28,8 +28,8 @@ export interface BaseSecuritySettings {
 export interface LocalSecuritySettings extends BaseSecuritySettings {
     password: string;  // Hashed password
     passwordSalt?: string;  // Salt used for password hashing
-    passwordResetToken?: string;  // For password reset flow
-    passwordResetExpires?: Date;  // Expiration of password reset token
+    // passwordResetToken?: string;  // For password reset flow
+    // passwordResetExpires?: Date;  // Expiration of password reset token
     lastPasswordChange?: Date;    // Track when password was last changed
     previousPasswords?: string[]; // Store previous password hashes to prevent reuse
     failedLoginAttempts?: number; // Track failed login attempts
