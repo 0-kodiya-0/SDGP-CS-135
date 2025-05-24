@@ -1,4 +1,4 @@
-import { OAuthAccountDocument } from "./feature/account/Account.model";
+import { LocalAccountDocument, OAuthAccountDocument } from "./feature/account/Account.model";
 // import { SessionPayload } from "./types/session.types";
 
 declare global {
@@ -40,6 +40,8 @@ declare global {
             googleAuth?: Auth.OAuth2Client;
             googlePermissionRedirectUrl?: string;
             workspaceId?: string;
+            oauthAccount: OAuthAccountDocument | undefined;
+            localAccount: LocalAccountDocument | undefined;
         }
     }
 }

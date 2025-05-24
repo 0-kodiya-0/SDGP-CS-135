@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { AccountType } from '../../feature/account/Account.types';
 import { getAccountTypeById } from '../../feature/account/Account.utils';
 import { verifyJwtToken } from './session.jwt';
+import { LocalAccountDocument, OAuthAccountDocument } from '../../feature/account/Account.model';
 
 /**
  * Middleware to verify token from cookies and add accountId to request
@@ -72,8 +73,8 @@ export const validateAccountAccess = asyncHandler(async (req: Request, res: Resp
     }
 
     // Attach the account to the request for downstream middleware/handlers
-    req.oauthAccount = accountType === AccountType.OAuth ? account : undefined;
-    req.localAccount = accountType === AccountType.Local ? account : undefined;
+    req.oauthAccount = accountType === AccountType.OAuth ? account as OAuthAccountDocument : undefined;
+    req.localAccount = accountType === AccountType.Local ? account as LocalAccountDocument : undefined;
 
     next();
 });

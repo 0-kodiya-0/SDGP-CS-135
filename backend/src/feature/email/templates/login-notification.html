@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Login Detected</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #333; margin: 0; font-size: 28px;">{{APP_NAME}}</h1>
+            </div>
+            
+            <!-- Greeting -->
+            <h2 style="color: #333; margin-bottom: 20px;">Hello, {{FIRST_NAME}}!</h2>
+            
+            <!-- Main content -->
+            <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                We detected a new login to your {{APP_NAME}} account. Here are the details:
+            </p>
+            
+            <!-- Login details -->
+            <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: bold; width: 30%;">Time:</td>
+                        <td style="padding: 8px 0; color: #333;">{{LOGIN_TIME}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: bold;">IP Address:</td>
+                        <td style="padding: 8px 0; color: #333;">{{IP_ADDRESS}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Device:</td>
+                        <td style="padding: 8px 0; color: #333;">{{DEVICE}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Success message -->
+            <p style="color: #28a745; font-size: 16px; margin-bottom: 25px;">
+                ✓ If this was you, no further action is needed.
+            </p>
+            
+            <!-- Security warning -->
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+                <p style="color: #856404; font-size: 14px; margin-bottom: 15px; font-weight: bold;">
+                    ⚠️ Don't recognize this login?
+                </p>
+                <p style="color: #856404; font-size: 14px; margin-bottom: 15px;">
+                    If you don't recognize this login, please secure your account immediately by changing your password.
+                </p>
+                <div style="text-align: center;">
+                    <a href="{{BASE_URL}}/account/security" 
+                       style="background-color: #F44336; color: white; padding: 12px 20px; text-decoration: none; 
+                              border-radius: 4px; display: inline-block; font-weight: bold;">
+                        Secure Account
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #777; font-size: 12px; text-align: center; margin: 0;">
+                &copy; {{YEAR}} {{APP_NAME}}. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

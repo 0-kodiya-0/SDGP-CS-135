@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication Enabled</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #333; margin: 0; font-size: 28px;">{{APP_NAME}}</h1>
+            </div>
+            
+            <!-- Greeting -->
+            <h2 style="color: #333; margin-bottom: 20px;">Hello, {{FIRST_NAME}}!</h2>
+            
+            <!-- Success notice -->
+            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+                <p style="color: #155724; font-size: 16px; margin: 0; font-weight: bold;">
+                    🔒 Two-Factor Authentication Enabled
+                </p>
+            </div>
+            
+            <!-- Main content -->
+            <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">
+                This is a confirmation that two-factor authentication (2FA) has been successfully enabled 
+                on your {{APP_NAME}} account on {{DATE}}.
+            </p>
+            
+            <!-- Security info -->
+            <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+                <p style="color: #0c5460; font-size: 14px; margin-bottom: 10px; font-weight: bold;">
+                    ✓ Your account is now more secure!
+                </p>
+                <p style="color: #0c5460; font-size: 14px; margin: 0;">
+                    From now on, you'll need to provide a verification code from your authenticator app 
+                    each time you log in.
+                </p>
+            </div>
+            
+            <!-- Important reminders -->
+            <p style="color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 15px;">
+                <strong>Important reminders:</strong>
+            </p>
+            <ul style="color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 25px; padding-left: 20px;">
+                <li style="margin-bottom: 8px;">Keep your backup codes in a safe place</li>
+                <li style="margin-bottom: 8px;">Don't share your authenticator app with anyone</li>
+                <li style="margin-bottom: 8px;">If you lose access to your authenticator, use your backup codes</li>
+                <li>You can generate new backup codes anytime from your account settings</li>
+            </ul>
+            
+            <!-- Security warning -->
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+                <p style="color: #856404; font-size: 14px; margin: 0;">
+                    <strong>Didn't enable 2FA?</strong> If you didn't make this change, 
+                    please contact our support team immediately.
+                </p>
+            </div>
+            
+            <!-- Footer -->
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #777; font-size: 12px; text-align: center; margin: 0;">
+                &copy; {{YEAR}} {{APP_NAME}}. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

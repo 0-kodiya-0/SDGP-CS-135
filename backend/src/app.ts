@@ -1,20 +1,23 @@
-// backend/src/app.ts
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 import passport from 'passport';
 import cookieParser from 'cookie-parser';
+
 import setupPassport from './config/passport';
+import db from './config/db';
+import { authenticateSession, validateAccountAccess, validateTokenAccess } from './services/session';
+import socketConfig from './config/socket.config';
+import { applyErrorHandlers } from './utils/response';
+
 import { router as oauthRoutes } from './feature/oauth';
 import { authenticatedNeedRouter as authNeedAccountRouter, authenticationNotNeedRouter as authNotNeedAccountRouter } from './feature/account';
 import { router as googleRoutes } from './feature/google';
 import environmentRoutes from './feature/environment';
-import db from './config/db';
-import { authenticateSession, validateAccountAccess, validateTokenAccess } from './services/session';
-import socketConfig from './config/socket.config';
+import { authNotRequiredRouter as localAuthNotRequiredRouter, authRequiredRouter as localAuthRequiredRouter } from './feature/local_auth';
+import notificationRoutes, { NotificationSocketHandler } from './feature/notifications';
 import { chatRoutes, ChatSocketHandler } from './feature/chat';
-import { applyErrorHandlers } from './utils/response';
 
 dotenv.config();
 
@@ -42,7 +45,9 @@ setupPassport();
 
 // Initialize Socket.IO with the HTTP server
 const io = socketConfig.initializeSocketIO(httpServer);
-// Initialize chat socket handler
+// Initialize socket handlers
+new ChatSocketHandler(io);
+new NotificationSocketHandler(io);
 
 // Initialize database connections and models
 db.initializeDB().then(() => {
@@ -58,18 +63,24 @@ app.use((req, res, next) => {
     next();
 });
 
-new ChatSocketHandler(io);
-
 // Routes - Using API paths that match the proxy configuration
 app.use('/oauth', oauthRoutes);
 app.use('/account', authNotNeedAccountRouter);
 
+// Local auth routes (no authentication needed)
+app.use('/auth', localAuthNotRequiredRouter);
+
+// Routes that need authentication
 app.use("/:accountId", authenticateSession, validateAccountAccess, validateTokenAccess);
 
 app.use('/:accountId/account', authNeedAccountRouter);
 app.use('/:accountId/google', googleRoutes);
 app.use('/:accountId/chat', chatRoutes);
-app.use('/:accountId/environments', environmentRoutes); // Add environment routes
+app.use('/:accountId/environments', environmentRoutes);
+app.use('/:accountId/notifications', notificationRoutes);
+
+// Local auth routes (authentication needed)
+app.use('/:accountId/auth', localAuthRequiredRouter);
 
 applyErrorHandlers(app);
 

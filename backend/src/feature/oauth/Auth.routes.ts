@@ -1,4 +1,3 @@
-// backend/src/feature/oauth/Auth.routes.ts
 import express from 'express';
 import * as AuthController from './Auth.controller';
 import { asyncHandler } from '../../utils/response';

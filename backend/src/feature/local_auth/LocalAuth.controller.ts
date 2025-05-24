@@ -22,13 +22,15 @@ import {
     PasswordChangeRequest,
     SetupTwoFactorRequest,
     VerifyTwoFactorRequest,
-    VerifyEmailRequest
+    VerifyEmailRequest,
+    LocalAccount
 } from '../account/Account.types';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { sendTwoFactorEnabledNotification } from '../email/Email.service';
 import { createLocalJwtToken } from '../../services/session/session.jwt';
-import { addUserNotification } from '../notification/Notification.service';
+import { addUserNotification } from '../notifications/Notification.service';
 import QRCode from 'qrcode';
+import { findLocalUserById } from '../account/Account.utils';
 
 /**
  * Sign up (register) with email and password
@@ -131,7 +133,7 @@ export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, 
         if (decoded !== accountId) {
             throw new AuthError('Invalid temporary token', 401, ApiErrorCode.AUTH_FAILED);
         }
-    } catch (error) {
+    } catch {
         throw new AuthError('Temporary token expired or invalid', 401, ApiErrorCode.AUTH_FAILED);
     }
     
@@ -146,7 +148,7 @@ export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, 
     const newToken = await createLocalJwtToken(accountId);
     
     // Set cookies
-    const account = await LocalAuthService.getLocalAccountById(accountId);
+    const account = await findLocalUserById(accountId) as LocalAccount;
     const expiresIn = account.security.sessionTimeout || 3600;
     setAccessTokenCookie(res, accountId, newToken, expiresIn * 1000);
     
@@ -278,7 +280,7 @@ export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, n
             const backupCodes = await LocalAuthService.generateNewBackupCodes(accountId, data.password);
             
             // Send notification email (async - don't wait)
-            const account = await LocalAuthService.getLocalAccountById(accountId);
+            const account = await findLocalUserById(accountId) as LocalAccount;
             if (account.userDetails.email) {
                 sendTwoFactorEnabledNotification(
                     account.userDetails.email,

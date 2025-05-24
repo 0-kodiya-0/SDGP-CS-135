@@ -1,6 +1,6 @@
 import db from "../../config/db";
 import { OAuthAccountDocument, LocalAccountDocument } from "./Account.model";
-import { OAuthAccount, OAuthAccountDTO, LocalAccount, LocalAccountDTO } from "./Account.types";
+import { OAuthAccount, OAuthAccountDTO, LocalAccount, LocalAccountDTO, AccountType } from "./Account.types";
 
 // Convert Mongoose document to OAuthAccount type
 export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDTO | null => {
@@ -99,6 +99,40 @@ export const findUserById = async (id: string): Promise<OAuthAccount | LocalAcco
   return null;
 };
 
+export const findLocalUserById = async (id: string): Promise<OAuthAccount | LocalAccount | null> => {
+  const models = await db.getModels();
+  
+  // Try to find in Local accounts
+  try {
+    const localDoc = await models.accounts.LocalAccount.findById(id);
+    
+    if (localDoc) {
+      return { id: localDoc._id.toHexString(), ...localDoc.toObject() };
+    }
+  } catch {
+    // ID might not be valid or not in Local accounts either
+  }
+
+  return null;
+};
+
+export const findOAuthUserById = async (id: string): Promise<OAuthAccount | LocalAccount | null> => {
+  const models = await db.getModels();
+
+  // Try to find in OAuth accounts
+  try {
+    const oauthDoc = await models.accounts.OAuthAccount.findById(id);
+    
+    if (oauthDoc) {
+      return { id: oauthDoc._id.toHexString(), ...oauthDoc.toObject() };
+    }
+  } catch {
+    // ID might not be in OAuth accounts, try Local accounts
+  }
+
+  return null;
+};
+
 export const findUserByUsername = async (username: string): Promise<LocalAccount | null> => {
   const models = await db.getModels();
   
@@ -181,6 +215,28 @@ export const getAccountTypeById = async (id: string): Promise<AccountType | null
   // Check if it's a local account
   const localExists = await models.accounts.LocalAccount.exists({ _id: id });
   if (localExists) return AccountType.Local;
+
+  // Not found
+  return null;
+};
+
+export const getLocalAccountTypeById = async (id: string): Promise<AccountType | null> => {
+  const models = await db.getModels();
+
+  // Check if it's a local account
+  const localExists = await models.accounts.LocalAccount.exists({ _id: id });
+  if (localExists) return AccountType.Local;
+
+  // Not found
+  return null;
+};
+
+export const getOAuthAccountTypeById = async (id: string): Promise<AccountType | null> => {
+  const models = await db.getModels();
+
+  // Check if it's an OAuth account
+  const oauthExists = await models.accounts.OAuthAccount.exists({ _id: id });
+  if (oauthExists) return AccountType.OAuth;
 
   // Not found
   return null;
