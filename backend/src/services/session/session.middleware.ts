@@ -5,11 +5,11 @@ import { asyncHandler } from '../../utils/response';
 import { validateOAuthAccount, validateLocalAccount } from '../../feature/account/Account.validation';
 import { extractAccessToken, extractRefreshToken, verifySession } from './session.manager';
 import { removeRootUrl } from '../../utils/url';
-import mongoose from 'mongoose';
 import { AccountType } from '../../feature/account/Account.types';
 import { getAccountTypeById } from '../../feature/account/Account.utils';
 import { verifyJwtToken } from './session.jwt';
 import { LocalAccountDocument, OAuthAccountDocument } from '../../feature/account/Account.model';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Middleware to verify token from cookies and add accountId to request
@@ -17,13 +17,8 @@ import { LocalAccountDocument, OAuthAccountDocument } from '../../feature/accoun
 export const authenticateSession = (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
 
-    if (!accountId) {
-        throw new BadRequestError('Account ID is required');
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(accountId)) {
-        throw new BadRequestError('Invalid Account ID format');
-    }
+    // Use centralized validation instead of duplicate logic
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
 
     next();
 };

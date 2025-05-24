@@ -11,11 +11,12 @@ import {
     AddContactsToGroupParams,
     RemoveContactsFromGroupParams
 } from './people.types';
-import { BadRequestError, JsonSuccess } from '../../../../types/response.types';
+import { ApiErrorCode, BadRequestError, JsonSuccess, ValidationError } from '../../../../types/response.types';
 import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { PeopleService } from './people.service';
 import { Auth, people_v1 } from 'googleapis';
+import { ValidationUtils } from '../../../../utils/validation';
 
 
 /**
@@ -124,13 +125,12 @@ export const deleteContact = asyncHandler(async (req: GoogleApiRequest, res: Res
 export const searchContacts = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
     const query = req.query.q as string;
 
-    if (!query) {
-        throw new BadRequestError('Search query is required');
-    }
+    ValidationUtils.validateRequiredFields(req.query, ['q']);
+    const sanitizedQuery = ValidationUtils.validateSearchQuery(query);
 
     // Extract parameters
     const params: SearchContactsParams = {
-        query,
+        query: sanitizedQuery,
         readMask: req.query.readMask as string || '',
         pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string) : 100,
         pageToken: req.query.pageToken as string | undefined,
@@ -139,7 +139,11 @@ export const searchContacts = asyncHandler(async (req: GoogleApiRequest, res: Re
             : undefined
     };
 
-    // Create service and search contacts
+    // Validate page size
+    if (params.pageSize && (params.pageSize < 1 || params.pageSize > 1000)) {
+        throw new ValidationError('Page size must be between 1 and 1000', 400, ApiErrorCode.VALIDATION_ERROR);
+    }
+
     const peopleService = new PeopleService(req.googleAuth as Auth.OAuth2Client);
     const results = await peopleService.searchContacts(params);
 

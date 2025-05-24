@@ -11,6 +11,7 @@ import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { GmailService } from './gmail.service';
 import { Auth } from 'googleapis';
+import { ValidationUtils } from '../../../../utils/validation';
 
 /**
  * List messages in the user's mailbox
@@ -75,8 +76,25 @@ export const getMessage = asyncHandler(async (req: GoogleApiRequest, res: Respon
 export const sendMessage = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
     const { to, subject, body, cc, bcc, attachments, isHtml } = req.body;
 
-    if (!to || !subject || body === undefined) {
-        throw new BadRequestError('To, subject, and body are required');
+    ValidationUtils.validateRequiredFields(req.body, ['to', 'subject']);
+    
+    if (body === undefined) {
+        throw new BadRequestError('Body is required');
+    }
+
+    // Validate email addresses
+    if (Array.isArray(to)) {
+        to.forEach((email: string) => ValidationUtils.validateEmail(email));
+    } else {
+        ValidationUtils.validateEmail(to);
+    }
+
+    if (cc) {
+        if (Array.isArray(cc)) {
+            cc.forEach((email: string) => ValidationUtils.validateEmail(email));
+        } else {
+            ValidationUtils.validateEmail(cc);
+        }
     }
 
     // Create message payload
@@ -90,7 +108,6 @@ export const sendMessage = asyncHandler(async (req: GoogleApiRequest, res: Respo
         isHtml: isHtml === true
     };
 
-    // Create service and send message
     const gmailService = new GmailService(req.googleAuth as Auth.OAuth2Client);
     const result = await gmailService.sendMessage(params);
 

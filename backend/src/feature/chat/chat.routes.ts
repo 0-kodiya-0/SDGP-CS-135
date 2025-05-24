@@ -1,19 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as chatService from './chat.service';
-import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError, AuthError, JsonSuccess } from '../../types/response.types';
 import { asyncHandler } from '../../utils/response';
+import { ValidationUtils } from '../../utils/validation';
 
 const router = Router({ mergeParams: true });
-
-// Middleware for input validation
-const validateObjectId = (id: string): boolean => {
-    return mongoose.Types.ObjectId.isValid(id);
-};
-
-const validateTimestamp = (timestamp: string): boolean => {
-    return !isNaN(Date.parse(timestamp));
-};
 
 router.get('/conversations', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId;
@@ -26,7 +17,10 @@ router.get('/conversations/:conversationId', asyncHandler(async (req: Request, r
     const accountId = req.params.accountId;
     const { conversationId } = req.params;
 
-    // Validate that user is a participant in the conversation
+    // Use centralized validation
+    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
+
+    // Verify that user is a participant in the conversation
     const hasAccess = await chatService.verifyConversationAccess(conversationId, accountId);
     if (!hasAccess) {
         throw new AuthError('Access denied to this conversation', 403);
@@ -41,6 +35,8 @@ router.get('/conversations/:conversationId/messages', asyncHandler(async (req: R
     const accountId = req.params.accountId;
     const { conversationId } = req.params;
 
+    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
+
     // Validate that user is a participant in the conversation
     const hasAccess = await chatService.verifyConversationAccess(conversationId, accountId);
     if (!hasAccess) {
@@ -48,20 +44,18 @@ router.get('/conversations/:conversationId/messages', asyncHandler(async (req: R
     }
 
     const beforeStr = req.query.before as string | undefined;
-    const before = beforeStr && validateTimestamp(beforeStr) ? new Date(beforeStr) : undefined;
-
-    if (beforeStr && !before) {
-        throw new BadRequestError('Invalid timestamp format');
+    let before: Date | undefined;
+    
+    if (beforeStr) {
+        before = ValidationUtils.validateTimestamp(beforeStr, 'before');
     }
 
-    const limitStr = req.query.limit as string | undefined;
-    const limit = limitStr ? parseInt(limitStr) : 50;
+    const paginationParams = ValidationUtils.validatePaginationParams({
+        limit: req.query.limit as string,
+        offset: undefined // Messages use 'before' instead of offset
+    });
 
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-        throw new BadRequestError('Limit must be between 1 and 100');
-    }
-
-    const messages = await chatService.getMessages(conversationId, limit, before);
+    const messages = await chatService.getMessages(conversationId, paginationParams.limit, before);
     next(new JsonSuccess(messages));
 }));
 
@@ -83,20 +77,16 @@ router.post('/conversations/group', asyncHandler(async (req: Request, res: Respo
     const accountId = req.params.accountId;
     const { name, participants } = req.body;
 
-    if (!name || typeof name !== 'string' || name.length > 100) {
-        throw new BadRequestError('Invalid group name. Must be string and under 100 characters');
-    }
-
-    if (!Array.isArray(participants) || participants.length < 1) {
-        throw new BadRequestError('Participants must be an array with at least one member');
-    }
-
-    // Validate all participant IDs
-    for (const participantId of participants) {
-        if (!validateObjectId(participantId)) {
-            throw new BadRequestError(`Invalid participant ID format: ${participantId}`);
-        }
-    }
+    ValidationUtils.validateRequiredFields(req.body, ['name', 'participants']);
+    ValidationUtils.validateStringLength(name, 'Group name', 1, 100);
+    
+    ValidationUtils.validateArray(
+        participants, 
+        'Participants', 
+        1, 
+        undefined, 
+        (participantId: string) => ValidationUtils.validateObjectId(participantId, 'Participant ID')
+    );
 
     // Add the creator to the participants list if not already included
     const allParticipants = participants.includes(accountId)

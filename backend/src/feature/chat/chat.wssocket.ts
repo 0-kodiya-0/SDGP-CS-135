@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import * as chatService from './chat.service';
+import { ValidationUtils } from '../../utils/validation';
 
 interface ChatSocket extends Socket {
     userId?: string;
@@ -28,11 +29,8 @@ export class ChatSocketHandler {
             // Authenticate user
             socket.on('authenticate', (userId: string) => {
                 try {
-                    // Validate userId format (assuming MongoDB ObjectId)
-                    if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
-                        socket.emit('error', { message: 'Invalid user ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(userId, 'User ID');
 
                     // Add socket to user's socket collection
                     if (!this.userSocketMap[userId]) {
@@ -60,11 +58,8 @@ export class ChatSocketHandler {
                         return;
                     }
 
-                    // Validate conversationId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
 
                     // Verify user has access to this conversation
                     const hasAccess = await chatService.verifyConversationAccess(conversationId, socket.userId);
@@ -93,11 +88,8 @@ export class ChatSocketHandler {
                         return;
                     }
 
-                    // Validate conversationId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
 
                     socket.leave(`conversation:${conversationId}`);
                     socket.activeConversations?.delete(conversationId);
@@ -121,26 +113,15 @@ export class ChatSocketHandler {
                         throw new Error('User not authenticated');
                     }
 
-                    // Validate input
-                    if (!/^[0-9a-fA-F]{24}$/.test(data.conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
-
-                    if (!data.content || data.content.trim() === '') {
-                        socket.emit('error', { message: 'Message content cannot be empty' });
-                        return;
-                    }
-
-                    if (data.content.length > 5000) {
-                        socket.emit('error', { message: 'Message content exceeds maximum length (5000 characters)' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils for multiple validations
+                    ValidationUtils.validateObjectId(data.conversationId, 'Conversation ID');
+                    ValidationUtils.validateRequiredFields(data, ['content']);
+                    ValidationUtils.validateStringLength(data.content.trim(), 'Message content', 1, 5000);
 
                     const message = await chatService.sendMessage(
                         data.conversationId,
                         socket.userId,
-                        data.content
+                        data.content.trim() // Trim the content
                     );
 
                     // Emit to all users in the conversation room
@@ -155,7 +136,7 @@ export class ChatSocketHandler {
                         const conversationUpdate = {
                             conversationId: data.conversationId,
                             lastMessage: {
-                                content: data.content,
+                                content: data.content.trim(),
                                 sender: socket.userId,
                                 timestamp: new Date().toISOString()
                             }
@@ -186,11 +167,8 @@ export class ChatSocketHandler {
                         throw new Error('User not authenticated');
                     }
 
-                    // Validate conversationId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
 
                     // Verify user has access to this conversation
                     const hasAccess = await chatService.verifyConversationAccess(conversationId, socket.userId);
@@ -215,7 +193,7 @@ export class ChatSocketHandler {
                 }
             });
 
-            // Typing indicator
+            // Typing indicator start
             socket.on('typing_start', async (conversationId: string) => {
                 try {
                     if (!socket.userId) {
@@ -223,11 +201,8 @@ export class ChatSocketHandler {
                         return;
                     }
 
-                    // Validate conversationId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
 
                     // Verify user has access to this conversation
                     const hasAccess = await chatService.verifyConversationAccess(conversationId, socket.userId);
@@ -246,6 +221,7 @@ export class ChatSocketHandler {
                 }
             });
 
+            // Typing indicator stop
             socket.on('typing_stop', async (conversationId: string) => {
                 try {
                     if (!socket.userId) {
@@ -253,11 +229,8 @@ export class ChatSocketHandler {
                         return;
                     }
 
-                    // Validate conversationId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(conversationId)) {
-                        socket.emit('error', { message: 'Invalid conversation ID format' });
-                        return;
-                    }
+                    // UPDATED: Use ValidationUtils instead of custom regex
+                    ValidationUtils.validateObjectId(conversationId, 'Conversation ID');
 
                     // Verify user has access to this conversation
                     const hasAccess = await chatService.verifyConversationAccess(conversationId, socket.userId);

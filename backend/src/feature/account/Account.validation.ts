@@ -1,4 +1,5 @@
 import { AccountValidationError } from "../../types/response.types";
+import { ValidationUtils } from "../../utils/validation";
 import {
     UserDetails,
     BaseAccount,
@@ -94,19 +95,16 @@ export function validateLocalAccount(obj?: Omit<Partial<LocalAccount>, "id">): o
 // Validate signup request
 export function validateSignupRequest(request: SignupRequest): string | null {
     // Check if fields are present
-    if (!request.firstName || !request.lastName || !request.email || !request.password || !request.confirmPassword) {
-        return "All required fields must be provided";
-    }
+    ValidationUtils.validateRequiredFields(request, ['firstName', 'lastName', 'email', 'password', 'confirmPassword']);
     
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(request.email)) {
-        return "Invalid email format";
-    }
+    ValidationUtils.validateEmail(request.email);
     
-    // Validate password strength
-    if (!validatePasswordStrength(request.password)) {
-        return "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
+    // Validate password strength - now using centralized validation
+    try {
+        ValidationUtils.validatePasswordStrength(request.password);
+    } catch (error) {
+        return error instanceof Error ? error.message : 'Invalid password';
     }
     
     // Validate password confirmation
@@ -120,11 +118,10 @@ export function validateSignupRequest(request: SignupRequest): string | null {
     }
     
     // Validate username if provided
-    if (request.username && request.username.length < 3) {
-        return "Username must be at least 3 characters";
+    if (request.username) {
+        ValidationUtils.validateStringLength(request.username, 'Username', 3);
     }
     
-    // If everything passes, return null (no error)
     return null;
 }
 

@@ -62,7 +62,7 @@ export class NotificationSocketHandler {
                 (socket as any).accountId = decoded;
                 
                 next();
-            } catch (error) {
+            } catch {
                 next(new Error('Authentication error'));
             }
         });

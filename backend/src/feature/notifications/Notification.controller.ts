@@ -3,6 +3,7 @@ import { asyncHandler } from '../../utils/response';
 import { JsonSuccess } from '../../types/response.types';
 import * as NotificationService from './Notification.service';
 import { CreateNotificationRequest, UpdateNotificationRequest } from './Notification.model';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Get all notifications for the current user
@@ -11,17 +12,21 @@ export const getNotifications = asyncHandler(async (req: Request, res: Response,
     const accountId = req.params.accountId;
     const { read, type, limit, offset } = req.query;
     
-    // Parse query parameters
+    // Use centralized pagination validation
+    const paginationParams = ValidationUtils.validatePaginationParams({
+        limit: limit as string,
+        offset: offset as string
+    });
+    
     const params = {
         accountId,
         read: read === 'true' ? true : (read === 'false' ? false : undefined),
-        type: type as any, // type checking done in the service
-        limit: limit ? parseInt(limit as string) : undefined,
-        offset: offset ? parseInt(offset as string) : undefined
+        type: type as any,
+        limit: paginationParams.limit,
+        offset: paginationParams.offset
     };
     
     const result = await NotificationService.getUserNotifications(params);
-    
     next(new JsonSuccess(result));
 });
 

@@ -31,6 +31,7 @@ import { createLocalJwtToken } from '../../services/session/session.jwt';
 import { addUserNotification } from '../notifications/Notification.service';
 import QRCode from 'qrcode';
 import { findLocalUserById } from '../account/Account.utils';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Sign up (register) with email and password
@@ -206,30 +207,19 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response, ne
     const { token } = req.query;
     const { password, confirmPassword } = req.body;
     
-    if (!token) {
-        throw new BadRequestError('Reset token is required', 400, ApiErrorCode.MISSING_DATA);
-    }
-    
-    if (!password || !confirmPassword) {
-        throw new BadRequestError('Password and password confirmation are required', 400, ApiErrorCode.MISSING_DATA);
-    }
+    ValidationUtils.validateRequiredFields(req.query, ['token']);
+    ValidationUtils.validateRequiredFields(req.body, ['password', 'confirmPassword']);
     
     if (password !== confirmPassword) {
         throw new ValidationError('Passwords do not match', 400, ApiErrorCode.VALIDATION_ERROR);
     }
     
-    if (!validatePasswordStrength(password)) {
-        throw new ValidationError(
-            'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
-            400,
-            ApiErrorCode.VALIDATION_ERROR
-        );
-    }
+    // Use centralized password validation
+    ValidationUtils.validatePasswordStrength(password);
     
     // Reset password
     await LocalAuthService.resetPassword(token as string, password);
     
-    // Return success response
     next(new JsonSuccess({
         message: 'Password reset successfully. You can now log in with your new password.'
     }));

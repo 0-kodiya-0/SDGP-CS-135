@@ -129,225 +129,6 @@ const createTransporter = async () => {
 };
 
 /**
- * Send email verification
- */
-export async function sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
-    const template = EmailTemplate.EMAIL_VERIFICATION;
-    const transporter = await createTransporter();
-
-    // Create verification URL
-    const verificationUrl = `${BASE_URL}/api/v1/account/verify-email?token=${token}`;
-
-    // Template variables
-    const variables = {
-        APP_NAME,
-        FIRST_NAME: firstName,
-        VERIFICATION_URL: verificationUrl,
-        YEAR: new Date().getFullYear().toString()
-    };
-
-    // Validate variables
-    validateTemplateVariables(template, variables);
-
-    // Load and process template
-    const htmlTemplate = await loadTemplate(template);
-    const html = replaceTemplateVariables(htmlTemplate, variables);
-    const text = generatePlainText(htmlTemplate, variables);
-
-    // Email options
-    const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: email,
-        subject: `Verify your email address for ${APP_NAME}`,
-        html,
-        text
-    };
-
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
-
-    // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
-    }
-}
-
-/**
- * Send password reset email
- */
-export async function sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
-    const template = EmailTemplate.PASSWORD_RESET;
-    const transporter = await createTransporter();
-
-    // Create reset URL
-    const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
-
-    // Template variables
-    const variables = {
-        APP_NAME,
-        FIRST_NAME: firstName,
-        RESET_URL: resetUrl,
-        YEAR: new Date().getFullYear().toString()
-    };
-
-    // Validate variables
-    validateTemplateVariables(template, variables);
-
-    // Load and process template
-    const htmlTemplate = await loadTemplate(template);
-    const html = replaceTemplateVariables(htmlTemplate, variables);
-    const text = generatePlainText(htmlTemplate, variables);
-
-    // Email options
-    const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: email,
-        subject: `Reset your password for ${APP_NAME}`,
-        html,
-        text
-    };
-
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
-
-    // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
-    }
-}
-
-/**
- * Send password changed notification
- */
-export async function sendPasswordChangedNotification(email: string, firstName: string): Promise<void> {
-    const template = EmailTemplate.PASSWORD_CHANGED;
-    const transporter = await createTransporter();
-
-    // Template variables
-    const now = new Date();
-    const variables = {
-        APP_NAME,
-        FIRST_NAME: firstName,
-        DATE: now.toLocaleDateString(),
-        TIME: now.toLocaleTimeString(),
-        BASE_URL,
-        YEAR: now.getFullYear().toString()
-    };
-
-    // Validate variables
-    validateTemplateVariables(template, variables);
-
-    // Load and process template
-    const htmlTemplate = await loadTemplate(template);
-    const html = replaceTemplateVariables(htmlTemplate, variables);
-    const text = generatePlainText(htmlTemplate, variables);
-
-    // Email options
-    const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: email,
-        subject: `Your password was changed on ${APP_NAME}`,
-        html,
-        text
-    };
-
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
-
-    // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
-    }
-}
-
-/**
- * Send successful login notification
- */
-export async function sendLoginNotification(email: string, firstName: string, ipAddress: string, device: string): Promise<void> {
-    const template = EmailTemplate.LOGIN_NOTIFICATION;
-    const transporter = await createTransporter();
-
-    // Template variables
-    const now = new Date();
-    const variables = {
-        APP_NAME,
-        FIRST_NAME: firstName,
-        LOGIN_TIME: now.toLocaleString(),
-        IP_ADDRESS: ipAddress,
-        DEVICE: device,
-        BASE_URL,
-        YEAR: now.getFullYear().toString()
-    };
-
-    // Validate variables
-    validateTemplateVariables(template, variables);
-
-    // Load and process template
-    const htmlTemplate = await loadTemplate(template);
-    const html = replaceTemplateVariables(htmlTemplate, variables);
-    const text = generatePlainText(htmlTemplate, variables);
-
-    // Email options
-    const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: email,
-        subject: `New login detected on ${APP_NAME}`,
-        html,
-        text
-    };
-
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
-
-    // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
-    }
-}
-
-/**
- * Send two-factor authentication enabled notification
- */
-export async function sendTwoFactorEnabledNotification(email: string, firstName: string): Promise<void> {
-    const template = EmailTemplate.TWO_FACTOR_ENABLED;
-    const transporter = await createTransporter();
-
-    // Template variables
-    const now = new Date();
-    const variables = {
-        APP_NAME,
-        FIRST_NAME: firstName,
-        DATE: now.toLocaleDateString(),
-        YEAR: now.getFullYear().toString()
-    };
-
-    // Validate variables
-    validateTemplateVariables(template, variables);
-
-    // Load and process template
-    const htmlTemplate = await loadTemplate(template);
-    const html = replaceTemplateVariables(htmlTemplate, variables);
-    const text = generatePlainText(htmlTemplate, variables);
-
-    // Email options
-    const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: email,
-        subject: `Two-factor authentication enabled on ${APP_NAME}`,
-        html,
-        text
-    };
-
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
-
-    // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
-    }
-}
-
-/**
  * Generic email sender for custom templates with type safety
  */
 export async function sendCustomEmail(
@@ -390,6 +171,94 @@ export async function sendCustomEmail(
     if (process.env.NODE_ENV !== 'production') {
         console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
     }
+}
+
+/**
+ * Send email verification - NOW USING sendCustomEmail
+ */
+export async function sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
+    const verificationUrl = `${BASE_URL}/api/v1/account/verify-email?token=${token}`;
+
+    await sendCustomEmail(
+        email,
+        `Verify your email address for ${APP_NAME}`,
+        EmailTemplate.EMAIL_VERIFICATION,
+        {
+            FIRST_NAME: firstName,
+            VERIFICATION_URL: verificationUrl
+        }
+    );
+}
+
+/**
+ * Send password reset email - NOW USING sendCustomEmail
+ */
+export async function sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
+    const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
+
+    await sendCustomEmail(
+        email,
+        `Reset your password for ${APP_NAME}`,
+        EmailTemplate.PASSWORD_RESET,
+        {
+            FIRST_NAME: firstName,
+            RESET_URL: resetUrl
+        }
+    );
+}
+
+/**
+ * Send password changed notification - NOW USING sendCustomEmail
+ */
+export async function sendPasswordChangedNotification(email: string, firstName: string): Promise<void> {
+    const now = new Date();
+
+    await sendCustomEmail(
+        email,
+        `Your password was changed on ${APP_NAME}`,
+        EmailTemplate.PASSWORD_CHANGED,
+        {
+            FIRST_NAME: firstName,
+            DATE: now.toLocaleDateString(),
+            TIME: now.toLocaleTimeString()
+        }
+    );
+}
+
+/**
+ * Send successful login notification - NOW USING sendCustomEmail
+ */
+export async function sendLoginNotification(email: string, firstName: string, ipAddress: string, device: string): Promise<void> {
+    const now = new Date();
+
+    await sendCustomEmail(
+        email,
+        `New login detected on ${APP_NAME}`,
+        EmailTemplate.LOGIN_NOTIFICATION,
+        {
+            FIRST_NAME: firstName,
+            LOGIN_TIME: now.toLocaleString(),
+            IP_ADDRESS: ipAddress,
+            DEVICE: device
+        }
+    );
+}
+
+/**
+ * Send two-factor authentication enabled notification - NOW USING sendCustomEmail
+ */
+export async function sendTwoFactorEnabledNotification(email: string, firstName: string): Promise<void> {
+    const now = new Date();
+
+    await sendCustomEmail(
+        email,
+        `Two-factor authentication enabled on ${APP_NAME}`,
+        EmailTemplate.TWO_FACTOR_ENABLED,
+        {
+            FIRST_NAME: firstName,
+            DATE: now.toLocaleDateString()
+        }
+    );
 }
 
 /**

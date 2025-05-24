@@ -4,8 +4,8 @@ import { AccountType } from '../../feature/account/Account.types';
 
 // Environment variables
 const JWT_SECRET = process.env.JWT_SECRET;
-const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || '1h';       // 1 hour
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '30d';    // 30 days
+const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY;
+const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY;
 
 /**
  * Create a signed JWT token for local authentication

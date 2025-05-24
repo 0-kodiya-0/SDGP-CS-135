@@ -17,6 +17,7 @@ import { asyncHandler } from '../../../../utils/response';
 import { GoogleApiRequest } from '../../types';
 import { DriveService } from './drive.service';
 import { Auth } from 'googleapis';
+import { ValidationUtils } from '../../../../utils/validation';
 
 type MulterFile = Express.Multer.File;
 
@@ -330,25 +331,21 @@ export const searchFiles = asyncHandler(async (req: GoogleApiRequest, res: Respo
  * Share a file with another user
  */
 export const shareFile = asyncHandler(async (req: GoogleApiRequest, res: Response, next: NextFunction) => {
-
     const fileId = req.params.fileId;
 
-    if (!fileId) {
-        throw new BadRequestError('File ID is required');
-    }
+    ValidationUtils.validateObjectId(fileId, 'File ID');
 
     const { role, type, emailAddress, domain, transferOwnership, sendNotificationEmail, emailMessage } = req.body;
 
-    if (!role || !type) {
-        throw new BadRequestError('Role and type are required');
+    ValidationUtils.validateRequiredFields(req.body, ['role', 'type']);
+
+    if (type === 'user') {
+        ValidationUtils.validateRequiredFields(req.body, ['emailAddress']);
+        ValidationUtils.validateEmail(emailAddress);
     }
 
-    if (type === 'user' && !emailAddress) {
-        throw new BadRequestError('Email address is required for user type');
-    }
-
-    if (type === 'domain' && !domain) {
-        throw new BadRequestError('Domain is required for domain type');
+    if (type === 'domain') {
+        ValidationUtils.validateRequiredFields(req.body, ['domain']);
     }
 
     // Create share params
@@ -366,7 +363,6 @@ export const shareFile = asyncHandler(async (req: GoogleApiRequest, res: Respons
         supportsTeamDrives: req.query.supportsTeamDrives === 'true'
     };
 
-    // Create service and share file
     const driveService = new DriveService(req.googleAuth as Auth.OAuth2Client);
     const permission = await driveService.shareFile(params);
 

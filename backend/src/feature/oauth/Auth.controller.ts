@@ -31,6 +31,7 @@ import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/sess
 import { createRedirectUrl, RedirectType } from '../../utils/redirect';
 import { GoogleServiceName, getGoogleScope } from '../google/config';
 import { SignUpRequest, SignInRequest, OAuthCallBackRequest } from './Auth.dto';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Initiate Google authentication
@@ -340,13 +341,9 @@ export const requestPermission = async (req: Request, res: Response, next: NextF
     const scopeLevel = req.params.scopeLevel as string;
     const { accountId, redirectUrl } = req.query;
 
-    if (!redirectUrl || typeof redirectUrl !== 'string') {
-        throw new BadRequestError('Redirect URL is required for permission requests');
-    }
-
-    if (!accountId) {
-        throw new BadRequestError('Account id is required for permission requests');
-    }
+    ValidationUtils.validateRequiredFields(req.query, ['redirectUrl', 'accountId']);
+    ValidationUtils.validateUrl(redirectUrl as string, 'Redirect URL');
+    ValidationUtils.validateObjectId(accountId as string, 'Account ID');
 
     // Get user account information
     const account = await AuthService.getUserAccount(accountId as string);

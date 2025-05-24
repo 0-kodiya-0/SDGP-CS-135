@@ -6,17 +6,16 @@ import { OAuthAccountDocument } from './Account.model';
 import { refreshAccessToken, revokeTokens as revokeGoogleTokens } from '../google/services/token';
 import { OAuthProviders } from './Account.types';
 import db from '../../config/db';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Search for an account by email
  */
 export async function searchAccountByEmail(email: string) {
-    if (!email) {
-        throw new BadRequestError('Email is required', 400, ApiErrorCode.MISSING_EMAIL);
-    }
+    // Use centralized email validation
+    ValidationUtils.validateEmail(email);
 
     const models = await db.getModels();
-
     const account = await models.accounts.OAuthAccount.findOne({ 'userDetails.email': email });
 
     if (!account) {

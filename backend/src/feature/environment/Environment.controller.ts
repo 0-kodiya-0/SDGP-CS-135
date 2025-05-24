@@ -2,7 +2,8 @@ import { NextFunction, Request, Response } from 'express';
 import { JsonSuccess } from '../../types/response.types';
 import { asyncHandler } from '../../utils/response';
 import * as EnvironmentService from './Environment.service';
-import { CreateEnvironmentRequest, UpdateEnvironmentRequest } from './Environment.types';
+import { CreateEnvironmentRequest, EnvironmentPrivacy, EnvironmentStatus, UpdateEnvironmentRequest } from './Environment.types';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Get all environments for the current account
@@ -34,8 +35,18 @@ export const createEnvironment = asyncHandler(async (req: Request, res: Response
     const accountId = req.params.accountId;
     const data: CreateEnvironmentRequest = req.body;
     
-    const newEnvironment = await EnvironmentService.createEnvironment(accountId, data);
+    ValidationUtils.validateRequiredFields(req.body, ['name']);
+    ValidationUtils.validateStringLength(data.name, 'Environment name', 1, 100);
     
+    if (data.status) {
+        ValidationUtils.validateEnum(data.status, EnvironmentStatus, 'Status');
+    }
+    
+    if (data.privacy) {
+        ValidationUtils.validateEnum(data.privacy, EnvironmentPrivacy, 'Privacy');
+    }
+    
+    const newEnvironment = await EnvironmentService.createEnvironment(accountId, data);
     next(new JsonSuccess(newEnvironment, 201));
 });
 

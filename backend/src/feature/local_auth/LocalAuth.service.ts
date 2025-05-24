@@ -15,16 +15,27 @@ import { BadRequestError, NotFoundError, ValidationError, ApiErrorCode } from '.
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { toLocalAccount } from '../account/Account.utils';
-import { validatePasswordStrength } from '../account/Account.validation';
 import { sendPasswordResetEmail, sendVerificationEmail, sendPasswordChangedNotification } from '../email/Email.service';
 import { authenticator } from 'otplib';
 import { addUserNotification } from '../notifications/Notification.service';
+import { ValidationUtils } from '../../utils/validation';
 
 /**
  * Create a new local account
  */
 export async function createLocalAccount(signupData: SignupRequest): Promise<LocalAccount> {
     const models = await db.getModels();
+    
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateRequiredFields(signupData, ['firstName', 'lastName', 'email', 'password']);
+    ValidationUtils.validateEmail(signupData.email);
+    ValidationUtils.validatePasswordStrength(signupData.password);
+    ValidationUtils.validateStringLength(signupData.firstName, 'First name', 1, 50);
+    ValidationUtils.validateStringLength(signupData.lastName, 'Last name', 1, 50);
+    
+    if (signupData.username) {
+        ValidationUtils.validateStringLength(signupData.username, 'Username', 3, 30);
+    }
     
     // Check if email already exists in either local or OAuth accounts
     const existingLocalAccount = await models.accounts.LocalAccount.findOne({
@@ -94,6 +105,21 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
  */
 export async function authenticateLocalUser(authData: LocalAuthRequest): Promise<LocalAccount> {
     const models = await db.getModels();
+    
+    // UPDATED: Use ValidationUtils for validation
+    if (!authData.email && !authData.username) {
+        throw new BadRequestError('Email or username is required');
+    }
+    
+    ValidationUtils.validateRequiredFields(authData, ['password']);
+    
+    if (authData.email) {
+        ValidationUtils.validateEmail(authData.email);
+    }
+    
+    if (authData.username) {
+        ValidationUtils.validateStringLength(authData.username, 'Username', 3, 30);
+    }
     
     // Find user by email or username
     const query = authData.email 
@@ -175,6 +201,10 @@ export async function authenticateLocalUser(authData: LocalAuthRequest): Promise
 export async function verifyEmail(token: string): Promise<boolean> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateRequiredFields({ token }, ['token']);
+    ValidationUtils.validateStringLength(token, 'Verification token', 10, 200);
+    
     // Hash the token to compare with stored value
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     
@@ -213,6 +243,10 @@ export async function verifyEmail(token: string): Promise<boolean> {
 export async function requestPasswordReset(data: PasswordResetRequest): Promise<boolean> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateRequiredFields(data, ['email']);
+    ValidationUtils.validateEmail(data.email);
+    
     // Find account by email
     const account = await models.accounts.LocalAccount.findOne({
         'userDetails.email': data.email
@@ -245,6 +279,11 @@ export async function requestPasswordReset(data: PasswordResetRequest): Promise<
 export async function resetPassword(token: string, newPassword: string): Promise<boolean> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateRequiredFields({ token, newPassword }, ['token', 'newPassword']);
+    ValidationUtils.validateStringLength(token, 'Reset token', 10, 200);
+    ValidationUtils.validatePasswordStrength(newPassword);
+    
     // Hash the token to compare with stored value
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     
@@ -256,15 +295,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
     
     if (!account) {
         throw new ValidationError('Password reset token is invalid or has expired', 400, ApiErrorCode.TOKEN_INVALID);
-    }
-    
-    // Validate password strength
-    if (!validatePasswordStrength(newPassword)) {
-        throw new ValidationError(
-            'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
-            400,
-            ApiErrorCode.VALIDATION_ERROR
-        );
     }
     
     // Check if new password matches any of the previous passwords
@@ -313,6 +343,11 @@ export async function resetPassword(token: string, newPassword: string): Promise
 export async function changePassword(accountId: string, data: PasswordChangeRequest): Promise<boolean> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
+    ValidationUtils.validateRequiredFields(data, ['oldPassword', 'newPassword']);
+    ValidationUtils.validatePasswordStrength(data.newPassword);
+    
     // Find account by ID
     const account = await models.accounts.LocalAccount.findById(accountId);
     
@@ -325,15 +360,6 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
     
     if (!isCurrentPasswordValid) {
         throw new ValidationError('Current password is incorrect', 401, ApiErrorCode.AUTH_FAILED);
-    }
-    
-    // Validate new password
-    if (!validatePasswordStrength(data.newPassword)) {
-        throw new ValidationError(
-            'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
-            400,
-            ApiErrorCode.VALIDATION_ERROR
-        );
     }
     
     // Check if new password matches any of the previous passwords
@@ -380,6 +406,10 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
  */
 export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequest): Promise<{ secret?: string, qrCodeUrl?: string }> {
     const models = await db.getModels();
+    
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
+    ValidationUtils.validateRequiredFields(data, ['password', 'enableTwoFactor']);
     
     // Find account by ID
     const account = await models.accounts.LocalAccount.findById(accountId);
@@ -471,6 +501,11 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
 export async function verifyAndEnableTwoFactor(accountId: string, token: string): Promise<boolean> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
+    ValidationUtils.validateRequiredFields({ token }, ['token']);
+    ValidationUtils.validateStringLength(token, '2FA token', 6, 6); // TOTP codes are exactly 6 digits
+    
     // Find account by ID
     const account = await models.accounts.LocalAccount.findById(accountId);
     
@@ -500,6 +535,11 @@ export async function verifyAndEnableTwoFactor(accountId: string, token: string)
  */
 export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFactorRequest): Promise<boolean> {
     const models = await db.getModels();
+    
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
+    ValidationUtils.validateRequiredFields(data, ['token']);
+    ValidationUtils.validateStringLength(data.token, '2FA token', 6, 8); // TOTP or backup code
     
     // Find account by ID
     const account = await models.accounts.LocalAccount.findById(accountId);
@@ -556,6 +596,10 @@ export async function verifyTwoFactorLogin(accountId: string, data: VerifyTwoFac
 export async function generateNewBackupCodes(accountId: string, password: string): Promise<string[]> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(accountId, 'Account ID');
+    ValidationUtils.validateRequiredFields({ password }, ['password']);
+    
     // Find account by ID
     const account = await models.accounts.LocalAccount.findById(accountId);
     
@@ -603,20 +647,20 @@ export async function generateNewBackupCodes(accountId: string, password: string
 export async function convertOAuthToLocalAccount(oauthAccountId: string, password: string, username?: string): Promise<LocalAccount> {
     const models = await db.getModels();
     
+    // UPDATED: Use ValidationUtils for validation
+    ValidationUtils.validateObjectId(oauthAccountId, 'OAuth Account ID');
+    ValidationUtils.validateRequiredFields({ password }, ['password']);
+    ValidationUtils.validatePasswordStrength(password);
+    
+    if (username) {
+        ValidationUtils.validateStringLength(username, 'Username', 3, 30);
+    }
+    
     // Find OAuth account by ID
     const oauthAccount = await models.accounts.OAuthAccount.findById(oauthAccountId);
     
     if (!oauthAccount) {
         throw new NotFoundError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
-    }
-    
-    // Validate password strength
-    if (!validatePasswordStrength(password)) {
-        throw new ValidationError(
-            'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
-            400,
-            ApiErrorCode.VALIDATION_ERROR
-        );
     }
     
     // If username provided, check if it's already taken
