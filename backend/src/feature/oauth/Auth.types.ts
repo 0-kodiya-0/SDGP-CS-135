@@ -1,4 +1,9 @@
-import { OAuthProviders, TokenDetails } from "../account/Account.types";
+import { OAuthProviders } from "../account/Account.types";
+
+export interface TokenDetails {
+    accessToken: string;
+    refreshToken: string;
+}
 
 export enum AuthType {
     SIGN_UP = 'signup',
@@ -49,6 +54,6 @@ export interface ProviderResponse {
     name: string;
     email?: string;
     imageUrl?: string;
-    tokenDetails: Omit<TokenDetails, "expireAt" | "tokenCreatedAt">,
+    tokenDetails: TokenDetails;
     permissionState?: PermissionState | null;
 }

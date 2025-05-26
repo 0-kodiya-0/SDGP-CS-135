@@ -6,7 +6,7 @@ import { refreshGoogleToken, revokeTokens } from '../../feature/google/services/
 import { createLocalJwtToken, verifyLocalRefreshToken } from '../../feature/local_auth';
 
 // Environment variables
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET as string;
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 
 export interface SessionError {

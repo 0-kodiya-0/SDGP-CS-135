@@ -66,7 +66,7 @@ GooglePermissionsSchema.methods.addScopes = function(newScopes: string[]): void 
 
 GooglePermissionsSchema.methods.removeScopes = function(scopesToRemove: string[]): void {
     const initialLength = this.scopes.length;
-    this.scopes = this.scopes.filter(scope => !scopesToRemove.includes(scope));
+    this.scopes = this.scopes.filter((scope: string) => !scopesToRemove.includes(scope));
     
     if (this.scopes.length !== initialLength) {
         this.lastUpdated = new Date().toISOString();

@@ -104,7 +104,7 @@ export async function updateAccountScopes(accountId: string, accessToken: string
             const newScopes = grantedScopes.filter(scope => !existingScopeSet.has(scope));
             
             if (newScopes.length > 0) {
-                existingPermissions.addScopes(newScopes);
+                (existingPermissions as any).addScopes(newScopes);
                 await existingPermissions.save();
             }
         } else {

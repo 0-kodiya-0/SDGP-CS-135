@@ -1,5 +1,4 @@
 import { AccountDocument } from "./feature/account/Account.model";
-// import { SessionPayload } from "./types/session.types";
 
 declare global {
     namespace NodeJS {
@@ -10,18 +9,21 @@ declare global {
 
             // Database configuration
             MONGODB_URI?: string;
+            BASE_URL?: string;
+            PROXY_URL?: string;
 
             // JWT and session configuration
-            JWT_SECRET: string;
-            SESSION_SECRET: string;
-            JWT_EXPIRES_IN: string;
-            REFRESH_TOKEN_EXPIRES_IN: string;
-            COOKIE_MAX_AGE: string;
-            PROXY_URL: string;
+            JWT_SECRET?: string;
+            SESSION_SECRET?: string;
+
+            ACCESS_TOKEN_EXPIRY?: StringValue;
+            REFRESH_TOKEN_EXPIRY?: StringValue;
+
+            COOKIE_MAX_AGE?: string;
 
             // OAuth providers client credentials
-            GOOGLE_CLIENT_ID: string;
-            GOOGLE_CLIENT_SECRET: string;
+            GOOGLE_CLIENT_ID?: string;
+            GOOGLE_CLIENT_SECRET?: string;
 
             // Optional Microsoft provider
             MICROSOFT_CLIENT_ID?: string;
@@ -30,6 +32,15 @@ declare global {
             // Optional Facebook provider
             FACEBOOK_CLIENT_ID?: string;
             FACEBOOK_CLIENT_SECRET?: string;
+
+            APP_NAME?: string;
+
+            SMTP_HOST?: string;
+            SMTP_PORT?: string;
+            SMTP_SECURE?: string;
+            SMTP_APP_PASSWORD?: string;
+            SENDER_EMAIL?: string
+            SENDER_NAME?: string
         }
     }
     namespace Express {

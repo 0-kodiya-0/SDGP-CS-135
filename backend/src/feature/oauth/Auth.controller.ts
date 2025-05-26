@@ -76,7 +76,7 @@ export const signup = async (req: SignUpRequest, res: Response, next: NextFuncti
         const stateDetails = await validateState(reqState, validateSignUpState, res) as SignInState;
         
         try {
-            const result = await AuthService.processSignup(stateDetails, provider, frontendRedirectUrl);
+            const result = await AuthService.processSignup(stateDetails, provider);
             await clearSignUpState(stateDetails.state);
             
             if (result.accessTokenInfo && result.accessTokenInfo.expires_in) {
@@ -227,7 +227,7 @@ export const handleCallback = async (req: OAuthCallBackRequest, res: Response, n
                 return next(new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Authentication failed - no user data'));
             }
             
-            const result = await AuthService.processCallback(userData, stateDetails, redirectUrl);
+            const result = await AuthService.processSignInSignupCallback(userData, stateDetails, redirectUrl);
             
             if (result.authType === AuthType.SIGN_UP) {
                 next(new RedirectSuccess({ state: result.state },
@@ -304,8 +304,7 @@ export const handlePermissionCallback = async (req: Request, res: Response, next
             // Update tokens and scopes
             await AuthService.updateTokensAndScopes(
                 accountId, 
-                result.tokenDetails.accessToken, 
-                result.tokenDetails.refreshToken
+                result.tokenDetails.accessToken
             );
 
             setAccessTokenCookie(

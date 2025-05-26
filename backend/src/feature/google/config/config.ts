@@ -86,36 +86,9 @@ export const ScopeToServiceMap = new Map<string, { service: GoogleServiceName, l
 // Build the reverse mapping
 Object.entries(GoogleScopes).forEach(([service, levels]) => {
     Object.entries(levels).forEach(([level, scope]) => {
-        ScopeToServiceMap.set(scope, {
+        ScopeToServiceMap.set(scope as string, {
             service: service as GoogleServiceName,
             level: level as GoogleScopeLevel
         });
     });
 });
-
-// /**
-//  * Check if the token has the required scope
-//  * 
-//  * @param token Access token to check
-//  * @param requiredScope The scope to check for
-//  * @returns Promise that resolves to true if scope is included, false otherwise
-//  */
-// export const hasRequiredScope = async (token: string, requiredScope: string): Promise<boolean> => {
-//     try {
-//         // Use the tokeninfo endpoint to get information about the token
-//         const response = await google.oauth2('v2').tokeninfo({
-//             access_token: token
-//         });
-
-//         if (!response.data.scope) {
-//             return false;
-//         }
-
-//         // The scope string contains space-separated scopes
-//         const grantedScopes = response.data.scope.split(' ');
-//         return grantedScopes.includes(requiredScope);
-//     } catch (error) {
-//         console.error('Error checking token scopes:', error);
-//         return false;
-//     }
-// };

@@ -15,8 +15,7 @@ import { findUserByEmail, findUserById } from '../account';
  */
 export async function processSignup(
     stateDetails: SignInState,
-    provider: OAuthProviders,
-    redirectUrl: string
+    provider: OAuthProviders
 ) {
     if (!stateDetails || !stateDetails.oAuthResponse.email) {
         throw new BadRequestError('Invalid or missing state details', 400, ApiErrorCode.INVALID_STATE);
@@ -116,7 +115,7 @@ export async function processSignIn(stateDetails: SignInState, redirectUrl: stri
 /**
  * Process callback from OAuth provider
  */
-export async function processCallback(
+export async function processSignInSignupCallback(
     userData: ProviderResponse,
     stateDetails: OAuthState,
     redirectUrl: string
@@ -188,7 +187,7 @@ async function updateGooglePermissions(accountId: string, accessToken: string): 
             
             if (newScopes.length > 0) {
                 // Update with new scopes
-                existingPermissions.addScopes(newScopes);
+                (existingPermissions as any).addScopes(newScopes);
                 await existingPermissions.save();
             }
         } else {
@@ -262,8 +261,7 @@ export async function getAccountScopes(accountId: string): Promise<string[]> {
  */
 export async function updateTokensAndScopes(
     accountId: string,
-    accessToken: string,
-    refreshToken: string
+    accessToken: string
 ) {
     // Only update permissions, don't store tokens
     await updateGooglePermissions(accountId, accessToken);
