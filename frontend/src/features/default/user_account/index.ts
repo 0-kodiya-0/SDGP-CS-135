@@ -1,24 +1,37 @@
-export { AccountPopup } from "./components/AccountPopup.tsx";
-export { UserAvatar } from "./components/UserAvatar.tsx";
-export { GooglePermissionRequest } from "./components/GooglePermissionRequest.tsx";
+// Components
+export { AccountPopup } from "./components/AccountPopup";
+export { UserAvatar } from "./components/UserAvatar";
+export { GooglePermissionRequest } from "./components/GooglePermissionRequest";
+export { PasswordStrengthIndicator, usePasswordValidation } from "./components/PasswordStrengthIndicator";
+export { default as BackupCodesManager } from "./components/BackupCodesManager";
+export { default as TwoFactorSetup } from "./components/TwoFactorSetup";
 
-export * from "./types/types.data.ts";
-export * from "./types/types.google.api.ts";
+// Types
+export * from "./types/types.data";
+export * from "./types/types.google.api";
+export * from "./types/types.localAuth.api";
 
-export { usePopup } from "./hooks/usePop.ts";
+// Hooks
+export { usePopup } from "./hooks/usePop";
 
-// Export the context and hooks
+// Contexts and Hooks
 export { useAuth } from './contexts/AuthContext';
 export { useAccount } from './contexts/AccountContext';
-export { useGooglePermissions } from "./contexts/GooglePermissionContext.tsx";
+export { useGooglePermissions } from "./contexts/GooglePermissionContext";
 
-// Export pages
+// Pages
 export { default as AccountSettingsPage } from './pages/AccountSettingsPage';
 export { default as AccountSelectionPage } from "./pages/AccountSelectionPage";
+export { default as TokenRevocationWarningPage } from "./pages/TokenRevocationWarningPage";
 
-// Export context providers
+// Context Providers
 export { AuthProvider } from './contexts/AuthContext';
 export { AccountProvider } from './contexts/AccountContext';
-export { GooglePermissionsProvider } from "./contexts/GooglePermissionContext.tsx";
+export { GooglePermissionsProvider } from "./contexts/GooglePermissionContext";
 
-export * from "./utils/utils.google.ts"
+// API
+export { LocalAuthAPI } from "./api/localAuth.api";
+
+// Utils
+export * from "./utils/utils.google";
+export * from "./utils/account.utils";

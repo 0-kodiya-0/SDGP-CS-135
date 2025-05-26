@@ -1,6 +1,13 @@
-import axios from 'axios';
+import axios, { AxiosError, isAxiosError } from 'axios';
 import { API_BASE_URL } from '../../../../conf/axios';
 import { LocalSignupRequest, LocalAuthResponse, LocalLoginRequest, TwoFactorVerifyRequest, PasswordResetRequest, ResetPasswordRequest, PasswordChangeRequest, TwoFactorSetupRequest, TwoFactorVerifySetupRequest, GenerateBackupCodesRequest } from '../types/types.localAuth.api';
+
+/**
+ * Type predicate to check if error is an AxiosError with response data
+ */
+function isAxiosErrorWithResponse(error: unknown): error is AxiosError & { response: { data: LocalAuthResponse } } {
+    return isAxiosError(error) && !!error.response?.data;
+}
 
 /**
  * Local Authentication API Functions
@@ -18,13 +25,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Signup successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Signup error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Signup error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during signup:', error);
             throw new Error('Network error during signup');
         }
     }
@@ -40,13 +47,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Login successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Login error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Login error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during login:', error);
             throw new Error('Network error during login');
         }
     }
@@ -62,13 +69,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] 2FA verification successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] 2FA verification error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] 2FA verification error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during 2FA verification:', error);
             throw new Error('Network error during 2FA verification');
         }
     }
@@ -84,13 +91,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Password reset request successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Password reset request error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Password reset request error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during password reset request:', error);
             throw new Error('Network error during password reset request');
         }
     }
@@ -106,13 +113,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Password reset successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Password reset error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Password reset error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during password reset:', error);
             throw new Error('Network error during password reset');
         }
     }
@@ -128,13 +135,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Password change successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Password change error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Password change error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during password change:', error);
             throw new Error('Network error during password change');
         }
     }
@@ -150,13 +157,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] 2FA setup successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] 2FA setup error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] 2FA setup error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during 2FA setup:', error);
             throw new Error('Network error during 2FA setup');
         }
     }
@@ -172,13 +179,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] 2FA setup verification successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] 2FA setup verification error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] 2FA setup verification error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during 2FA setup verification:', error);
             throw new Error('Network error during 2FA setup verification');
         }
     }
@@ -194,13 +201,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Backup codes generation successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Backup codes generation error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Backup codes generation error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during backup codes generation:', error);
             throw new Error('Network error during backup codes generation');
         }
     }
@@ -216,13 +223,13 @@ export class LocalAuthAPI {
             
             console.log('[LocalAuth] Email verification successful:', response.data);
             return response.data;
-        } catch (error: any) {
-            console.error('[LocalAuth] Email verification error:', error.response?.data || error.message);
-            
-            if (error.response?.data) {
+        } catch (error) {
+            if (isAxiosErrorWithResponse(error)) {
+                console.error('[LocalAuth] Email verification error:', error.response.data);
                 return error.response.data;
             }
             
+            console.error('[LocalAuth] Network error during email verification:', error);
             throw new Error('Network error during email verification');
         }
     }

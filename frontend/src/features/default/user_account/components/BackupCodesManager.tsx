@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Shield, RefreshCw, AlertTriangle } from 'lucide-react';
 import { LocalAuthAPI } from '../api/localAuth.api';
 
 interface BackupCodesManagerProps {
@@ -41,20 +41,6 @@ const BackupCodesManager: React.FC<BackupCodesManagerProps> = ({
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const downloadBackupCodes = (codes: string[]) => {
-        const content = `Two-Factor Authentication Backup Codes\n\nGenerated on: ${new Date().toLocaleString()}\n\nEach code can only be used once. Store these in a safe place.\n\n${codes.join('\n')}`;
-        
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'backup-codes.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     };
 
     if (!showConfirm) {

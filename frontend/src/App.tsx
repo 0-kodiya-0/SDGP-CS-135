@@ -3,11 +3,9 @@ import { Routes, Route, useNavigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Footer, Header, Navbar } from "./layout";
 import { queryClient } from './conf/react_query/persistConfig';
-import { useEnvironment } from "./features/default/environment/contexts/EnvironmentContext";
 import { GooglePermissionsProvider, useAccount as useAccountDetails } from "./features/default/user_account";
 import { registerAllComponents } from "./features/required/tab_view";
-import EnvironmentSelectionPage from "./features/default/environment/pages/EnvironmentSelectionPage";
-import CreateEnvironmentPage from "./features/default/environment/pages/CreateEnvironmentPage";
+import { useEnvironment, EnvironmentSelectionPage, CreateEnvironmentPage } from "./features/default/environment";
 
 const MainApp: React.FC = () => {
     const { isLoading, error, currentEnvironment } = useEnvironment();

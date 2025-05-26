@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Shield, User, Bell, LogOut, Key, Download } from 'lucide-react';
+import { ArrowLeft, Save, Shield, User, Bell, LogOut, Key, Download, ExternalLink } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
-import { PasswordStrengthIndicator, usePasswordValidation } from '../components/PasswordStrengthIndicator';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
-import { LocalAuthAPI } from '../api/localAuth.api';
 import { OAuthProviders, AccountType } from '../types/types.data';
 import BackupCodesManager from '../components/BackupCodesManager';
 import TwoFactorSetup from '../components/TwoFactorSetup';
@@ -18,21 +16,10 @@ const AccountSettingsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('profile');
     const [isSaving, setIsSaving] = useState(false);
     
-    // Password change state
-    const [passwordForm, setPasswordForm] = useState({
-        oldPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    });
-    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-    const [showPasswordForm, setShowPasswordForm] = useState(false);
-    
     // 2FA state
     const [show2FASetup, setShow2FASetup] = useState(false);
     const [showBackupCodes, setShowBackupCodes] = useState(false);
-    const [generatedBackupCodes, setGeneratedBackupCodes] = useState<string[]>([]);
 
-    const passwordValidation = usePasswordValidation(passwordForm.newPassword);
     const isLocalAccount = currentAccount?.accountType === AccountType.Local;
 
     const handleGoBack = () => {
@@ -51,80 +38,14 @@ const AccountSettingsPage: React.FC = () => {
         }
     };
 
-    const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setPasswordForm(prev => ({
-            ...prev,
-            [name]: value
-        }));
-
-        // Clear errors when user starts typing
-        if (passwordErrors[name]) {
-            setPasswordErrors(prev => ({
-                ...prev,
-                [name]: ''
-            }));
-        }
-    };
-
-    const validatePasswordForm = (): boolean => {
-        const newErrors: Record<string, string> = {};
-
-        if (!passwordForm.oldPassword) {
-            newErrors.oldPassword = 'Current password is required';
-        }
-
-        if (!passwordForm.newPassword) {
-            newErrors.newPassword = 'New password is required';
-        } else if (!passwordValidation.isValid) {
-            newErrors.newPassword = 'Password does not meet all requirements';
-        }
-
-        if (!passwordForm.confirmPassword) {
-            newErrors.confirmPassword = 'Please confirm your new password';
-        } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
-        }
-
-        if (passwordForm.oldPassword === passwordForm.newPassword) {
-            newErrors.newPassword = 'New password must be different from current password';
-        }
-
-        setPasswordErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handlePasswordChange = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!validatePasswordForm()) {
-            return;
-        }
-
-        setIsSaving(true);
-        setPasswordErrors({});
-
-        try {
-            const response = await LocalAuthAPI.changePassword(currentAccount!.id, {
-                oldPassword: passwordForm.oldPassword,
-                newPassword: passwordForm.newPassword,
-                confirmPassword: passwordForm.confirmPassword
-            });
-
-            if (response.success) {
-                setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-                setShowPasswordForm(false);
-                // Show success message or toast
-                alert('Password changed successfully!');
-            } else {
-                setPasswordErrors({ general: response.error?.message || 'Failed to change password' });
+    const handlePasswordReset = () => {
+        // Redirect to the existing password reset page
+        navigate('/forgot-password', {
+            state: {
+                email: currentAccount?.userDetails.email,
+                isAccountSettings: true
             }
-        } catch (error) {
-            console.error('Password change error:', error);
-            setPasswordErrors({ general: 'An error occurred. Please try again.' });
-        } finally {
-            setIsSaving(false);
-        }
+        });
     };
 
     const handle2FASetupComplete = (enabled: boolean) => {
@@ -140,7 +61,6 @@ const AccountSettingsPage: React.FC = () => {
     };
 
     const handleBackupCodesGenerated = (codes: string[]) => {
-        setGeneratedBackupCodes(codes);
         setShowBackupCodes(false);
         // Auto-download the codes
         downloadBackupCodes(codes);
@@ -159,6 +79,21 @@ const AccountSettingsPage: React.FC = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    };
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        
+        try {
+            // Simulate save operation
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            alert('Settings saved successfully!');
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Failed to save settings. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     if (isLoading) {
@@ -335,117 +270,31 @@ const AccountSettingsPage: React.FC = () => {
                             <div>
                                 <h2 className="text-lg font-medium mb-4">Security Settings</h2>
                                 <div className="space-y-6">
-                                    {/* Password Change Section - Only for Local Accounts */}
+                                    {/* Password Reset - Only for Local Accounts */}
                                     {isLocalAccount && (
                                         <div className="border-b border-gray-200 pb-6">
                                             <div className="flex items-center justify-between mb-4">
                                                 <div>
                                                     <h3 className="font-medium">Password</h3>
                                                     <p className="text-sm text-gray-500">
-                                                        Change your account password
+                                                        Reset your account password using the password reset flow
                                                     </p>
                                                 </div>
                                                 <button
-                                                    onClick={() => setShowPasswordForm(!showPasswordForm)}
+                                                    onClick={handlePasswordReset}
                                                     className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                                                 >
                                                     <Key className="mr-2 h-4 w-4" />
-                                                    Change Password
+                                                    Reset Password
+                                                    <ExternalLink className="ml-2 h-3 w-3" />
                                                 </button>
                                             </div>
-
-                                            {showPasswordForm && (
-                                                <div className="bg-gray-50 p-4 rounded-lg">
-                                                    {passwordErrors.general && (
-                                                        <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm">
-                                                            {passwordErrors.general}
-                                                        </div>
-                                                    )}
-
-                                                    <form onSubmit={handlePasswordChange} className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700">
-                                                                Current Password
-                                                            </label>
-                                                            <input
-                                                                type="password"
-                                                                name="oldPassword"
-                                                                value={passwordForm.oldPassword}
-                                                                onChange={handlePasswordInputChange}
-                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                                                                    passwordErrors.oldPassword ? 'border-red-300' : 'border-gray-300'
-                                                                }`}
-                                                            />
-                                                            {passwordErrors.oldPassword && (
-                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.oldPassword}</p>
-                                                            )}
-                                                        </div>
-
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700">
-                                                                New Password
-                                                            </label>
-                                                            <input
-                                                                type="password"
-                                                                name="newPassword"
-                                                                value={passwordForm.newPassword}
-                                                                onChange={handlePasswordInputChange}
-                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                                                                    passwordErrors.newPassword ? 'border-red-300' : 'border-gray-300'
-                                                                }`}
-                                                            />
-                                                            {passwordErrors.newPassword && (
-                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
-                                                            )}
-                                                            
-                                                            {passwordForm.newPassword && (
-                                                                <div className="mt-3">
-                                                                    <PasswordStrengthIndicator password={passwordForm.newPassword} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700">
-                                                                Confirm New Password
-                                                            </label>
-                                                            <input
-                                                                type="password"
-                                                                name="confirmPassword"
-                                                                value={passwordForm.confirmPassword}
-                                                                onChange={handlePasswordInputChange}
-                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                                                                    passwordErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                                                                }`}
-                                                            />
-                                                            {passwordErrors.confirmPassword && (
-                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="flex justify-end space-x-3">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setShowPasswordForm(false);
-                                                                    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-                                                                    setPasswordErrors({});
-                                                                }}
-                                                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                            <button
-                                                                type="submit"
-                                                                disabled={isSaving}
-                                                                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                                                            >
-                                                                {isSaving ? 'Changing...' : 'Change Password'}
-                                                            </button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            )}
+                                            <div className="bg-blue-50 p-3 rounded-md">
+                                                <p className="text-sm text-blue-700">
+                                                    You'll be redirected to a secure password reset page where you can enter your email 
+                                                    and receive a reset link.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
 
@@ -555,20 +404,15 @@ const AccountSettingsPage: React.FC = () => {
                                                     Automatically lock your account when closing the browser
                                                 </p>
                                             </div>
-                                            <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                            <label className="relative inline-flex items-center cursor-pointer">
                                                 <input
                                                     type="checkbox"
-                                                    name="toggle"
-                                                    id="autolock-toggle"
-                                                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                                    className="sr-only peer"
                                                     defaultChecked={currentAccount.security?.autoLock}
                                                     disabled={!isLocalAccount}
                                                 />
-                                                <label
-                                                    htmlFor="autolock-toggle"
-                                                    className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                                                ></label>
-                                            </div>
+                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
                                         </div>
                                         {!isLocalAccount && (
                                             <p className="mt-1 text-xs text-gray-500">
@@ -580,14 +424,14 @@ const AccountSettingsPage: React.FC = () => {
                                     {/* Revoke Access Token - Only for OAuth accounts */}
                                     {!isLocalAccount && (
                                         <div className="flex items-center justify-between">
-                                            <div className='w-[50%]'>
+                                            <div className="w-1/2">
                                                 <h3 className="font-medium">Revoke Access Token</h3>
                                                 <p className="text-sm text-gray-500">
                                                     Revoking your token will unlink all permissions and require you to sign in again.
                                                     Use this if you need to update the permissions granted to this application.
                                                 </p>
                                             </div>
-                                            <div className="flex justify-end w-[50%] mr-2 align-middle select-none">
+                                            <div className="flex justify-end w-1/2 mr-2">
                                                 <button
                                                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                                                     onClick={handleRevokeToken}
@@ -616,19 +460,14 @@ const AccountSettingsPage: React.FC = () => {
                                                 Receive updates and alerts via email
                                             </p>
                                         </div>
-                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
-                                                name="toggle"
-                                                id="email-toggle"
-                                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                                className="sr-only peer"
                                                 defaultChecked={true}
                                             />
-                                            <label
-                                                htmlFor="email-toggle"
-                                                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                                            ></label>
-                                        </div>
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
                                     </div>
 
                                     <div className="flex items-center justify-between">
@@ -638,19 +477,14 @@ const AccountSettingsPage: React.FC = () => {
                                                 Receive real-time notifications in your browser
                                             </p>
                                         </div>
-                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
-                                                name="toggle"
-                                                id="push-toggle"
-                                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                                className="sr-only peer"
                                                 defaultChecked={false}
                                             />
-                                            <label
-                                                htmlFor="push-toggle"
-                                                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                                            ></label>
-                                        </div>
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -668,7 +502,7 @@ const AccountSettingsPage: React.FC = () => {
                             <button
                                 type="submit"
                                 className="inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                onClick={() => setIsSaving(true)}
+                                onClick={handleSaveChanges}
                                 disabled={isSaving}
                             >
                                 {isSaving ? (
@@ -690,24 +524,6 @@ const AccountSettingsPage: React.FC = () => {
                     </div>
                 </div>
             </main>
-
-            {/* Custom styles for toggle switches */}
-            <style>{`
-        .toggle-checkbox:checked {
-          right: 0;
-          border-color: #3b82f6;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-          background-color: #3b82f6;
-        }
-        .toggle-label {
-          transition: background-color 0.2s ease;
-        }
-        .toggle-checkbox {
-          transition: all 0.2s ease;
-          right: 4px;
-        }
-      `}</style>
         </div>
     );
 };

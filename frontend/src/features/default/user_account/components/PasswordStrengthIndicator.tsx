@@ -36,7 +36,7 @@ const passwordRequirements: PasswordRequirement[] = [
     {
         id: 'special',
         label: 'At least one special character',
-        test: (password) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        test: (password) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
     }
 ];
 
@@ -46,7 +46,6 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
 }) => {
     const getPasswordStrength = (): { score: number; label: string; color: string } => {
         const passedRequirements = passwordRequirements.filter(req => req.test(password)).length;
-        const totalRequirements = passwordRequirements.length;
         
         if (passedRequirements === 0) {
             return { score: 0, label: 'Enter a password', color: 'text-gray-500' };

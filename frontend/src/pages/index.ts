@@ -1,5 +1,14 @@
 export { default as AuthCallback } from "./AuthCallback";
+export { default as AuthGuard } from "./AuthGuard";
 export { default as LoginPage } from "./LoginPage";
 export { default as SignupPage } from "./SignupPage";
 export { default as NotFoundPage } from "./NotFoundPage";
 export { default as AuthRedirect } from "./AuthRedirect";
+export { default as PermissionCallback } from "./PermissionCallback";
+export { default as PermissionConfirmationPage } from "./PermissionConfirmationPage";
+export { default as BackupCodesPage } from "./BackupCodesPage";
+export { default as CheckEmailPage } from "./CheckEmailPage";
+export { default as EmailVerificationPage } from "./EmailVerificationPage";
+export { default as ForgotPasswordPage } from "./ForgotPasswordPage";
+export { default as PasswordResetPage } from "./PasswordResetPage";
+export { default as TwoFactorVerificationPage } from "./TwoFactorVerificationPage";

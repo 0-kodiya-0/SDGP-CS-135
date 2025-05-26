@@ -1,26 +1,9 @@
-// frontend/src/AppRoutes.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
-import { EnvironmentProvider } from './features/default/environment/contexts/EnvironmentContext';
-import { AuthProvider } from './features/default/user_account/contexts/AuthContext';
-import { AccountProvider } from './features/default/user_account/contexts/AccountContext';
-import AccountSelectionPage from './features/default/user_account/pages/AccountSelectionPage';
-import AccountSettingsPage from './features/default/user_account/pages/AccountSettingsPage';
-import NotFoundPage from './pages/NotFoundPage';
-import AuthGuard from './pages/AuthGuard';
-import { LoginPage, SignupPage, AuthCallback, AuthRedirect } from './pages';
-import TokenRevocationWarningPage from './features/default/user_account/pages/TokenRevocationWarningPage';
-import PermissionCallback from './pages/PermissionCallback';
-import EnvironmentSelectionPage from './features/default/environment/pages/EnvironmentSelectionPage';
-import CreateEnvironmentPage from './features/default/environment/pages/CreateEnvironmentPage';
-import PermissionConfirmationPage from './pages/PermissionConfirmationPage';
-import BackupCodesPage from './pages/BackupCodesPage';
-import CheckEmailPage from './pages/CheckEmailPage';
-import EmailVerificationPage from './pages/EmailVerificationPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import PasswordResetPage from './pages/PasswordResetPage';
-import TwoFactorVerificationPage from './pages/TwoFactorVerificationPage';
+import { LoginPage, SignupPage, AuthCallback, AuthRedirect, BackupCodesPage, CheckEmailPage, EmailVerificationPage, ForgotPasswordPage, NotFoundPage, PasswordResetPage, PermissionCallback, TwoFactorVerificationPage, AuthGuard, PermissionConfirmationPage } from './pages';
+import { AccountProvider, AccountSelectionPage, AccountSettingsPage, AuthProvider, TokenRevocationWarningPage } from './features/default/user_account';
+import { EnvironmentSelectionPage, CreateEnvironmentPage, EnvironmentProvider } from './features/default/environment';
 
 export const AppRoutes: React.FC = () => {
     return (

@@ -1,6 +1,13 @@
-export { useEnvironmentStore } from './store';
-export { EnvironmentButton } from "./components/EnvironmentButton.tsx";
+// Components
+export { EnvironmentButton } from "./components/EnvironmentButton";
 
-export * from "./types/types.data.ts";
-export * from "./types/types.props.ts";
-export * from "./types/types.store.ts";
+// Contexts and Hooks
+export { useEnvironment } from "./contexts/EnvironmentContext";
+export { EnvironmentProvider } from "./contexts/EnvironmentContext";
+
+// Pages
+export { default as EnvironmentSelectionPage } from "./pages/EnvironmentSelectionPage";
+export { default as CreateEnvironmentPage } from "./pages/CreateEnvironmentPage";
+
+// Types
+export * from "./types/types.data";

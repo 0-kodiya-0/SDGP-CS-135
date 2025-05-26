@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QrCode, Shield, Copy, Check, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { QrCode, Shield, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { LocalAuthAPI } from '../api/localAuth.api';
 
 interface TwoFactorSetupProps {
