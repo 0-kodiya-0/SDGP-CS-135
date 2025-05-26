@@ -1,10 +1,10 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import dbConfig from '../../config/db.config';
-import { AccountStatus, AccountType, LocalAccount, OAuthAccount, OAuthProviders } from '../../feature/account/Account.types';
+import { AccountStatus, AccountType, Account, OAuthProviders } from './Account.types';
 import bcrypt from 'bcrypt';
 import { savePasswordResetToken } from '../local_auth/LocalAuth.cache';
 
-// User details schema - removed verification fields
+// User details schema
 const UserDetailsSchema = new Schema({
     firstName: { type: String },
     lastName: { type: String },
@@ -14,113 +14,78 @@ const UserDetailsSchema = new Schema({
     birthdate: { type: String },
     username: { type: String },
     emailVerified: { type: Boolean, default: false }
-    // Removed: verificationToken, verificationExpires
 }, { _id: false });
 
-// Base security settings schema
-const BaseSecuritySettingsSchema = {
+// Security settings schema
+const SecuritySettingsSchema = new Schema({
+    password: { type: String }, // Optional - only for local accounts
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String },
     twoFactorBackupCodes: { type: [String] },
     sessionTimeout: { type: Number, default: 3600 },
-    autoLock: { type: Boolean, default: false }
-};
-
-// OAuth Security settings schema
-const OAuthSecuritySettingsSchema = new Schema(BaseSecuritySettingsSchema, { _id: false });
-
-// Local Security settings schema - removed password reset fields
-const LocalSecuritySettingsSchema = new Schema({
-    ...BaseSecuritySettingsSchema,
-    password: { type: String, required: true },
+    autoLock: { type: Boolean, default: false },
+    // Local account specific fields
     passwordSalt: { type: String },
-    // Removed: passwordResetToken, passwordResetExpires
     lastPasswordChange: { type: Date },
     previousPasswords: { type: [String], default: [] },
     failedLoginAttempts: { type: Number, default: 0 },
     lockoutUntil: { type: Date }
 }, { _id: false });
 
-// OAuth scope info schema
-const OAuthScopeInfoSchema = new Schema({
-    scopes: { type: [String], default: [] },
-    lastUpdated: { type: String, required: true }
-}, { _id: false });
-
-const BaseAccountSchema = {
+// Main Account Schema
+const AccountSchema = new Schema({
     created: { type: String, required: true },
     updated: { type: String, required: true },
+    accountType: {
+        type: String,
+        enum: Object.values(AccountType),
+        required: true
+    },
     status: {
         type: String,
         enum: Object.values(AccountStatus),
         default: AccountStatus.Active
     },
-    userDetails: { type: UserDetailsSchema, required: true }
-};
-
-// OAuth Account Schema
-const OAuthAccountSchema = new Schema({
-    ...BaseAccountSchema,
-    accountType: {
-        type: String,
-        enum: [AccountType.OAuth],
-        default: AccountType.OAuth,
-        required: true
-    },
+    userDetails: { type: UserDetailsSchema, required: true },
+    security: { type: SecuritySettingsSchema, required: true },
     provider: {
         type: String,
-        enum: Object.values(OAuthProviders),
-        required: true
-    },
-    security: { type: OAuthSecuritySettingsSchema, required: true },
-    oauthScopes: { type: OAuthScopeInfoSchema }
+        enum: Object.values(OAuthProviders)
+    }
 }, {
     timestamps: true,
     versionKey: false
 });
 
-// Local Account Schema
-const LocalAccountSchema = new Schema({
-    ...BaseAccountSchema,
-    accountType: {
-        type: String,
-        enum: [AccountType.Local],
-        default: AccountType.Local,
-        required: true
-    },
-    security: { type: LocalSecuritySettingsSchema, required: true }
-}, {
-    timestamps: true,
-    versionKey: false
-});
+// Indexes
+AccountSchema.index({ 'userDetails.email': 1 }, { unique: true });
+AccountSchema.index({ 'userDetails.username': 1 }, { sparse: true, unique: true });
+AccountSchema.index({ accountType: 1 });
+AccountSchema.index({ provider: 1 });
 
-OAuthAccountSchema.index({ 'userDetails.email': 1, 'provider': 1 }, { unique: true });
-LocalAccountSchema.index({ 'userDetails.email': 1 }, { unique: true });
-LocalAccountSchema.index({ 'userDetails.username': 1 }, { sparse: true, unique: true });
-
-export interface OAuthAccountDocument extends Document, Omit<OAuthAccount, 'id'> {
-    _id: mongoose.Types.ObjectId;
-}
-
-export interface LocalAccountDocument extends Document, Omit<LocalAccount, 'id'> {
+// Document interface
+export interface AccountDocument extends Document, Omit<Account, 'id'> {
     _id: mongoose.Types.ObjectId;
     
     // Instance methods
-    comparePassword(candidatePassword: string): Promise<boolean>;
-    generatePasswordResetToken(): Promise<string>;
-    resetPassword(newPassword: string): Promise<void>;
+    comparePassword?(candidatePassword: string): Promise<boolean>;
+    generatePasswordResetToken?(): Promise<string>;
+    resetPassword?(newPassword: string): Promise<void>;
 }
 
-// Add methods to the schema - for local accounts
-
-// Password comparison method
-LocalAccountSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+// Add methods for local accounts only
+AccountSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+    if (this.accountType !== AccountType.Local || !this.security.password) {
+        throw new Error('Password comparison not available for OAuth accounts');
+    }
     return bcrypt.compare(candidatePassword, this.security.password);
 };
 
-// Password reset token generation - now uses cache instead of database
-LocalAccountSchema.methods.generatePasswordResetToken = async function(): Promise<string> {
-    // Generate token and store in cache instead of database
+AccountSchema.methods.generatePasswordResetToken = async function(): Promise<string> {
+    if (this.accountType !== AccountType.Local) {
+        throw new Error('Password reset not available for OAuth accounts');
+    }
+    
     const token = savePasswordResetToken(
         this._id.toString(),
         this.userDetails.email
@@ -129,8 +94,11 @@ LocalAccountSchema.methods.generatePasswordResetToken = async function(): Promis
     return token;
 };
 
-// Password reset method - updated to not clear database fields
-LocalAccountSchema.methods.resetPassword = async function(newPassword: string): Promise<void> {
+AccountSchema.methods.resetPassword = async function(newPassword: string): Promise<void> {
+    if (this.accountType !== AccountType.Local) {
+        throw new Error('Password reset not available for OAuth accounts');
+    }
+    
     // Store the current password in previous passwords array (limited to last 5)
     if (this.security.password) {
         this.security.previousPasswords = this.security.previousPasswords || [];
@@ -156,43 +124,60 @@ LocalAccountSchema.methods.resetPassword = async function(newPassword: string): 
     await this.save();
 };
 
-// Pre-save middleware to hash passwords
-LocalAccountSchema.pre('save', async function(next) {
-    const account = this as LocalAccountDocument;
+// Pre-save middleware to hash passwords for local accounts
+AccountSchema.pre('save', async function(next) {
+    const account = this as AccountDocument;
     
-    // Only hash password if it's modified (or new)
-    if (!account.isModified('security.password')) return next();
-    
-    try {
-        // Generate a salt
-        const salt = await bcrypt.genSalt(10);
-        
-        // Hash the password with the new salt
-        account.security.password = await bcrypt.hash(account.security.password, salt);
-        account.security.passwordSalt = salt;
-        
-        // If this is a new password (not just a new account), record the change time
-        if (account.security.lastPasswordChange || !account.isNew) {
-            account.security.lastPasswordChange = new Date();
+    // Only hash password for local accounts and if password is modified
+    if (account.accountType === AccountType.Local && account.isModified('security.password') && account.security.password) {
+        try {
+            // Generate a salt
+            const salt = await bcrypt.genSalt(10);
+            
+            // Hash the password with the new salt
+            account.security.password = await bcrypt.hash(account.security.password, salt);
+            account.security.passwordSalt = salt;
+            
+            // If this is a new password (not just a new account), record the change time
+            if (account.security.lastPasswordChange || !account.isNew) {
+                account.security.lastPasswordChange = new Date();
+            }
+            
+            next();
+        } catch (error) {
+            next(error as Error);
         }
-        
+    } else {
         next();
-    } catch (error) {
-        next(error as Error);
     }
 });
 
-// Initialize models with Accounts database connection
-const initAccountModels = async () => {
+// Pre-save validation
+AccountSchema.pre('save', function(next) {
+    const account = this as AccountDocument;
+    
+    // Validate OAuth accounts have provider
+    if (account.accountType === AccountType.OAuth && !account.provider) {
+        return next(new Error('OAuth accounts must have a provider'));
+    }
+    
+    // Validate local accounts have password
+    if (account.accountType === AccountType.Local && !account.security.password) {
+        return next(new Error('Local accounts must have a password'));
+    }
+    
+    // Validate OAuth accounts don't have password (initially)
+    if (account.accountType === AccountType.OAuth && account.security.password) {
+        return next(new Error('OAuth accounts should not have a password'));
+    }
+    
+    next();
+});
+
+// Initialize model with database connection
+const initAccountModel = async () => {
     const accountsConnection = await dbConfig.connectAccountsDB();
-
-    // Create and export the models using the accounts connection
-    const AccountModels = {
-        OAuthAccount: accountsConnection.model<OAuthAccountDocument>('OAuthAccount', OAuthAccountSchema),
-        LocalAccount: accountsConnection.model<LocalAccountDocument>('LocalAccount', LocalAccountSchema)
-    };
-
-    return AccountModels;
+    return accountsConnection.model<AccountDocument>('Account', AccountSchema);
 };
 
-export default initAccountModels;
+export default initAccountModel;

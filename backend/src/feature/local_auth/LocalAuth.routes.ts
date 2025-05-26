@@ -83,13 +83,6 @@ authRequiredRouter.post('/verify-two-factor-setup', LocalAuthController.verifyAn
  */
 authRequiredRouter.post('/generate-backup-codes', LocalAuthController.generateBackupCodes);
 
-/**
- * @route POST /:accountId/convert-to-local
- * @desc Convert OAuth account to local account (set password)
- * @access Private
- */
-authRequiredRouter.post('/convert-to-local', LocalAuthController.convertOAuthToLocal);
-
 export default {
     authNotRequiredRouter,
     authRequiredRouter

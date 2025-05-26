@@ -3,17 +3,16 @@ import crypto from 'crypto';
 import { 
     AccountStatus, 
     AccountType, 
-    LocalAccount, 
+    Account, 
     SignupRequest, 
     LocalAuthRequest,
     PasswordResetRequest,
     PasswordChangeRequest,
-    SetupTwoFactorRequest,
-    LocalAccountDTO
+    SetupTwoFactorRequest
 } from '../account/Account.types';
 import db from '../../config/db';
 import { BadRequestError, NotFoundError, ValidationError, ApiErrorCode } from '../../types/response.types';
-import { toLocalAccount } from '../account/Account.utils';
+import { toSafeAccount } from '../account/Account.utils';
 import { sendPasswordResetEmail, sendVerificationEmail, sendPasswordChangedNotification } from '../email/Email.service';
 import { authenticator } from 'otplib';
 import { ValidationUtils } from '../../utils/validation';
@@ -34,7 +33,7 @@ const APP_NAME = process.env.APP_NAME as string;
 /**
  * Create a new local account
  */
-export async function createLocalAccount(signupData: SignupRequest): Promise<LocalAccount> {
+export async function createLocalAccount(signupData: SignupRequest): Promise<Account> {
     const models = await db.getModels();
     
     // Use ValidationUtils for validation
@@ -48,22 +47,18 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
         ValidationUtils.validateStringLength(signupData.username, 'Username', 3, 30);
     }
     
-    // Check if email already exists in either local or OAuth accounts
-    const existingLocalAccount = await models.accounts.LocalAccount.findOne({
+    // Check if email already exists
+    const existingAccount = await models.accounts.Account.findOne({
         'userDetails.email': signupData.email
     });
     
-    const existingOauthAccount = await models.accounts.OAuthAccount.findOne({
-        'userDetails.email': signupData.email
-    });
-    
-    if (existingLocalAccount || existingOauthAccount) {
+    if (existingAccount) {
         throw new BadRequestError('Email already in use', 400, ApiErrorCode.USER_EXISTS);
     }
     
     // Check if username exists (if provided)
     if (signupData.username) {
-        const usernameExists = await models.accounts.LocalAccount.findOne({
+        const usernameExists = await models.accounts.Account.findOne({
             'userDetails.username': signupData.username
         });
         
@@ -75,7 +70,7 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
     // Create account with validated fields
     const timestamp = new Date().toISOString();
     
-    const newAccount = await models.accounts.LocalAccount.create({
+    const newAccount = await models.accounts.Account.create({
         created: timestamp,
         updated: timestamp,
         accountType: AccountType.Local,
@@ -88,7 +83,6 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
             username: signupData.username,
             birthdate: signupData.birthdate,
             emailVerified: false
-            // No verification token in database - using cache now
         },
         security: {
             password: signupData.password, // Will be hashed by the model's pre-save hook
@@ -110,13 +104,13 @@ export async function createLocalAccount(signupData: SignupRequest): Promise<Loc
         console.error('Failed to send verification email:', err);
     });
     
-    return toLocalAccount(newAccount) as LocalAccountDTO;
+    return toSafeAccount(newAccount) as Account;
 }
 
 /**
  * Authenticate a user with local credentials
  */
-export async function authenticateLocalUser(authData: LocalAuthRequest): Promise<LocalAccount | { requiresTwoFactor: true, tempToken: string, accountId: string }> {
+export async function authenticateLocalUser(authData: LocalAuthRequest): Promise<Account | { requiresTwoFactor: true, tempToken: string, accountId: string }> {
     const models = await db.getModels();
     
     // Use ValidationUtils for validation
@@ -136,10 +130,10 @@ export async function authenticateLocalUser(authData: LocalAuthRequest): Promise
     
     // Find user by email or username
     const query = authData.email 
-        ? { 'userDetails.email': authData.email }
-        : { 'userDetails.username': authData.username };
+        ? { 'userDetails.email': authData.email, accountType: AccountType.Local }
+        : { 'userDetails.username': authData.username, accountType: AccountType.Local };
     
-    const account = await models.accounts.LocalAccount.findOne(query);
+    const account = await models.accounts.Account.findOne(query);
     
     if (!account) {
         throw new NotFoundError('Invalid email/username or password', 401, ApiErrorCode.AUTH_FAILED);
@@ -173,7 +167,7 @@ export async function authenticateLocalUser(authData: LocalAuthRequest): Promise
     }
     
     // Verify password
-    const isPasswordValid = await account.comparePassword(authData.password);
+    const isPasswordValid = await account.comparePassword!(authData.password);
     
     if (!isPasswordValid) {
         // Increment failed login attempts
@@ -220,7 +214,7 @@ export async function authenticateLocalUser(authData: LocalAuthRequest): Promise
     }
     
     // Return account
-    return toLocalAccount(account) as LocalAccountDTO;
+    return toSafeAccount(account) as Account;
 }
 
 /**
@@ -240,9 +234,9 @@ export async function verifyEmail(token: string): Promise<boolean> {
     }
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
+    const account = await models.accounts.Account.findById(tokenData.accountId);
     
-    if (!account) {
+    if (!account || account.accountType !== AccountType.Local) {
         throw new ValidationError('Account not found', 400, ApiErrorCode.USER_NOT_FOUND);
     }
     
@@ -273,18 +267,18 @@ export async function requestPasswordReset(data: PasswordResetRequest): Promise<
     ValidationUtils.validateEmail(data.email);
     
     // Find account by email
-    const account = await models.accounts.LocalAccount.findOne({
-        'userDetails.email': data.email
+    const account = await models.accounts.Account.findOne({
+        'userDetails.email': data.email,
+        accountType: AccountType.Local
     });
     
     // If no account found, we still return success (security through obscurity)
-    // This prevents user enumeration
     if (!account) {
         return true;
     }
     
-    // Generate reset token using the model method (which now uses cache)
-    const resetToken = await account.generatePasswordResetToken();
+    // Generate reset token using the model method
+    const resetToken = await account.generatePasswordResetToken!();
     
     // Send password reset email (async - don't wait for it)
     sendPasswordResetEmail(
@@ -316,9 +310,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
     }
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
+    const account = await models.accounts.Account.findById(tokenData.accountId);
     
-    if (!account) {
+    if (!account || account.accountType !== AccountType.Local) {
         throw new ValidationError('Account not found', 400, ApiErrorCode.USER_NOT_FOUND);
     }
     
@@ -329,7 +323,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
     
     // Check if new password matches any of the previous passwords
     if (account.security.previousPasswords && account.security.previousPasswords.length > 0) {
-        // Check each previous password
         const isReused = await Promise.all(
             account.security.previousPasswords.map(oldHash => 
                 bcrypt.compare(newPassword, oldHash)
@@ -346,7 +339,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
     }
     
     // Reset the password
-    await account.resetPassword(newPassword);
+    await account.resetPassword!(newPassword);
     
     // Remove token from cache
     removePasswordResetToken(token);
@@ -373,14 +366,14 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
     ValidationUtils.validatePasswordStrength(data.newPassword);
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(accountId);
+    const account = await models.accounts.Account.findById(accountId);
     
-    if (!account) {
+    if (!account || account.accountType !== AccountType.Local) {
         throw new NotFoundError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
     // Verify current password
-    const isCurrentPasswordValid = await account.comparePassword(data.oldPassword);
+    const isCurrentPasswordValid = await account.comparePassword!(data.oldPassword);
     
     if (!isCurrentPasswordValid) {
         throw new ValidationError('Current password is incorrect', 401, ApiErrorCode.AUTH_FAILED);
@@ -404,7 +397,7 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
     }
     
     // Change the password
-    await account.resetPassword(data.newPassword);
+    await account.resetPassword!(data.newPassword);
     
     // Send notification email
     sendPasswordChangedNotification(
@@ -417,9 +410,6 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
     return true;
 }
 
-// ... Rest of the methods remain the same (setupTwoFactor, verifyAndEnableTwoFactor, etc.)
-// They don't use tokens so no changes needed
-
 /**
  * Set up two-factor authentication
  */
@@ -430,14 +420,14 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
     ValidationUtils.validateRequiredFields(data, ['password', 'enableTwoFactor']);
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(accountId);
+    const account = await models.accounts.Account.findById(accountId);
     
-    if (!account) {
+    if (!account || account.accountType !== AccountType.Local) {
         throw new NotFoundError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
     // Verify password before enabling/disabling 2FA
-    const isPasswordValid = await account.comparePassword(data.password);
+    const isPasswordValid = await account.comparePassword!(data.password);
     
     if (!isPasswordValid) {
         throw new ValidationError('Password is incorrect', 401, ApiErrorCode.AUTH_FAILED);
@@ -474,9 +464,8 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
             };
         } else {
             // Secret already exists
-            const appName = 'YourAppName';
             const accountName = account.userDetails.email || account.userDetails.username || accountId;
-            const qrCodeUrl = authenticator.keyuri(accountName.toString(), appName, account.security.twoFactorSecret);
+            const qrCodeUrl = authenticator.keyuri(accountName.toString(), APP_NAME, account.security.twoFactorSecret);
             
             return {
                 secret: account.security.twoFactorSecret,
@@ -503,12 +492,12 @@ export async function verifyAndEnableTwoFactor(accountId: string, token: string)
     
     ValidationUtils.validateObjectId(accountId, 'Account ID');
     ValidationUtils.validateRequiredFields({ token }, ['token']);
-    ValidationUtils.validateStringLength(token, '2FA token', 6, 6); // TOTP codes are exactly 6 digits
+    ValidationUtils.validateStringLength(token, '2FA token', 6, 6);
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(accountId);
+    const account = await models.accounts.Account.findById(accountId);
     
-    if (!account || !account.security.twoFactorSecret) {
+    if (!account || account.accountType !== AccountType.Local || !account.security.twoFactorSecret) {
         throw new NotFoundError('Account not found or 2FA not set up', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
@@ -532,11 +521,11 @@ export async function verifyAndEnableTwoFactor(accountId: string, token: string)
 /**
  * Verify two-factor code during login
  */
-export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: string): Promise<LocalAccount> {
+export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: string): Promise<Account> {
     const models = await db.getModels();
     
     ValidationUtils.validateRequiredFields({ tempToken, twoFactorCode }, ['tempToken', 'twoFactorCode']);
-    ValidationUtils.validateStringLength(twoFactorCode, '2FA token', 6, 8); // TOTP or backup code
+    ValidationUtils.validateStringLength(twoFactorCode, '2FA token', 6, 8);
     
     // Get temporary token from cache
     const tokenData = getTwoFactorTempToken(tempToken);
@@ -546,9 +535,9 @@ export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: str
     }
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(tokenData.accountId);
+    const account = await models.accounts.Account.findById(tokenData.accountId);
     
-    if (!account || !account.security.twoFactorEnabled || !account.security.twoFactorSecret) {
+    if (!account || account.accountType !== AccountType.Local || !account.security.twoFactorEnabled || !account.security.twoFactorSecret) {
         throw new NotFoundError('Account not found or 2FA not enabled', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
@@ -575,7 +564,7 @@ export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: str
             markTwoFactorTempTokenAsUsed(tempToken);
             removeTwoFactorTempToken(tempToken);
 
-            return toLocalAccount(account) as LocalAccountDTO;
+            return toSafeAccount(account) as Account;
         }
     }
     
@@ -593,7 +582,7 @@ export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: str
     markTwoFactorTempTokenAsUsed(tempToken);
     removeTwoFactorTempToken(tempToken);
     
-    return toLocalAccount(account) as LocalAccountDTO;
+    return toSafeAccount(account) as Account;
 }
 
 /**
@@ -606,14 +595,14 @@ export async function generateNewBackupCodes(accountId: string, password: string
     ValidationUtils.validateRequiredFields({ password }, ['password']);
     
     // Find account by ID
-    const account = await models.accounts.LocalAccount.findById(accountId);
+    const account = await models.accounts.Account.findById(accountId);
     
-    if (!account || !account.security.twoFactorEnabled) {
+    if (!account || account.accountType !== AccountType.Local || !account.security.twoFactorEnabled) {
         throw new NotFoundError('Account not found or 2FA not enabled', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     
     // Verify password
-    const isPasswordValid = await account.comparePassword(password);
+    const isPasswordValid = await account.comparePassword!(password);
     
     if (!isPasswordValid) {
         throw new ValidationError('Password is incorrect', 401, ApiErrorCode.AUTH_FAILED);
@@ -636,70 +625,4 @@ export async function generateNewBackupCodes(accountId: string, password: string
     
     // Return plain text codes to show to user
     return backupCodes;
-}
-
-/**
- * Convert OAuth account to local account (set password)
- */
-export async function convertOAuthToLocalAccount(oauthAccountId: string, password: string, username?: string): Promise<LocalAccount> {
-    const models = await db.getModels();
-    
-    ValidationUtils.validateObjectId(oauthAccountId, 'OAuth Account ID');
-    ValidationUtils.validateRequiredFields({ password }, ['password']);
-    ValidationUtils.validatePasswordStrength(password);
-    
-    if (username) {
-        ValidationUtils.validateStringLength(username, 'Username', 3, 30);
-    }
-    
-    // Find OAuth account by ID
-    const oauthAccount = await models.accounts.OAuthAccount.findById(oauthAccountId);
-    
-    if (!oauthAccount) {
-        throw new NotFoundError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
-    }
-    
-    // If username provided, check if it's already taken
-    if (username) {
-        const usernameExists = await models.accounts.LocalAccount.findOne({
-            'userDetails.username': username
-        });
-        
-        if (usernameExists) {
-            throw new BadRequestError('Username already in use', 400, ApiErrorCode.USER_EXISTS);
-        }
-    }
-    
-    // Prepare local account data
-    const timestamp = new Date().toISOString();
-    const nameParts = oauthAccount.userDetails.name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    
-    // Create a new local account with same email
-    const localAccount = await models.accounts.LocalAccount.create({
-        created: timestamp,
-        updated: timestamp,
-        accountType: AccountType.Local,
-        status: AccountStatus.Active,
-        userDetails: {
-            firstName: firstName,
-            lastName: lastName,
-            name: oauthAccount.userDetails.name,
-            email: oauthAccount.userDetails.email,
-            imageUrl: oauthAccount.userDetails.imageUrl,
-            username: username,
-            emailVerified: true, // OAuth emails are verified
-        },
-        security: {
-            password: password, // Will be hashed by pre-save hook
-            twoFactorEnabled: false,
-            sessionTimeout: oauthAccount.security.sessionTimeout || 3600,
-            autoLock: oauthAccount.security.autoLock || false,
-            failedLoginAttempts: 0
-        },
-        // Can copy other relevant fields from OAuth account
-    });
-
-    return toLocalAccount(localAccount) as LocalAccountDTO;
 }

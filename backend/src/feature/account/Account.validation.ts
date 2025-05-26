@@ -2,13 +2,11 @@ import { AccountValidationError } from "../../types/response.types";
 import { ValidationUtils } from "../../utils/validation";
 import {
     UserDetails,
-    BaseAccount,
+    Account,
     AccountType,
     AccountStatus,
-    OAuthAccount,
     OAuthProviders,
-    OAuthScopeInfo,
-    LocalAccount,
+    SecuritySettings,
     SignupRequest,
     LocalAuthRequest,
     PasswordChangeRequest
@@ -29,23 +27,31 @@ export function validateUserDetails(obj?: Partial<UserDetails>): obj is UserDeta
     );
 }
 
-// Validation function for OAuth scope info
-export function validateOAuthScopeInfo(obj?: Partial<OAuthScopeInfo>): obj is OAuthScopeInfo {
+export function validateSecuritySettings(obj?: Partial<SecuritySettings>, accountType?: AccountType): obj is SecuritySettings {
     if (
         obj !== null &&
         typeof obj === "object" &&
-        Array.isArray(obj.scopes) &&
-        obj.scopes.every(scope => typeof scope === "string") &&
-        typeof obj.lastUpdated === "string" &&
-        !isNaN(Date.parse(obj.lastUpdated))
+        typeof obj.twoFactorEnabled === "boolean" &&
+        typeof obj.sessionTimeout === "number" &&
+        typeof obj.autoLock === "boolean"
     ) {
+        // For local accounts, password is required
+        if (accountType === AccountType.Local && !obj.password) {
+            throw new AccountValidationError("Local accounts must have a password");
+        }
+        
+        // For OAuth accounts, password should not be present
+        if (accountType === AccountType.OAuth && obj.password) {
+            throw new AccountValidationError("OAuth accounts should not have a password");
+        }
+        
         return true;
     }
     
-    return false;
+    throw new AccountValidationError("Invalid SecuritySettings object");
 }
 
-export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj is Omit<BaseAccount, "id"> {
+export function validateAccount(obj?: Omit<Partial<Account>, "id">): obj is Omit<Account, "id"> {
     if (
         obj !== null &&
         typeof obj === "object" &&
@@ -55,41 +61,28 @@ export function validateBaseAccount(obj?: Omit<Partial<BaseAccount>, "id">): obj
         Object.values(AccountType).includes(obj.accountType) &&
         obj.status &&
         Object.values(AccountStatus).includes(obj.status) &&
-        validateUserDetails(obj.userDetails)
+        validateUserDetails(obj.userDetails) &&
+        validateSecuritySettings(obj.security, obj.accountType)
     ) {
+        // Validate OAuth accounts have provider
+        if (obj.accountType === AccountType.OAuth && !obj.provider) {
+            throw new AccountValidationError("OAuth accounts must have a provider");
+        }
+        
+        // Validate provider is valid
+        if (obj.provider && !Object.values(OAuthProviders).includes(obj.provider)) {
+            throw new AccountValidationError("Invalid OAuth provider");
+        }
+        
+        // Validate local accounts don't have provider
+        if (obj.accountType === AccountType.Local && obj.provider) {
+            throw new AccountValidationError("Local accounts should not have a provider");
+        }
+        
         return true;
     }
 
-    throw new AccountValidationError("Invalid BaseAccount object");
-}
-
-export function validateOAuthAccount(obj?: Omit<Partial<OAuthAccount>, "id">): obj is Omit<OAuthAccount, "id"> {
-    if (
-        obj !== null &&
-        validateBaseAccount(obj as OAuthAccount) &&
-        obj?.accountType === AccountType.OAuth &&
-        obj.provider &&
-        Object.values(OAuthProviders).includes(obj.provider) &&
-        typeof obj.security === "object" &&
-        // Optional validation for oauthScopes if present
-        (obj.oauthScopes === undefined || validateOAuthScopeInfo(obj.oauthScopes))
-    ) {
-        return true;
-    }
-    throw new AccountValidationError("Invalid OAuthAccount object");
-}
-
-export function validateLocalAccount(obj?: Omit<Partial<LocalAccount>, "id">): obj is Omit<LocalAccount, "id"> {
-    if (
-        obj !== null &&
-        validateBaseAccount(obj as LocalAccount) &&
-        obj?.accountType === AccountType.Local &&
-        typeof obj.security === "object" &&
-        typeof obj.security.password === "string"
-    ) {
-        return true;
-    }
-    throw new AccountValidationError("Invalid LocalAccount object");
+    throw new AccountValidationError("Invalid Account object");
 }
 
 // Validate signup request
@@ -100,7 +93,7 @@ export function validateSignupRequest(request: SignupRequest): string | null {
     // Validate email format
     ValidationUtils.validateEmail(request.email);
     
-    // Validate password strength - now using centralized validation
+    // Validate password strength
     try {
         ValidationUtils.validatePasswordStrength(request.password);
     } catch (error) {
@@ -161,8 +154,10 @@ export function validatePasswordChangeRequest(request: PasswordChangeRequest): s
     }
     
     // Validate password strength
-    if (!validatePasswordStrength(request.newPassword)) {
-        return "New password must be at least 8 characters and include uppercase, lowercase, number, and special character";
+    try {
+        ValidationUtils.validatePasswordStrength(request.newPassword);
+    } catch (error) {
+        return error instanceof Error ? error.message : 'Invalid new password';
     }
     
     // Validate password confirmation
@@ -171,34 +166,4 @@ export function validatePasswordChangeRequest(request: PasswordChangeRequest): s
     }
     
     return null;
-}
-
-// Validate password strength
-export function validatePasswordStrength(password: string): boolean {
-    // At least 8 characters
-    if (password.length < 8) {
-        return false;
-    }
-    
-    // At least one uppercase letter
-    if (!/[A-Z]/.test(password)) {
-        return false;
-    }
-    
-    // At least one lowercase letter
-    if (!/[a-z]/.test(password)) {
-        return false;
-    }
-    
-    // At least one number
-    if (!/[0-9]/.test(password)) {
-        return false;
-    }
-    
-    // At least one special character
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-        return false;
-    }
-    
-    return true;
 }

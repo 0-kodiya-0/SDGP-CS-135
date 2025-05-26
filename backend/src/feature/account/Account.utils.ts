@@ -1,11 +1,11 @@
-import { OAuthAccountDocument, LocalAccountDocument } from "./Account.model";
-import { OAuthAccountDTO, LocalAccountDTO } from "./Account.types";
+import { AccountDocument } from "./Account.model";
+import { AccountDTO, SecuritySettings } from "./Account.types";
 
-// Convert Mongoose document to OAuthAccount DTO
-export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDTO | null => {
+// Convert Mongoose document to Account DTO
+export const toAccount = (doc: AccountDocument | null): AccountDTO | null => {
   if (!doc) return null;
 
-  const account: OAuthAccountDTO = {
+  const account: AccountDTO = {
     id: doc._id.toHexString(),
     created: doc.created,
     updated: doc.updated,
@@ -13,30 +13,34 @@ export const toOAuthAccount = (doc: OAuthAccountDocument | null): OAuthAccountDT
     status: doc.status,
     provider: doc.provider,
     userDetails: doc.userDetails,
-    security: doc.security,
-    oauthScopes: doc.oauthScopes
+    security: {
+      // Only include non-sensitive security information
+      twoFactorEnabled: doc.security.twoFactorEnabled,
+      sessionTimeout: doc.security.sessionTimeout,
+      autoLock: doc.security.autoLock,
+      // Don't include password, secrets, or other sensitive data
+    } as SecuritySettings // Type assertion to avoid exposing sensitive fields
   };
 
   return account;
 };
 
-// Convert Mongoose document to LocalAccount DTO
-export const toLocalAccount = (doc: LocalAccountDocument | null): LocalAccountDTO | null => {
+// Convert to safe account (removes all sensitive security data)
+export const toSafeAccount = (doc: AccountDocument | null): Omit<AccountDTO, 'security'> & { security: { twoFactorEnabled: boolean; sessionTimeout: number; autoLock: boolean } } | null => {
   if (!doc) return null;
 
-  const account: LocalAccountDTO = {
+  return {
     id: doc._id.toHexString(),
     created: doc.created,
     updated: doc.updated,
     accountType: doc.accountType,
     status: doc.status,
+    provider: doc.provider,
     userDetails: doc.userDetails,
     security: {
       twoFactorEnabled: doc.security.twoFactorEnabled,
       sessionTimeout: doc.security.sessionTimeout,
       autoLock: doc.security.autoLock,
-    } as never // Type assertion to avoid TypeScript errors about missing fields
+    }
   };
-
-  return account;
 };

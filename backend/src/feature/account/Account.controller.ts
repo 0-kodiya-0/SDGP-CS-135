@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { JsonSuccess, RedirectSuccess } from '../../types/response.types';
-import { OAuthAccountDocument } from './Account.model';
+import { AccountDocument } from './Account.model';
 import { asyncHandler } from '../../utils/response';
 import * as AccountService from './Account.service';
 
@@ -43,20 +43,20 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
  * Get account details
  */
 export const getAccount = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
     const safeAccount = AccountService.convertToSafeAccount(account);
 
     next(new JsonSuccess(safeAccount, 200));
 });
 
 /**
- * Update OAuth account
+ * Update account
  */
 export const updateAccount = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
     const updates = req.body;
 
-    const updatedAccount = await AccountService.updateOAuthAccount(account, updates);
+    const updatedAccount = await AccountService.updateAccount(account, updates);
     
     next(new JsonSuccess(updatedAccount, 200));
 });
@@ -65,18 +65,18 @@ export const updateAccount = asyncHandler(async (req: Request, res: Response, ne
  * Get email address for a specific account
  */
 export const getAccountEmail = (req: Request, res: Response, next: NextFunction) => {
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
     const email = AccountService.getAccountEmail(account);
 
     next(new JsonSuccess({ email }, 200));
 };
 
 /**
- * Update OAuth account security settings
+ * Update account security settings
  */
 export const updateAccountSecurity = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const securityUpdates = req.body;
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
 
     const updatedAccount = await AccountService.updateAccountSecurity(account, securityUpdates);
     
@@ -88,7 +88,7 @@ export const updateAccountSecurity = asyncHandler(async (req: Request, res: Resp
  */
 export const refreshToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId as string;
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
     const refreshToken = req.refreshToken as string;
     const { redirectUrl } = req.query;
 
@@ -104,7 +104,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response, nex
  */
 export const revokeToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId as string;
-    const account = req.oauthAccount as OAuthAccountDocument;
+    const account = req.account as AccountDocument;
     const accessToken = req.accessToken as string;
     const refreshToken = req.refreshToken as string;
 

@@ -13,14 +13,6 @@ export interface GoogleListResponse<T> {
     nextPageToken?: string;
 }
 
-// Error response from Google APIs
-export interface GoogleApiError {
-    code: number;
-    message: string;
-    status: string;
-    details?: any;
-}
-
 // Permission information to help client handle permission errors
 export interface GooglePermissionInfo {
     permissionUrl: string;
@@ -33,14 +25,5 @@ export interface GoogleApiRequest extends Request {
     params: {
         accountId: string;
         [key: string]: string;
-    };
-}
-
-// Base Google API response for our API
-export interface GoogleServiceResponse<T> {
-    data: T;
-    metadata?: {
-        nextPageToken?: string;
-        totalResults?: number;
     };
 }

@@ -12,8 +12,7 @@ import * as LocalAuthService from './LocalAuth.service';
 import {
     validateSignupRequest,
     validateLoginRequest,
-    validatePasswordChangeRequest,
-    validatePasswordStrength
+    validatePasswordChangeRequest
 } from '../account/Account.validation';
 import {
     LocalAuthRequest,
@@ -23,7 +22,7 @@ import {
     SetupTwoFactorRequest,
     VerifyTwoFactorRequest,
     VerifyEmailRequest,
-    LocalAccount,
+    Account,
 } from '../account/Account.types';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { sendTwoFactorEnabledNotification } from '../email/Email.service';
@@ -81,7 +80,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     }
 
     // Normal login (no 2FA)
-    const account = result as LocalAccount;
+    const account = result as Account;
 
     // Generate JWT token
     const accessToken = await createLocalJwtToken(account.id);
@@ -246,7 +245,7 @@ export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, n
             const backupCodes = await LocalAuthService.generateNewBackupCodes(accountId, data.password);
 
             // Send notification email (async - don't wait)
-            const account = await findUserById(accountId) as LocalAccount;
+            const account = await findUserById(accountId) as Account;
             if (account.userDetails.email) {
                 sendTwoFactorEnabledNotification(
                     account.userDetails.email,
@@ -314,37 +313,5 @@ export const generateBackupCodes = asyncHandler(async (req: Request, res: Respon
     next(new JsonSuccess({
         message: 'New backup codes generated successfully. Please save these codes in a secure location.',
         backupCodes
-    }));
-});
-
-/**
- * Convert OAuth account to Local account (set password)
- */
-export const convertOAuthToLocal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const oauthAccountId = req.params.accountId;
-    const { password, confirmPassword, username } = req.body;
-
-    if (!password || !confirmPassword) {
-        throw new BadRequestError('Password and password confirmation are required', 400, ApiErrorCode.MISSING_DATA);
-    }
-
-    if (password !== confirmPassword) {
-        throw new ValidationError('Passwords do not match', 400, ApiErrorCode.VALIDATION_ERROR);
-    }
-
-    if (!validatePasswordStrength(password)) {
-        throw new ValidationError(
-            'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
-            400,
-            ApiErrorCode.VALIDATION_ERROR
-        );
-    }
-
-    // Convert OAuth account to local account
-    const localAccount = await LocalAuthService.convertOAuthToLocalAccount(oauthAccountId, password, username);
-
-    next(new JsonSuccess({
-        message: 'OAuth account successfully converted to local account.',
-        accountId: localAccount.id
     }));
 });

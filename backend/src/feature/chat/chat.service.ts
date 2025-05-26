@@ -60,7 +60,7 @@ export async function getPrivateParticipantInformation(conversationId: string, a
 
   const otherParticipant = conversation?.participants.find((p => p !== accountId));
 
-  const account = await accounts.OAuthAccount.findOne(({ _id: otherParticipant }));
+  const account = await accounts.Account.findOne(({ _id: otherParticipant }));
 
   if (!account) return null;
 
@@ -80,7 +80,7 @@ export async function getGroupParticipantsInformation(conversationId: string, ac
 
   // Get information for all participants in the group
   const participantIds = conversation.participants;
-  const participantsAccounts = await accounts.OAuthAccount.find({
+  const participantsAccounts = await accounts.Account.find({
     _id: { $in: participantIds }
   });
 

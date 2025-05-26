@@ -17,8 +17,8 @@
     },
     "include": [
         "src/**/*",
-        "src/app.ts"
-, "../frontend/src/contexts", "../frontend/src/utils/people-utils.ts"    ],
+        "src/app.ts" 
+    ],
     "exclude": [
         "node_modules",
         "dist"

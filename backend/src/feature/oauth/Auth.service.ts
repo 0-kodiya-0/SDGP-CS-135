@@ -1,18 +1,13 @@
 import db from '../../config/db';
-import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
-import { ApiErrorCode, AuthError, BadRequestError, RedirectError } from '../../types/response.types';
+import { Account, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
+import { ApiErrorCode, BadRequestError, RedirectError } from '../../types/response.types';
 import { AuthType, OAuthState, ProviderResponse, SignInState } from './Auth.types';
 import {
     generateSignInState,
     generateSignupState
 } from './Auth.utils';
-import { validateOAuthAccount } from '../account/Account.validation';
-import {
-    checkForAdditionalScopes,
-    getAccountScopes as fetchAccountScopes,
-    getTokenInfo,
-    updateAccountScopes
-} from '../google/services/token';
+import { validateAccount } from '../account/Account.validation';
+import { getTokenInfo } from '../google/services/token';
 import { findUserByEmail, findUserById } from '../account';
 
 /**
@@ -29,7 +24,7 @@ export async function processSignup(
 
     const models = await db.getModels();
 
-    const newAccount: Omit<OAuthAccount, "id"> = {
+    const newAccount: Omit<Account, "id"> = {
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
         accountType: AccountType.OAuth,
@@ -38,7 +33,8 @@ export async function processSignup(
         userDetails: {
             name: stateDetails.oAuthResponse.name,
             email: stateDetails.oAuthResponse.email,
-            imageUrl: stateDetails.oAuthResponse.imageUrl
+            imageUrl: stateDetails.oAuthResponse.imageUrl,
+            emailVerified: true // OAuth emails are pre-verified
         },
         security: {
             twoFactorEnabled: false,
@@ -47,13 +43,19 @@ export async function processSignup(
         }
     };
 
-    const success = validateOAuthAccount(newAccount);
+    const success = validateAccount(newAccount);
     if (!success) {
         throw new BadRequestError('Missing required account data', 400, ApiErrorCode.MISSING_DATA);
     }
 
-    const newAccountDoc = await models.accounts.OAuthAccount.create(newAccount);
+    const newAccountDoc = await models.accounts.Account.create(newAccount);
     const accountId = newAccountDoc.id || newAccountDoc._id.toHexString();
+
+    // Update Google permissions if provider is Google
+    if (provider === OAuthProviders.Google) {
+        const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
+        await updateGooglePermissions(accountId, accessToken);
+    }
 
     const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
     const refreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
@@ -82,20 +84,23 @@ export async function processSignIn(stateDetails: SignInState, redirectUrl: stri
         throw new RedirectError(ApiErrorCode.USER_NOT_FOUND, redirectUrl, 'User details not found');
     }
 
+    // Ensure this is an OAuth account
+    if (user.accountType !== AccountType.OAuth) {
+        throw new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Account exists but is not an OAuth account');
+    }
+
     const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
     const refreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
+
+    // Update Google permissions if provider is Google
+    if (user.provider === OAuthProviders.Google) {
+        await updateGooglePermissions(user.id, accessToken);
+    }
+
     const accessTokenInfo = await getTokenInfo(accessToken);
 
-    // Check if user has additional scopes we should request
-    const shouldRequestAdditionalScopes = await checkForAdditionalScopes(
-        user.id,
-        accessToken
-    );
-
-    // Update account scopes if no additional scopes needed
-    if (!shouldRequestAdditionalScopes.needsAdditionalScopes) {
-        await updateAccountScopes(user.id, accessToken);
-    }
+    // Check for additional scopes from GooglePermissions
+    const needsAdditionalScopes = await checkForAdditionalScopes(user.id, accessToken);
 
     return {
         userId: user.id,
@@ -103,8 +108,8 @@ export async function processSignIn(stateDetails: SignInState, redirectUrl: stri
         accessToken,
         refreshToken,
         accessTokenInfo,
-        needsAdditionalScopes: shouldRequestAdditionalScopes.needsAdditionalScopes,
-        missingScopes: shouldRequestAdditionalScopes.missingScopes
+        needsAdditionalScopes: needsAdditionalScopes.needsAdditionalScopes,
+        missingScopes: needsAdditionalScopes.missingScopes
     };
 }
 
@@ -118,22 +123,19 @@ export async function processCallback(
 ) {
     const userEmail = userData.email;
     if (!userEmail) {
-        throw new AuthError('Missing email parameter', 400, ApiErrorCode.MISSING_EMAIL);
+        throw new BadRequestError('Missing email parameter', 400, ApiErrorCode.MISSING_EMAIL);
     }
 
-    const models = await db.getModels();
-    const oauthExists = await models.accounts.OAuthAccount.exists({ 'userDetails.email': userEmail });
-    const localExists = await models.accounts.LocalAccount.exists({ 'userDetails.email': userEmail });
-    const exists = oauthExists || localExists;
+    const user = await findUserByEmail(userEmail);
     let state: string;
 
     if (stateDetails.authType === AuthType.SIGN_UP) {
-        if (exists) {
+        if (user) {
             throw new RedirectError(ApiErrorCode.USER_EXISTS, redirectUrl);
         }
         state = await generateSignupState(userData, redirectUrl);
     } else {
-        if (!exists) {
+        if (!user) {
             throw new RedirectError(ApiErrorCode.USER_NOT_FOUND, redirectUrl);
         }
         state = await generateSignInState(userData, redirectUrl);
@@ -149,24 +151,8 @@ export async function processCallback(
  * Check if user exists
  */
 export async function checkUserExists(id: string): Promise<boolean> {
-    const models = await db.getModels();
-
-    // Check in OAuth accounts
-    try {
-        const oauthExists = await models.accounts.OAuthAccount.exists({ _id: id });
-        if (oauthExists) return true;
-    } catch {
-        // ID might not be valid for OAuth accounts
-    }
-
-    // Check in Local accounts
-    try {
-        const localExists = await models.accounts.LocalAccount.exists({ _id: id });
-        return localExists ? true : false;
-    } catch {
-        // ID might not be valid
-        return false;
-    }
+    const user = await findUserById(id);
+    return user !== null;
 }
 
 /**
@@ -177,20 +163,108 @@ export async function getUserAccount(id: string) {
 }
 
 /**
- * Update tokens and scopes for a user
+ * Update Google permissions for an account
+ */
+async function updateGooglePermissions(accountId: string, accessToken: string): Promise<void> {
+    try {
+        // Get token info for scopes
+        const tokenInfo = await getTokenInfo(accessToken);
+        const grantedScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
+        
+        if (grantedScopes.length === 0) {
+            return;
+        }
+
+        // Get database models
+        const models = await db.getModels();
+        
+        // Check if permissions already exist
+        const existingPermissions = await models.google.GooglePermissions.findOne({ accountId });
+        
+        if (existingPermissions) {
+            // Check if there are new scopes to add
+            const existingScopeSet = new Set(existingPermissions.scopes);
+            const newScopes = grantedScopes.filter(scope => !existingScopeSet.has(scope));
+            
+            if (newScopes.length > 0) {
+                // Update with new scopes
+                existingPermissions.addScopes(newScopes);
+                await existingPermissions.save();
+            }
+        } else {
+            // Create new permissions record
+            await models.google.GooglePermissions.create({
+                accountId,
+                scopes: grantedScopes,
+                lastUpdated: new Date().toISOString()
+            });
+        }
+    } catch (error) {
+        console.error('Error updating Google permissions:', error);
+        // Don't throw error here to avoid breaking auth flow
+    }
+}
+
+/**
+ * Check for additional scopes that user previously granted but aren't in current token
+ */
+async function checkForAdditionalScopes(accountId: string, accessToken: string): Promise<{
+    needsAdditionalScopes: boolean,
+    missingScopes: string[]
+}> {
+    try {
+        // Get scopes from the current token
+        const tokenInfo = await getTokenInfo(accessToken);
+        const currentScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
+        
+        // Get previously granted scopes from GooglePermissions
+        const storedScopes = await getAccountScopes(accountId);
+        
+        // Only care about missing scopes that aren't the basic profile and email
+        const filteredStoredScopes = storedScopes.filter(scope => 
+            !scope.includes('auth/userinfo.email') && 
+            !scope.includes('auth/userinfo.profile')
+        );
+        
+        // Find scopes that are in GooglePermissions but not in the current token
+        const missingScopes = filteredStoredScopes.filter(scope => !currentScopes.includes(scope));
+        
+        return {
+            needsAdditionalScopes: missingScopes.length > 0,
+            missingScopes
+        };
+    } catch (error) {
+        console.error('Error checking for additional scopes:', error);
+        return {
+            needsAdditionalScopes: false,
+            missingScopes: []
+        };
+    }
+}
+
+/**
+ * Get all scopes for an account from GooglePermissions
+ */
+export async function getAccountScopes(accountId: string): Promise<string[]> {
+    try {
+        const models = await db.getModels();
+        const permissions = await models.google.GooglePermissions.findOne({ accountId });
+        
+        return permissions ? permissions.scopes : [];
+    } catch (error) {
+        console.error('Error getting account scopes:', error);
+        return [];
+    }
+}
+
+/**
+ * Update tokens and scopes for a user (now only updates permissions, no token storage)
  */
 export async function updateTokensAndScopes(
     accountId: string,
     accessToken: string,
     refreshToken: string
 ) {
-    // Update the account's scopes in the database
-    await updateAccountScopes(accountId, accessToken);
-}
-
-/**
- * Get all scopes for an account
- */
-export async function getAccountScopes(accountId: string): Promise<string[]> {
-    return await fetchAccountScopes(accountId);
+    // Only update permissions, don't store tokens
+    await updateGooglePermissions(accountId, accessToken);
 }

@@ -1,14 +1,14 @@
 import { Response } from 'express';
 import { ApiErrorCode, BadRequestError, ServerError } from '../../types/response.types';
-import { toOAuthAccount } from './Account.utils';
+import { toSafeAccount } from './Account.utils';
 import { 
     clearAllSessions, 
     clearSession, 
     handleTokenRefresh, 
     revokeAuthTokens 
 } from '../../services/session';
-import { OAuthAccountDocument } from './Account.model';
-import { LocalAccount, OAuthAccount, OAuthProviders } from './Account.types';
+import { AccountDocument } from './Account.model';
+import { Account, AccountType, OAuthProviders } from './Account.types';
 import db from '../../config/db';
 import { ValidationUtils } from '../../utils/validation';
 
@@ -16,17 +16,16 @@ import { ValidationUtils } from '../../utils/validation';
  * Search for an account by email
  */
 export async function searchAccountByEmail(email: string) {
-    // Use centralized email validation
     ValidationUtils.validateEmail(email);
 
     const models = await db.getModels();
-    const account = await models.accounts.OAuthAccount.findOne({ 'userDetails.email': email });
+    const account = await models.accounts.Account.findOne({ 'userDetails.email': email });
 
     if (!account) {
         throw new BadRequestError('Account not found', 404, ApiErrorCode.USER_NOT_FOUND);
     }
 
-    return toOAuthAccount(account);
+    return toSafeAccount(account);
 }
 
 /**
@@ -66,14 +65,14 @@ export function clearSingleAccountSession(res: Response, accountId: string): voi
 /**
  * Convert account document to safe account object
  */
-export function convertToSafeAccount(account: OAuthAccountDocument) {
-    return toOAuthAccount(account);
+export function convertToSafeAccount(account: AccountDocument) {
+    return toSafeAccount(account);
 }
 
 /**
- * Update OAuth account
+ * Update account
  */
-export async function updateOAuthAccount(account: OAuthAccountDocument, updates: any) {
+export async function updateAccount(account: AccountDocument, updates: any) {
     // Apply updates to the account
     Object.assign(account, {
         ...updates,
@@ -82,32 +81,36 @@ export async function updateOAuthAccount(account: OAuthAccountDocument, updates:
 
     await account.save();
 
-    // Convert to safe account type
-    return toOAuthAccount(account);
+    return toSafeAccount(account);
 }
 
 /**
  * Get account email
  */
-export function getAccountEmail(account: OAuthAccountDocument): string {
-    return account.userDetails.email;
+export function getAccountEmail(account: AccountDocument): string {
+    return account.userDetails.email || '';
 }
 
 /**
  * Update account security settings
  */
-export async function updateAccountSecurity(account: OAuthAccountDocument, securityUpdates: any) {
-    // Update security settings
+export async function updateAccountSecurity(account: AccountDocument, securityUpdates: any) {
+    // Update security settings (excluding sensitive fields)
+    const allowedUpdates = {
+        twoFactorEnabled: securityUpdates.twoFactorEnabled,
+        sessionTimeout: securityUpdates.sessionTimeout,
+        autoLock: securityUpdates.autoLock
+    };
+
     account.security = {
         ...account.security,
-        ...securityUpdates
+        ...allowedUpdates
     };
     account.updated = new Date().toISOString();
 
     await account.save();
 
-    // Convert to safe account type
-    return toOAuthAccount(account);
+    return toSafeAccount(account);
 }
 
 /**
@@ -126,13 +129,15 @@ export function validateRedirectUrl(redirectUrl: any): string {
 export async function refreshAccountToken(
     res: Response, 
     accountId: string, 
-    account: OAuthAccountDocument, 
+    account: AccountDocument, 
     refreshToken: string
 ): Promise<void> {
-    if (account.provider === OAuthProviders.Google) {
+    if (account.accountType === AccountType.OAuth && account.provider === OAuthProviders.Google) {
+        await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
+    } else if (account.accountType === AccountType.Local) {
         await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
     } else {
-        throw new ServerError("Invalid account provider type found");
+        throw new ServerError("Invalid account type or provider");
     }
 }
 
@@ -142,80 +147,51 @@ export async function refreshAccountToken(
 export async function revokeAccountTokens(
     res: Response,
     accountId: string,
-    account: OAuthAccountDocument,
+    account: AccountDocument,
     accessToken: string,
     refreshToken: string
 ) {
-    if (account.provider === OAuthProviders.Google) {
-        return await revokeAuthTokens(
-            accountId, 
-            account.accountType, 
-            accessToken, 
-            refreshToken, 
-            res
-        );
-    } else {
-        throw new ServerError("Invalid account provider type found");
-    }
+    return await revokeAuthTokens(
+        accountId, 
+        account.accountType, 
+        accessToken, 
+        refreshToken, 
+        res
+    );
 }
 
-
 /**
- * Find user by email (checks both OAuth and Local accounts)
- * Used across multiple features for authentication and account lookup
+ * Find user by email (unified search)
  */
-export const findUserByEmail = async (email: string): Promise<OAuthAccount | LocalAccount | null> => {
-  const models = await db.getModels();
+export const findUserByEmail = async (email: string): Promise<Account | null> => {
+    const models = await db.getModels();
 
-  // Try to find in OAuth accounts first
-  const oauthDoc = await models.accounts.OAuthAccount.findOne({
-    'userDetails.email': email
-  });
+    const accountDoc = await models.accounts.Account.findOne({
+        'userDetails.email': email
+    });
 
-  if (oauthDoc) {
-    return { id: oauthDoc._id.toHexString(), ...oauthDoc.toObject() };
-  }
-  
-  // Try to find in Local accounts
-  const localDoc = await models.accounts.LocalAccount.findOne({
-    'userDetails.email': email
-  });
-  
-  if (localDoc) {
-    return { id: localDoc._id.toHexString(), ...localDoc.toObject() };
-  }
+    if (accountDoc) {
+        return { id: accountDoc._id.toHexString(), ...accountDoc.toObject() };
+    }
 
-  return null;
+    return null;
 };
 
 /**
- * Find user by ID (checks both OAuth and Local accounts)
- * Used across multiple features for account lookup
+ * Find user by ID (unified search)
  */
-export const findUserById = async (id: string): Promise<OAuthAccount | LocalAccount | null> => {
-  const models = await db.getModels();
+export const findUserById = async (id: string): Promise<Account | null> => {
+    const models = await db.getModels();
 
-  // Try to find in OAuth accounts first
-  try {
-    const oauthDoc = await models.accounts.OAuthAccount.findById(id);
-    
-    if (oauthDoc) {
-      return { id: oauthDoc._id.toHexString(), ...oauthDoc.toObject() };
+    try {
+        const accountDoc = await models.accounts.Account.findById(id);
+        
+        if (accountDoc) {
+            return { id: accountDoc._id.toHexString(), ...accountDoc.toObject() };
+        }
+    } catch {
+        // Invalid ID format
     }
-  } catch {
-    // ID might not be in OAuth accounts, try Local accounts
-  }
-  
-  // Try to find in Local accounts
-  try {
-    const localDoc = await models.accounts.LocalAccount.findById(id);
-    
-    if (localDoc) {
-      return { id: localDoc._id.toHexString(), ...localDoc.toObject() };
-    }
-  } catch {
-    // ID might not be valid or not in Local accounts either
-  }
 
-  return null;
+    return null;
 };

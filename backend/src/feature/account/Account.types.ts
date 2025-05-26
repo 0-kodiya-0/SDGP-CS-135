@@ -1,8 +1,8 @@
 export enum AccountStatus {
     Active = 'active',
     Inactive = 'inactive',
-    Unverified = 'unverified',  // New status for accounts pending email verification
-    Suspended = 'suspended'     // New status for suspended accounts
+    Unverified = 'unverified',
+    Suspended = 'suspended'
 }
 
 export enum OAuthProviders {
@@ -16,28 +16,20 @@ export enum AccountType {
     OAuth = 'oauth'
 }
 
-export interface BaseSecuritySettings {
+export interface SecuritySettings {
+    password?: string;  // Only for local accounts
     twoFactorEnabled: boolean;
-    twoFactorSecret?: string;    // For TOTP secret storage
-    twoFactorBackupCodes?: string[];  // Backup codes for 2FA recovery
+    twoFactorSecret?: string;
+    twoFactorBackupCodes?: string[];
     sessionTimeout: number;
     autoLock: boolean;
+    // Local account specific fields
+    passwordSalt?: string;
+    lastPasswordChange?: Date;
+    previousPasswords?: string[];
+    failedLoginAttempts?: number;
+    lockoutUntil?: Date;
 }
-
-// Enhanced security settings for local accounts
-export interface LocalSecuritySettings extends BaseSecuritySettings {
-    password: string;  // Hashed password
-    passwordSalt?: string;  // Salt used for password hashing
-    // passwordResetToken?: string;  // For password reset flow
-    // passwordResetExpires?: Date;  // Expiration of password reset token
-    lastPasswordChange?: Date;    // Track when password was last changed
-    previousPasswords?: string[]; // Store previous password hashes to prevent reuse
-    failedLoginAttempts?: number; // Track failed login attempts
-    lockoutUntil?: Date;          // Account lockout time if too many failed attempts
-}
-
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface OAuthSecuritySettings extends BaseSecuritySettings { }
 
 export interface DevicePreferences {
     theme: string;
@@ -56,56 +48,29 @@ export interface Device {
 }
 
 export interface UserDetails {
-    firstName?: string;  // Split name into first and last name for local accounts
+    firstName?: string;
     lastName?: string;
-    name: string;        // Full name (firstName + lastName or from OAuth)
+    name: string;
     email?: string;
     imageUrl?: string;
-    birthdate?: string;  // For local accounts
-    username?: string;   // For local accounts
-    emailVerified?: boolean; // Track if email has been verified
+    birthdate?: string;
+    username?: string;
+    emailVerified?: boolean;
 }
 
-export interface TokenDetails {
-    accessToken: string;
-    refreshToken: string;
-    expireAt: number,
-    tokenCreatedAt: number
-}
-
-// OAuth scope info
-export interface OAuthScopeInfo {
-    scopes: string[];
-    lastUpdated: string;
-}
-
-export interface BaseAccount {
+export interface Account {
     id: string;
     created: string;
     updated: string;
     accountType: AccountType;
     status: AccountStatus;
     userDetails: UserDetails;
+    security: SecuritySettings;
+    // OAuth specific fields
+    provider?: OAuthProviders; // Required when accountType === 'oauth'
 }
 
-export interface LocalAccount extends BaseAccount {
-    accountType: AccountType.Local;
-    security: LocalSecuritySettings;
-}
-
-export interface OAuthAccount extends BaseAccount {
-    accountType: AccountType.OAuth;
-    provider: OAuthProviders;
-    security: OAuthSecuritySettings;
-    oauthScopes?: OAuthScopeInfo;
-}
-
-export type Account = LocalAccount | OAuthAccount;
-export type OAuthAccountDTO = OAuthAccount;
-export type LocalAccountDTO = LocalAccount;
-
-export type Rename<T, K extends keyof T, NewKey extends string> =
-    Omit<T, K> & { [P in NewKey]: T[K] };
+export type AccountDTO = Account;
 
 // Auth request interfaces
 export interface LocalAuthRequest {

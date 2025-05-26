@@ -1,12 +1,15 @@
-import initAccountModels from '../feature/account/Account.model';
+import initAccountModel from '../feature/account/Account.model';
 import initChatModels from '../feature/chat/chat.model';
 import initEnvironmentModel from '../feature/environment/Environment.model';
 import initActiveEnvironmentModel from '../feature/environment/ActiveEnvironment.model';
 import initNotificationModel from '../feature/notifications/Notification.model';
+import initGooglePermissionsModel from '../feature/google/models/GooglePermissions.model';
 import dbConfig from './db.config';
 
 // Define model types for type safety
-export type AccountModels = Awaited<ReturnType<typeof initAccountModels>>;
+export type AccountModels = {
+  Account: Awaited<ReturnType<typeof initAccountModel>>;
+};
 export type ChatModels = Awaited<ReturnType<typeof initChatModels>>;
 export type EnvironmentModels = {
   Environment: Awaited<ReturnType<typeof initEnvironmentModel>>;
@@ -15,6 +18,9 @@ export type EnvironmentModels = {
 export type NotificationModels = {
   Notification: Awaited<ReturnType<typeof initNotificationModel>>;
 };
+export type GoogleModels = {
+  GooglePermissions: Awaited<ReturnType<typeof initGooglePermissionsModel>>;
+};
 
 // Database models container with proper typing
 interface DatabaseModels {
@@ -22,6 +28,7 @@ interface DatabaseModels {
     chat: ChatModels;
     environments: EnvironmentModels;
     notifications: NotificationModels;
+    google: GoogleModels;
 }
 
 // Track initialization state
@@ -38,8 +45,8 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         await dbConfig.connectAllDatabases();
 
         // Initialize models for all databases
-        const [accountModels, chatModels] = await Promise.all([
-            initAccountModels(),
+        const [accountModel, chatModels] = await Promise.all([
+            initAccountModel(),
             initChatModels(),
         ]);
 
@@ -48,10 +55,13 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         const environmentModel = await initEnvironmentModel(accountsConnection);
         const activeEnvironmentModel = await initActiveEnvironmentModel(accountsConnection);
         const notificationModel = await initNotificationModel();
+        const googlePermissionsModel = await initGooglePermissionsModel();
 
         // Store initialized models
         models = {
-            accounts: accountModels,
+            accounts: {
+                Account: accountModel
+            },
             chat: chatModels,
             environments: {
                 Environment: environmentModel,
@@ -59,6 +69,9 @@ const initializeDB = async (): Promise<DatabaseModels> => {
             },
             notifications: {
                 Notification: notificationModel
+            },
+            google: {
+                GooglePermissions: googlePermissionsModel
             }
         };
 

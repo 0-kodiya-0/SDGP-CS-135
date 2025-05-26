@@ -74,7 +74,7 @@ export async function getTokenScopes(accessToken: string): Promise<TokenScopeInf
 }
 
 /**
- * Update account with granted scopes from token
+ * Update Google permissions for an account (replaces updateAccountScopes)
  * @param accountId The account ID to update
  * @param accessToken The access token containing scopes
  */
@@ -95,17 +95,26 @@ export async function updateAccountScopes(accountId: string, accessToken: string
         // Get database models
         const models = await db.getModels();
         
-        // Update the account with the new scopes
-        await models.accounts.OAuthAccount.updateOne(
-            { _id: accountId },
-            { 
-                oauthScopes: {
-                    scopes: grantedScopes,
-                    lastUpdated: new Date().toISOString()
-                },
-                updated: new Date().toISOString()
+        // Check if permissions already exist
+        const existingPermissions = await models.google.GooglePermissions.findOne({ accountId });
+        
+        if (existingPermissions) {
+            // Update existing permissions only if new scopes are granted
+            const existingScopeSet = new Set(existingPermissions.scopes);
+            const newScopes = grantedScopes.filter(scope => !existingScopeSet.has(scope));
+            
+            if (newScopes.length > 0) {
+                existingPermissions.addScopes(newScopes);
+                await existingPermissions.save();
             }
-        );
+        } else {
+            // Create new permissions record
+            await models.google.GooglePermissions.create({
+                accountId,
+                scopes: grantedScopes,
+                lastUpdated: new Date().toISOString()
+            });
+        }
 
         return grantedScopes;
     } catch (error) {
@@ -115,7 +124,7 @@ export async function updateAccountScopes(accountId: string, accessToken: string
 }
 
 /**
- * Get all previously granted scopes for an account
+ * Get all previously granted scopes for an account from GooglePermissions
  * @param accountId The account ID to check
  */
 export async function getAccountScopes(accountId: string): Promise<string[]> {
@@ -123,17 +132,14 @@ export async function getAccountScopes(accountId: string): Promise<string[]> {
         // Get database models
         const models = await db.getModels();
         
-        // Retrieve the account
-        const account = await models.accounts.OAuthAccount.findOne(
-            { _id: accountId },
-            { oauthScopes: 1 }
-        );
+        // Retrieve the permissions
+        const permissions = await models.google.GooglePermissions.findOne({ accountId });
 
-        if (!account || !account.oauthScopes || !account.oauthScopes.scopes) {
+        if (!permissions) {
             return [];
         }
 
-        return account.oauthScopes.scopes;
+        return permissions.scopes;
     } catch (error) {
         console.error('Error getting account scopes:', error);
         return [];
@@ -266,9 +272,8 @@ export function isAccessTokenExpired(expiresIn: number, issuedAt: number): boole
     return currentTime >= expiryTime;
 }
 
-
 /**
- * Helper function to check if a user has additional scopes in their account
+ * Helper function to check if a user has additional scopes in GooglePermissions
  * that aren't included in their current access token
  */
 export async function checkForAdditionalScopes(accountId: string, accessToken: string): Promise<{
@@ -279,7 +284,7 @@ export async function checkForAdditionalScopes(accountId: string, accessToken: s
     const tokenInfo = await getTokenInfo(accessToken);
     const currentScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
     
-    // Get previously granted scopes from the database
+    // Get previously granted scopes from GooglePermissions
     const storedScopes = await getAccountScopes(accountId);
     
     // Only care about missing scopes that aren't the basic profile and email
@@ -288,7 +293,7 @@ export async function checkForAdditionalScopes(accountId: string, accessToken: s
         !scope.includes('auth/userinfo.profile')
     );
     
-    // Find scopes that are in the database but not in the current token
+    // Find scopes that are in GooglePermissions but not in the current token
     const missingScopes = filteredStoredScopes.filter(scope => !currentScopes.includes(scope));
     
     return {
@@ -313,7 +318,7 @@ export async function verifyTokenOwnership(
         const models = await db.getModels();
 
         // Get the account that should own this token
-        const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
+        const account = await models.accounts.Account.findOne({ _id: accountId });
 
         if (!account) {
             return { isValid: false, reason: 'Account not found' };
