@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { PlusCircle, ChevronUp, ChevronDown, LogOut, UserCircle } from 'lucide-react';
+import { PlusCircle, ChevronUp, ChevronDown, LogOut, UserCircle, Shield, Key } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from './UserAvatar';
-import { Account } from '../types/types.data';
+import { Account, AccountType } from '../types/types.data';
 
 interface AccountPopupProps {
   isOpen: boolean;
@@ -17,6 +17,20 @@ const AccountListItem: React.FC<{ account: Account; onSelect: (accountId: string
   account,
   onSelect
 }) => {
+  const getAccountTypeLabel = () => {
+    if (account.accountType === AccountType.Local) {
+      return 'Local account';
+    }
+    return `${account.provider} account`;
+  };
+
+  const getAccountTypeIcon = () => {
+    if (account.accountType === AccountType.Local) {
+      return <Key size={12} className="text-gray-500" />;
+    }
+    return <Shield size={12} className="text-gray-500" />;
+  };
+
   return (
     <button
       className="flex items-center w-full p-2 hover:bg-gray-50 rounded text-left"
@@ -25,10 +39,17 @@ const AccountListItem: React.FC<{ account: Account; onSelect: (accountId: string
       <UserAvatar
         account={account}
         size="sm"
+        showProviderIcon={true}
       />
       <div className="flex-1 min-w-0 ml-3">
         <p className="text-sm font-medium">{account?.userDetails.name}</p>
         <p className="text-xs text-gray-500 truncate">{account?.userDetails.email}</p>
+        <div className="flex items-center mt-1">
+          {getAccountTypeIcon()}
+          <span className="text-xs text-gray-500 ml-1 capitalize">
+            {getAccountTypeLabel()}
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -97,6 +118,36 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
     onClose();
   };
 
+  const getAccountStatusInfo = (account: Account) => {
+    const statusInfo = {
+      color: account.status === 'active' ? 'bg-green-500' : 'bg-gray-400',
+      label: account.status === 'active' ? 'Active' : 'Inactive',
+      additional: null
+    };
+
+    // Add additional info for local accounts
+    if (account.accountType === AccountType.Local) {
+      if (account.security?.twoFactorEnabled) {
+        return {
+          ...statusInfo,
+          additional: '2FA enabled'
+        };
+      }
+    }
+
+    return statusInfo;
+  };
+
+  const getSessionInfo = (account: Account) => {
+    if (account.accountType === AccountType.Local) {
+      const timeout = account.security?.sessionTimeout;
+      return timeout ? `Session: ${timeout}s` : 'No session timeout';
+    }
+
+    // For OAuth accounts, we might not have session info
+    return 'OAuth session';
+  };
+
   const renderAccountInfo = () => {
     if (!isAuthenticated || !currentAccount) {
       return (
@@ -118,29 +169,47 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
       );
     }
 
+    const statusInfo = getAccountStatusInfo(currentAccount);
+
     return (
       <>
         <div className="flex items-start">
           <UserAvatar
             account={currentAccount}
             size="md"
+            showProviderIcon={true}
           />
           <div className="flex-1 ml-3">
             <h2 className="text-lg font-medium">Hi, {currentAccount?.userDetails.name?.split(' ')[0] || 'User'}!</h2>
             <p className="text-sm text-gray-600 truncate">{currentAccount?.userDetails.email}</p>
+
+            {/* Account type indicator */}
+            <div className="flex items-center mt-1">
+              {currentAccount.accountType === AccountType.Local ? (
+                <Key size={12} className="text-gray-500" />
+              ) : (
+                <Shield size={12} className="text-gray-500" />
+              )}
+              <span className="text-xs text-gray-500 ml-1 capitalize">
+                {currentAccount.accountType === AccountType.Local
+                  ? 'Local account'
+                  : `${currentAccount.provider} account`}
+              </span>
+            </div>
           </div>
         </div>
+
         <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-          <span>
-            {currentAccount?.security?.sessionTimeout ?
-              `Session: ${currentAccount?.security.sessionTimeout}m` :
-              'No session timeout'}
-          </span>
-          <span className="flex items-center">
-            <span className={`w-2 h-2 rounded-full mr-1 ${currentAccount?.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-            {currentAccount?.status === 'active' ? 'Active' : 'Inactive'}
-          </span>
+          <span>{getSessionInfo(currentAccount)}</span>
+          <div className="flex items-center">
+            <span className={`w-2 h-2 rounded-full mr-1 ${statusInfo.color}`}></span>
+            <span>{statusInfo.label}</span>
+            {statusInfo.additional && (
+              <span className="ml-2 text-blue-600">• {statusInfo.additional}</span>
+            )}
+          </div>
         </div>
+
         <button
           className="mt-3 w-full py-2 px-4 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
           disabled={loading}
@@ -165,10 +234,13 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
   const renderOtherAccounts = () => {
     if (!accounts || accounts.length <= 1) return null;
 
-    // Filter out the current account ID
-    const otherAccountIds = accounts.filter(accounts => accounts.id !== currentAccount?.id);
+    // Filter out the current account ID and group by account type
+    const otherAccounts = accounts.filter(account => account.id !== currentAccount?.id);
 
-    if (otherAccountIds.length === 0) return null;
+    if (otherAccounts.length === 0) return null;
+
+    const localAccounts = otherAccounts.filter(account => account.accountType === AccountType.Local);
+    const oauthAccounts = otherAccounts.filter(account => account.accountType === AccountType.OAuth);
 
     return (
       <>
@@ -177,20 +249,46 @@ export const AccountPopup: React.FC<AccountPopupProps> = ({ isOpen, onClose, anc
           className="flex items-center justify-between w-full py-1 text-sm text-gray-700 hover:bg-gray-50 px-2 rounded"
         >
           <span>
-            {showAllAccounts ? 'Hide' : 'Show'} more accounts ({otherAccountIds.length})
+            {showAllAccounts ? 'Hide' : 'Show'} more accounts ({otherAccounts.length})
           </span>
           {showAllAccounts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
         {showAllAccounts && (
           <div className="mt-2 space-y-1">
-            {otherAccountIds.map((account) => (
-              <AccountListItem
-                key={account.id}
-                account={account}
-                onSelect={handleSwitchAccount}
-              />
-            ))}
+            {/* Local accounts section */}
+            {localAccounts.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-500 px-2 py-1 flex items-center">
+                  <Key size={10} className="mr-1" />
+                  Local Accounts
+                </div>
+                {localAccounts.map((account) => (
+                  <AccountListItem
+                    key={account.id}
+                    account={account}
+                    onSelect={handleSwitchAccount}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* OAuth accounts section */}
+            {oauthAccounts.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-500 px-2 py-1 flex items-center">
+                  <Shield size={10} className="mr-1" />
+                  OAuth Accounts
+                </div>
+                {oauthAccounts.map((account) => (
+                  <AccountListItem
+                    key={account.id}
+                    account={account}
+                    onSelect={handleSwitchAccount}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </>

@@ -1,3 +1,4 @@
+// frontend/src/AppRoutes.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
@@ -14,6 +15,12 @@ import PermissionCallback from './pages/PermissionCallback';
 import EnvironmentSelectionPage from './features/default/environment/pages/EnvironmentSelectionPage';
 import CreateEnvironmentPage from './features/default/environment/pages/CreateEnvironmentPage';
 import PermissionConfirmationPage from './pages/PermissionConfirmationPage';
+import BackupCodesPage from './pages/BackupCodesPage';
+import CheckEmailPage from './pages/CheckEmailPage';
+import EmailVerificationPage from './pages/EmailVerificationPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import PasswordResetPage from './pages/PasswordResetPage';
+import TwoFactorVerificationPage from './pages/TwoFactorVerificationPage';
 
 export const AppRoutes: React.FC = () => {
     return (
@@ -26,6 +33,14 @@ export const AppRoutes: React.FC = () => {
                     <Route path="/auth/callback" element={<AuthCallback />} />
                     <Route path="/auth/permission-confirmation" element={<PermissionConfirmationPage />} />
                     <Route path="/permission/callback" element={<PermissionCallback />} />
+
+                    {/* New local auth routes */}
+                    <Route path="/check-email" element={<CheckEmailPage />} />
+                    <Route path="/verify-email" element={<EmailVerificationPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<PasswordResetPage />} />
+                    <Route path="/two-factor-verify" element={<TwoFactorVerificationPage />} />
+                    <Route path="/backup-codes" element={<BackupCodesPage />} />
 
                     {/* Root redirects to preferred account or account selection */}
                     <Route path="/" element={<AuthRedirect />} />

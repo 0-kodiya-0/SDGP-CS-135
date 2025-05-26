@@ -2,7 +2,7 @@ import express from 'express';
 import * as LocalAuthController from './LocalAuth.controller';
 
 // Create routers for authenticated and non-authenticated routes
-export const authNotRequiredRouter = express.Router();
+export const authNotRequiredRouter = express.Router({ mergeParams: true });
 export const authRequiredRouter = express.Router({ mergeParams: true });
 
 /**

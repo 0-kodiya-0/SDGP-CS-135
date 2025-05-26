@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Shield, User, Bell, LogOut } from 'lucide-react';
+import { ArrowLeft, Save, Shield, User, Bell, LogOut, Key, Download } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
+import { PasswordStrengthIndicator, usePasswordValidation } from '../components/PasswordStrengthIndicator';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext';
-import { OAuthProviders } from '../types/types.data';
+import { LocalAuthAPI } from '../api/localAuth.api';
+import { OAuthProviders, AccountType } from '../types/types.data';
+import BackupCodesManager from '../components/BackupCodesManager';
+import TwoFactorSetup from '../components/TwoFactorSetup';
 
 const AccountSettingsPage: React.FC = () => {
     const { currentAccount, isLoading, error, fetchCurrentAccountDetails } = useAccount();
@@ -13,6 +17,23 @@ const AccountSettingsPage: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState('profile');
     const [isSaving, setIsSaving] = useState(false);
+    
+    // Password change state
+    const [passwordForm, setPasswordForm] = useState({
+        oldPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    
+    // 2FA state
+    const [show2FASetup, setShow2FASetup] = useState(false);
+    const [showBackupCodes, setShowBackupCodes] = useState(false);
+    const [generatedBackupCodes, setGeneratedBackupCodes] = useState<string[]>([]);
+
+    const passwordValidation = usePasswordValidation(passwordForm.newPassword);
+    const isLocalAccount = currentAccount?.accountType === AccountType.Local;
 
     const handleGoBack = () => {
         navigate(`/app/${currentAccount?.id}`);
@@ -28,6 +49,116 @@ const AccountSettingsPage: React.FC = () => {
         if (currentAccount) {
             tokenRevocation(currentAccount.id, OAuthProviders.Google);
         }
+    };
+
+    const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setPasswordForm(prev => ({
+            ...prev,
+            [name]: value
+        }));
+
+        // Clear errors when user starts typing
+        if (passwordErrors[name]) {
+            setPasswordErrors(prev => ({
+                ...prev,
+                [name]: ''
+            }));
+        }
+    };
+
+    const validatePasswordForm = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (!passwordForm.oldPassword) {
+            newErrors.oldPassword = 'Current password is required';
+        }
+
+        if (!passwordForm.newPassword) {
+            newErrors.newPassword = 'New password is required';
+        } else if (!passwordValidation.isValid) {
+            newErrors.newPassword = 'Password does not meet all requirements';
+        }
+
+        if (!passwordForm.confirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your new password';
+        } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        if (passwordForm.oldPassword === passwordForm.newPassword) {
+            newErrors.newPassword = 'New password must be different from current password';
+        }
+
+        setPasswordErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!validatePasswordForm()) {
+            return;
+        }
+
+        setIsSaving(true);
+        setPasswordErrors({});
+
+        try {
+            const response = await LocalAuthAPI.changePassword(currentAccount!.id, {
+                oldPassword: passwordForm.oldPassword,
+                newPassword: passwordForm.newPassword,
+                confirmPassword: passwordForm.confirmPassword
+            });
+
+            if (response.success) {
+                setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+                setShowPasswordForm(false);
+                // Show success message or toast
+                alert('Password changed successfully!');
+            } else {
+                setPasswordErrors({ general: response.error?.message || 'Failed to change password' });
+            }
+        } catch (error) {
+            console.error('Password change error:', error);
+            setPasswordErrors({ general: 'An error occurred. Please try again.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handle2FASetupComplete = (enabled: boolean) => {
+        setShow2FASetup(false);
+        // Refresh account details to get updated security settings
+        fetchCurrentAccountDetails();
+        
+        if (enabled) {
+            alert('Two-factor authentication has been enabled successfully!');
+        } else {
+            alert('Two-factor authentication has been disabled.');
+        }
+    };
+
+    const handleBackupCodesGenerated = (codes: string[]) => {
+        setGeneratedBackupCodes(codes);
+        setShowBackupCodes(false);
+        // Auto-download the codes
+        downloadBackupCodes(codes);
+        alert('New backup codes have been generated and downloaded.');
+    };
+
+    const downloadBackupCodes = (codes: string[]) => {
+        const content = `Two-Factor Authentication Backup Codes\n\nGenerated on: ${new Date().toLocaleString()}\n\nEach code can only be used once. Store these in a safe place.\n\n${codes.join('\n')}`;
+        
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backup-codes.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     if (isLoading) {
@@ -155,9 +286,9 @@ const AccountSettingsPage: React.FC = () => {
                                             type="text"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             defaultValue={currentAccount.userDetails.name}
-                                            disabled={currentAccount.provider !== 'local'} // Only editable for local accounts
+                                            disabled={!isLocalAccount}
                                         />
-                                        {currentAccount.provider !== 'local' && (
+                                        {!isLocalAccount && (
                                             <p className="mt-1 text-xs text-gray-500">
                                                 Name is managed by your {currentAccount.provider} account
                                             </p>
@@ -172,9 +303,9 @@ const AccountSettingsPage: React.FC = () => {
                                             type="email"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             defaultValue={currentAccount.userDetails.email}
-                                            disabled={currentAccount.provider !== 'local'} // Only editable for local accounts
+                                            disabled={!isLocalAccount}
                                         />
-                                        {currentAccount.provider !== 'local' && (
+                                        {!isLocalAccount && (
                                             <p className="mt-1 text-xs text-gray-500">
                                                 Email is managed by your {currentAccount.provider} account
                                             </p>
@@ -191,7 +322,9 @@ const AccountSettingsPage: React.FC = () => {
                                                 size="sm"
                                                 showProviderIcon={true}
                                             />
-                                            <span className="ml-2 capitalize">{currentAccount.provider || 'Standard'} Account</span>
+                                            <span className="ml-2 capitalize">
+                                                {isLocalAccount ? 'Local Account' : `${currentAccount.provider} Account`}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -201,30 +334,195 @@ const AccountSettingsPage: React.FC = () => {
                         {activeTab === 'security' && (
                             <div>
                                 <h2 className="text-lg font-medium mb-4">Security Settings</h2>
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-medium">Two-Factor Authentication</h3>
-                                            <p className="text-sm text-gray-500">
-                                                Add an extra layer of security to your account
-                                            </p>
+                                <div className="space-y-6">
+                                    {/* Password Change Section - Only for Local Accounts */}
+                                    {isLocalAccount && (
+                                        <div className="border-b border-gray-200 pb-6">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h3 className="font-medium">Password</h3>
+                                                    <p className="text-sm text-gray-500">
+                                                        Change your account password
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setShowPasswordForm(!showPasswordForm)}
+                                                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                                >
+                                                    <Key className="mr-2 h-4 w-4" />
+                                                    Change Password
+                                                </button>
+                                            </div>
+
+                                            {showPasswordForm && (
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    {passwordErrors.general && (
+                                                        <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm">
+                                                            {passwordErrors.general}
+                                                        </div>
+                                                    )}
+
+                                                    <form onSubmit={handlePasswordChange} className="space-y-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">
+                                                                Current Password
+                                                            </label>
+                                                            <input
+                                                                type="password"
+                                                                name="oldPassword"
+                                                                value={passwordForm.oldPassword}
+                                                                onChange={handlePasswordInputChange}
+                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                                                                    passwordErrors.oldPassword ? 'border-red-300' : 'border-gray-300'
+                                                                }`}
+                                                            />
+                                                            {passwordErrors.oldPassword && (
+                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.oldPassword}</p>
+                                                            )}
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">
+                                                                New Password
+                                                            </label>
+                                                            <input
+                                                                type="password"
+                                                                name="newPassword"
+                                                                value={passwordForm.newPassword}
+                                                                onChange={handlePasswordInputChange}
+                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                                                                    passwordErrors.newPassword ? 'border-red-300' : 'border-gray-300'
+                                                                }`}
+                                                            />
+                                                            {passwordErrors.newPassword && (
+                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
+                                                            )}
+                                                            
+                                                            {passwordForm.newPassword && (
+                                                                <div className="mt-3">
+                                                                    <PasswordStrengthIndicator password={passwordForm.newPassword} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">
+                                                                Confirm New Password
+                                                            </label>
+                                                            <input
+                                                                type="password"
+                                                                name="confirmPassword"
+                                                                value={passwordForm.confirmPassword}
+                                                                onChange={handlePasswordInputChange}
+                                                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                                                                    passwordErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                                                                }`}
+                                                            />
+                                                            {passwordErrors.confirmPassword && (
+                                                                <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex justify-end space-x-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setShowPasswordForm(false);
+                                                                    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+                                                                    setPasswordErrors({});
+                                                                }}
+                                                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="submit"
+                                                                disabled={isSaving}
+                                                                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                                            >
+                                                                {isSaving ? 'Changing...' : 'Change Password'}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                                            <input
-                                                type="checkbox"
-                                                name="toggle"
-                                                id="2fa-toggle"
-                                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                                defaultChecked={currentAccount.security?.twoFactorEnabled}
-                                            />
-                                            <label
-                                                htmlFor="2fa-toggle"
-                                                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                                            ></label>
+                                    )}
+
+                                    {/* Two-Factor Authentication */}
+                                    <div className="border-b border-gray-200 pb-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h3 className="font-medium">Two-Factor Authentication</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {isLocalAccount 
+                                                        ? 'Add an extra layer of security to your account'
+                                                        : 'Two-factor authentication is not available for OAuth accounts'
+                                                    }
+                                                </p>
+                                            </div>
+                                            {isLocalAccount && (
+                                                <div className="flex items-center space-x-3">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        currentAccount.security?.twoFactorEnabled 
+                                                            ? 'bg-green-100 text-green-800' 
+                                                            : 'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {currentAccount.security?.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setShow2FASetup(true)}
+                                                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                                    >
+                                                        {currentAccount.security?.twoFactorEnabled ? 'Disable' : 'Enable'} 2FA
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {show2FASetup && isLocalAccount && (
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <TwoFactorSetup
+                                                    accountId={currentAccount.id}
+                                                    currentlyEnabled={currentAccount.security?.twoFactorEnabled || false}
+                                                    onSetupComplete={handle2FASetupComplete}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Backup Codes Management */}
+                                        {isLocalAccount && currentAccount.security?.twoFactorEnabled && (
+                                            <div className="mt-4 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h4 className="font-medium text-yellow-800">Backup Codes</h4>
+                                                        <p className="text-sm text-yellow-700">
+                                                            Generate new backup codes for emergency access
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setShowBackupCodes(true)}
+                                                        className="inline-flex items-center px-3 py-2 border border-yellow-300 shadow-sm text-sm leading-4 font-medium rounded-md text-yellow-800 bg-yellow-100 hover:bg-yellow-200"
+                                                    >
+                                                        <Download className="mr-2 h-4 w-4" />
+                                                        Generate New Codes
+                                                    </button>
+                                                </div>
+
+                                                {showBackupCodes && (
+                                                    <div className="mt-4">
+                                                        <BackupCodesManager
+                                                            accountId={currentAccount.id}
+                                                            onCodesGenerated={handleBackupCodesGenerated}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div>
+                                    {/* Session Timeout */}
+                                    <div className="border-b border-gray-200 pb-6">
                                         <h3 className="font-medium mb-2">Session Timeout</h3>
                                         <p className="text-sm text-gray-500 mb-2">
                                             Set how long before your session expires due to inactivity
@@ -232,6 +530,7 @@ const AccountSettingsPage: React.FC = () => {
                                         <select
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             defaultValue={currentAccount.security?.sessionTimeout || 30}
+                                            disabled={!isLocalAccount}
                                         >
                                             <option value={15}>15 minutes</option>
                                             <option value={30}>30 minutes</option>
@@ -240,47 +539,64 @@ const AccountSettingsPage: React.FC = () => {
                                             <option value={240}>4 hours</option>
                                             <option value={480}>8 hours</option>
                                         </select>
+                                        {!isLocalAccount && (
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Session settings are managed by your {currentAccount.provider} account
+                                            </p>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-medium">Auto-Lock</h3>
-                                            <p className="text-sm text-gray-500">
-                                                Automatically lock your account when closing the browser
+                                    {/* Auto-Lock */}
+                                    <div className="border-b border-gray-200 pb-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="font-medium">Auto-Lock</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    Automatically lock your account when closing the browser
+                                                </p>
+                                            </div>
+                                            <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    name="toggle"
+                                                    id="autolock-toggle"
+                                                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                                    defaultChecked={currentAccount.security?.autoLock}
+                                                    disabled={!isLocalAccount}
+                                                />
+                                                <label
+                                                    htmlFor="autolock-toggle"
+                                                    className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+                                                ></label>
+                                            </div>
+                                        </div>
+                                        {!isLocalAccount && (
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Auto-lock is managed by your {currentAccount.provider} account
                                             </p>
-                                        </div>
-                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                                            <input
-                                                type="checkbox"
-                                                name="toggle"
-                                                id="autolock-toggle"
-                                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                                defaultChecked={currentAccount.security?.autoLock}
-                                            />
-                                            <label
-                                                htmlFor="autolock-toggle"
-                                                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                                            ></label>
-                                        </div>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className='w-[50%]'>
-                                            <h3 className="font-medium">Revoke Access Token</h3>
-                                            <p className="text-sm text-gray-500">
-                                                Revoking your token will unlink all permissions and require you to sign in again.
-                                                Use this if you need to update the permissions granted to this application.
-                                            </p>
+                                    {/* Revoke Access Token - Only for OAuth accounts */}
+                                    {!isLocalAccount && (
+                                        <div className="flex items-center justify-between">
+                                            <div className='w-[50%]'>
+                                                <h3 className="font-medium">Revoke Access Token</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    Revoking your token will unlink all permissions and require you to sign in again.
+                                                    Use this if you need to update the permissions granted to this application.
+                                                </p>
+                                            </div>
+                                            <div className="flex justify-end w-[50%] mr-2 align-middle select-none">
+                                                <button
+                                                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                                                    onClick={handleRevokeToken}
+                                                >
+                                                    Revoke Access Token
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-end w-[50%] mr-2 align-middle select-none">
-                                            <button
-                                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                                                onClick={handleRevokeToken}
-                                            >
-                                                Revoke Access Token
-                                            </button>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         )}

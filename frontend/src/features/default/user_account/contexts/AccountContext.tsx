@@ -1,9 +1,11 @@
+// frontend/src/features/default/user_account/contexts/AccountContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { Account } from '../types/types.data';
-import { useAccountStore } from '../store/account.store'; // Import the new store
+import { Account, AccountType } from '../types/types.data';
+import { useAccountStore } from '../store/account.store';
 import { fetchAccountDetails } from '../utils/account.utils';
+import { LocalAuthAPI } from '../api/localAuth.api';
 
 interface AccountContextType {
     accounts: Account[];
@@ -12,6 +14,29 @@ interface AccountContextType {
     fetchCurrentAccountDetails: () => void;
     fetchAllAccountDetails: (setCurrentAccountData?: boolean) => void;
     error: string | null;
+    
+    // Local auth account methods
+    changePassword: (oldPassword: string, newPassword: string, confirmPassword: string) => Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+    setupTwoFactor: (password: string, enable: boolean) => Promise<{
+        success: boolean;
+        qrCode?: string;
+        secret?: string;
+        backupCodes?: string[];
+        error?: string;
+    }>;
+    verifyTwoFactorSetup: (code: string) => Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+    generateBackupCodes: (password: string) => Promise<{
+        success: boolean;
+        backupCodes?: string[];
+        error?: string;
+    }>;
+    isLocalAccount: () => boolean;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -19,7 +44,7 @@ const AccountContext = createContext<AccountContextType | undefined>(undefined);
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { accountId } = useParams<{ accountId: string }>();
     const { isAuthenticated, isLoading: authLoading } = useAuth();
-    const { accountIds, removeAccount } = useAccountStore(); // Get account IDs from store
+    const { accountIds, removeAccount } = useAccountStore();
 
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
@@ -55,7 +80,6 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         loadAccountData();
     }, [accountId]);
-
 
     const fetchAllAccountDetails = useCallback(async (setCurrentAccountData = true) => {
         if (!accountIds || accountIds.length === 0) {
@@ -111,7 +135,6 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
             setIsLoading(true);
             const accountDetails = await fetchAccountDetails(accountId);
-
             setCurrentAccount(accountDetails);
         } catch (error) {
             console.error('Error fetching account details:', error);
@@ -120,13 +143,179 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
     }, [accountId]);
 
+    // Local auth methods for the current account
+
+    const changePassword = async (oldPassword: string, newPassword: string, confirmPassword: string) => {
+        if (!currentAccount || !accountId) {
+            return { success: false, error: 'No current account' };
+        }
+
+        if (currentAccount.accountType !== AccountType.Local) {
+            return { success: false, error: 'Password change not available for OAuth accounts' };
+        }
+
+        try {
+            console.log('[AccountContext] Changing password for account:', accountId);
+            
+            const response = await LocalAuthAPI.changePassword(accountId, {
+                oldPassword,
+                newPassword,
+                confirmPassword
+            });
+
+            if (response.success) {
+                console.log('[AccountContext] Password changed successfully');
+                return { success: true };
+            }
+
+            console.log('[AccountContext] Password change failed:', response.error?.message);
+            return {
+                success: false,
+                error: response.error?.message || 'Password change failed'
+            };
+        } catch (error) {
+            console.error('[AccountContext] Password change error:', error);
+            return {
+                success: false,
+                error: 'Network error during password change'
+            };
+        }
+    };
+
+    const setupTwoFactor = async (password: string, enable: boolean) => {
+        if (!currentAccount || !accountId) {
+            return { success: false, error: 'No current account' };
+        }
+
+        if (currentAccount.accountType !== AccountType.Local) {
+            return { success: false, error: '2FA setup not available for OAuth accounts' };
+        }
+
+        try {
+            console.log('[AccountContext] Setting up 2FA for account:', accountId, 'enable:', enable);
+            
+            const response = await LocalAuthAPI.setupTwoFactor(accountId, {
+                password,
+                enableTwoFactor: enable
+            });
+
+            if (response.success && response.data) {
+                console.log('[AccountContext] 2FA setup successful');
+                return {
+                    success: true,
+                    qrCode: response.data.qrCode,
+                    secret: response.data.secret,
+                    backupCodes: response.data.backupCodes
+                };
+            }
+
+            console.log('[AccountContext] 2FA setup failed:', response.error?.message);
+            return {
+                success: false,
+                error: response.error?.message || '2FA setup failed'
+            };
+        } catch (error) {
+            console.error('[AccountContext] 2FA setup error:', error);
+            return {
+                success: false,
+                error: 'Network error during 2FA setup'
+            };
+        }
+    };
+
+    const verifyTwoFactorSetup = async (code: string) => {
+        if (!currentAccount || !accountId) {
+            return { success: false, error: 'No current account' };
+        }
+
+        if (currentAccount.accountType !== AccountType.Local) {
+            return { success: false, error: '2FA verification not available for OAuth accounts' };
+        }
+
+        try {
+            console.log('[AccountContext] Verifying 2FA setup for account:', accountId);
+            
+            const response = await LocalAuthAPI.verifyTwoFactorSetup(accountId, {
+                token: code
+            });
+
+            if (response.success) {
+                console.log('[AccountContext] 2FA setup verification successful');
+                // Refresh account details to get updated security settings
+                await fetchCurrentAccountDetails();
+                return { success: true };
+            }
+
+            console.log('[AccountContext] 2FA setup verification failed:', response.error?.message);
+            return {
+                success: false,
+                error: response.error?.message || '2FA verification failed'
+            };
+        } catch (error) {
+            console.error('[AccountContext] 2FA verification error:', error);
+            return {
+                success: false,
+                error: 'Network error during 2FA verification'
+            };
+        }
+    };
+
+    const generateBackupCodes = async (password: string) => {
+        if (!currentAccount || !accountId) {
+            return { success: false, error: 'No current account' };
+        }
+
+        if (currentAccount.accountType !== AccountType.Local) {
+            return { success: false, error: 'Backup codes not available for OAuth accounts' };
+        }
+
+        try {
+            console.log('[AccountContext] Generating backup codes for account:', accountId);
+            
+            const response = await LocalAuthAPI.generateBackupCodes(accountId, {
+                password
+            });
+
+            if (response.success && response.data?.backupCodes) {
+                console.log('[AccountContext] Backup codes generated successfully');
+                return {
+                    success: true,
+                    backupCodes: response.data.backupCodes
+                };
+            }
+
+            console.log('[AccountContext] Backup codes generation failed:', response.error?.message);
+            return {
+                success: false,
+                error: response.error?.message || 'Backup codes generation failed'
+            };
+        } catch (error) {
+            console.error('[AccountContext] Backup codes generation error:', error);
+            return {
+                success: false,
+                error: 'Network error during backup codes generation'
+            };
+        }
+    };
+
+    const isLocalAccount = useCallback(() => {
+        return currentAccount?.accountType === AccountType.Local;
+    }, [currentAccount]);
+
     const value = {
         accounts,
         currentAccount,
         isLoading,
         error,
         fetchCurrentAccountDetails,
-        fetchAllAccountDetails
+        fetchAllAccountDetails,
+        
+        // Local auth methods
+        changePassword,
+        setupTwoFactor,
+        verifyTwoFactorSetup,
+        generateBackupCodes,
+        isLocalAccount
     };
 
     return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
