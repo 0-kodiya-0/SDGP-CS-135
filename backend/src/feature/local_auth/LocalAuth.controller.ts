@@ -24,15 +24,13 @@ import {
     VerifyTwoFactorRequest,
     VerifyEmailRequest,
     LocalAccount,
-    AccountType
 } from '../account/Account.types';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { sendTwoFactorEnabledNotification } from '../email/Email.service';
-import { createLocalJwtToken } from '../../services/session/session.jwt';
-import { addUserNotification } from '../notifications/Notification.service';
 import QRCode from 'qrcode';
-import { findLocalUserById } from '../account/Account.utils';
 import { ValidationUtils } from '../../utils/validation';
+import { createLocalJwtToken, createLocalRefreshToken } from './LocalAuth.jwt';
+import { findUserById } from '../account';
 
 /**
  * Sign up (register) with email and password
@@ -86,31 +84,18 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     const account = result as LocalAccount;
 
     // Generate JWT token
-    const token = await createLocalJwtToken(account.id, AccountType.Local);
+    const accessToken = await createLocalJwtToken(account.id);
+    const refreshToken = await createLocalRefreshToken(account.id);
 
     // Set cookies
     const expiresIn = account.security.sessionTimeout || 3600;
-    setAccessTokenCookie(res, account.id, token, expiresIn * 1000);
+    setAccessTokenCookie(res, account.id, accessToken, expiresIn * 1000);
 
     // Set remember me cookie if requested
     if (loginData.rememberMe) {
-        setRefreshTokenCookie(res, account.id, token);
+        setRefreshTokenCookie(res, account.id, refreshToken);
     }
-
-    // Track login for security monitoring
-    const userAgent = req.headers['user-agent'] || 'Unknown';
-    const ipAddress = req.ip || 'Unknown';
-
-    // Add notification about login (async, don't wait)
-    addUserNotification({
-        accountId: account.id,
-        title: 'New Login Detected',
-        message: `New login to your account from ${ipAddress} (${userAgent})`,
-        type: 'info'
-    }).catch(err => {
-        console.error('Failed to add login notification:', err);
-    });
-
+    
     // Return success response
     next(new JsonSuccess({
         accountId: account.id,
@@ -134,7 +119,7 @@ export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, 
         const account = await LocalAuthService.verifyTwoFactorLogin(tempToken, token);
 
         // Generate JWT token
-        const jwtToken = await createLocalJwtToken(account.id, AccountType.Local);
+        const jwtToken = await createLocalJwtToken(account.id);
 
         // Set cookies
         const expiresIn = account.security.sessionTimeout || 3600;
@@ -261,7 +246,7 @@ export const setupTwoFactor = asyncHandler(async (req: Request, res: Response, n
             const backupCodes = await LocalAuthService.generateNewBackupCodes(accountId, data.password);
 
             // Send notification email (async - don't wait)
-            const account = await findLocalUserById(accountId) as LocalAccount;
+            const account = await findUserById(accountId) as LocalAccount;
             if (account.userDetails.email) {
                 sendTwoFactorEnabledNotification(
                     account.userDetails.email,

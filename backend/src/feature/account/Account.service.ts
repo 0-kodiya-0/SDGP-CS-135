@@ -1,10 +1,14 @@
 import { Response } from 'express';
 import { ApiErrorCode, BadRequestError, ServerError } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
-import { clearAllSessions, clearSession, refreshAccessToken, setAccessTokenCookie } from '../../services/session';
+import { 
+    clearAllSessions, 
+    clearSession, 
+    handleTokenRefresh, 
+    revokeAuthTokens 
+} from '../../services/session';
 import { OAuthAccountDocument } from './Account.model';
-import { revokeTokens as revokeGoogleTokens } from '../google/services/token';
-import { OAuthProviders } from './Account.types';
+import { LocalAccount, OAuthAccount, OAuthProviders } from './Account.types';
 import db from '../../config/db';
 import { ValidationUtils } from '../../utils/validation';
 
@@ -46,14 +50,14 @@ export function validateSingleAccountId(accountId: any): string {
 }
 
 /**
- * Clear all account sessions
+ * Clear all account sessions (delegates to session manager)
  */
 export function clearAllAccountSessions(res: Response, accountIds: string[]): void {
     clearAllSessions(res, accountIds);
 }
 
 /**
- * Clear single account session
+ * Clear single account session (delegates to session manager)
  */
 export function clearSingleAccountSession(res: Response, accountId: string): void {
     clearSession(res, accountId);
@@ -117,7 +121,7 @@ export function validateRedirectUrl(redirectUrl: any): string {
 }
 
 /**
- * Refresh account token
+ * Refresh account token (delegates to session manager)
  */
 export async function refreshAccountToken(
     res: Response, 
@@ -126,22 +130,14 @@ export async function refreshAccountToken(
     refreshToken: string
 ): Promise<void> {
     if (account.provider === OAuthProviders.Google) {
-        const newTokenInfo = await refreshAccessToken(accountId, refreshToken, account.accountType);
-
-        // Update the token in the database
-        setAccessTokenCookie(
-            res, 
-            accountId,
-            newTokenInfo.accessToken as string, 
-            newTokenInfo.expiresIn as number - Date.now()
-        );
+        await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
     } else {
         throw new ServerError("Invalid account provider type found");
     }
 }
 
 /**
- * Revoke account tokens
+ * Revoke account tokens (delegates to session manager)
  */
 export async function revokeAccountTokens(
     res: Response,
@@ -150,16 +146,76 @@ export async function revokeAccountTokens(
     accessToken: string,
     refreshToken: string
 ) {
-    let result;
-
     if (account.provider === OAuthProviders.Google) {
-        result = await revokeGoogleTokens(accessToken, refreshToken);
-
-        // Update the token in the database
-        clearSession(res, accountId);
+        return await revokeAuthTokens(
+            accountId, 
+            account.accountType, 
+            accessToken, 
+            refreshToken, 
+            res
+        );
     } else {
         throw new ServerError("Invalid account provider type found");
     }
-
-    return result;
 }
+
+
+/**
+ * Find user by email (checks both OAuth and Local accounts)
+ * Used across multiple features for authentication and account lookup
+ */
+export const findUserByEmail = async (email: string): Promise<OAuthAccount | LocalAccount | null> => {
+  const models = await db.getModels();
+
+  // Try to find in OAuth accounts first
+  const oauthDoc = await models.accounts.OAuthAccount.findOne({
+    'userDetails.email': email
+  });
+
+  if (oauthDoc) {
+    return { id: oauthDoc._id.toHexString(), ...oauthDoc.toObject() };
+  }
+  
+  // Try to find in Local accounts
+  const localDoc = await models.accounts.LocalAccount.findOne({
+    'userDetails.email': email
+  });
+  
+  if (localDoc) {
+    return { id: localDoc._id.toHexString(), ...localDoc.toObject() };
+  }
+
+  return null;
+};
+
+/**
+ * Find user by ID (checks both OAuth and Local accounts)
+ * Used across multiple features for account lookup
+ */
+export const findUserById = async (id: string): Promise<OAuthAccount | LocalAccount | null> => {
+  const models = await db.getModels();
+
+  // Try to find in OAuth accounts first
+  try {
+    const oauthDoc = await models.accounts.OAuthAccount.findById(id);
+    
+    if (oauthDoc) {
+      return { id: oauthDoc._id.toHexString(), ...oauthDoc.toObject() };
+    }
+  } catch {
+    // ID might not be in OAuth accounts, try Local accounts
+  }
+  
+  // Try to find in Local accounts
+  try {
+    const localDoc = await models.accounts.LocalAccount.findById(id);
+    
+    if (localDoc) {
+      return { id: localDoc._id.toHexString(), ...localDoc.toObject() };
+    }
+  } catch {
+    // ID might not be valid or not in Local accounts either
+  }
+
+  return null;
+};

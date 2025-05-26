@@ -2,7 +2,7 @@ import express from 'express';
 import * as AccountController from './Account.controller';
 
 export const authenticatedNeedRouter = express.Router({ mergeParams: true });
-export const authenticationNotNeedRouter = express.Router();
+export const authenticationNotNeedRouter = express.Router({ mergeParams: true });
 
 // Public routes (no authentication required)
 authenticationNotNeedRouter.get('/search', AccountController.searchAccount);

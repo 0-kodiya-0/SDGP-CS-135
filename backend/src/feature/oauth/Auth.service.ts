@@ -2,29 +2,24 @@ import db from '../../config/db';
 import { OAuthAccount, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
 import { ApiErrorCode, AuthError, BadRequestError, RedirectError } from '../../types/response.types';
 import { AuthType, OAuthState, ProviderResponse, SignInState } from './Auth.types';
-import { 
-    generateSignInState, 
-    generateSignupState 
+import {
+    generateSignInState,
+    generateSignupState
 } from './Auth.utils';
-import { 
-    findUserByEmail, 
-    findUserById, 
-    userEmailExists, 
-    userIdExists 
-} from '../account/Account.utils';
 import { validateOAuthAccount } from '../account/Account.validation';
-import { 
-    checkForAdditionalScopes, 
-    getAccountScopes as fetchAccountScopes, 
-    getTokenInfo, 
-    updateAccountScopes 
+import {
+    checkForAdditionalScopes,
+    getAccountScopes as fetchAccountScopes,
+    getTokenInfo,
+    updateAccountScopes
 } from '../google/services/token';
+import { findUserByEmail, findUserById } from '../account';
 
 /**
  * Process sign up with OAuth provider
  */
 export async function processSignup(
-    stateDetails: SignInState, 
+    stateDetails: SignInState,
     provider: OAuthProviders,
     redirectUrl: string
 ) {
@@ -59,7 +54,7 @@ export async function processSignup(
 
     const newAccountDoc = await models.accounts.OAuthAccount.create(newAccount);
     const accountId = newAccountDoc.id || newAccountDoc._id.toHexString();
-    
+
     const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
     const refreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
     const accessTokenInfo = await getTokenInfo(accessToken);
@@ -126,7 +121,10 @@ export async function processCallback(
         throw new AuthError('Missing email parameter', 400, ApiErrorCode.MISSING_EMAIL);
     }
 
-    const exists = await userEmailExists(userEmail);
+    const models = await db.getModels();
+    const oauthExists = await models.accounts.OAuthAccount.exists({ 'userDetails.email': userEmail });
+    const localExists = await models.accounts.LocalAccount.exists({ 'userDetails.email': userEmail });
+    const exists = oauthExists || localExists;
     let state: string;
 
     if (stateDetails.authType === AuthType.SIGN_UP) {
@@ -151,7 +149,24 @@ export async function processCallback(
  * Check if user exists
  */
 export async function checkUserExists(id: string): Promise<boolean> {
-    return await userIdExists(id);
+    const models = await db.getModels();
+
+    // Check in OAuth accounts
+    try {
+        const oauthExists = await models.accounts.OAuthAccount.exists({ _id: id });
+        if (oauthExists) return true;
+    } catch {
+        // ID might not be valid for OAuth accounts
+    }
+
+    // Check in Local accounts
+    try {
+        const localExists = await models.accounts.LocalAccount.exists({ _id: id });
+        return localExists ? true : false;
+    } catch {
+        // ID might not be valid
+        return false;
+    }
 }
 
 /**

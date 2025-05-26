@@ -16,7 +16,6 @@ import { BadRequestError, NotFoundError, ValidationError, ApiErrorCode } from '.
 import { toLocalAccount } from '../account/Account.utils';
 import { sendPasswordResetEmail, sendVerificationEmail, sendPasswordChangedNotification } from '../email/Email.service';
 import { authenticator } from 'otplib';
-import { addUserNotification } from '../notifications/Notification.service';
 import { ValidationUtils } from '../../utils/validation';
 import { 
     saveEmailVerificationToken, 
@@ -261,14 +260,6 @@ export async function verifyEmail(token: string): Promise<boolean> {
     // Remove token from cache
     removeEmailVerificationToken(token);
     
-    // Add welcome notification
-    await addUserNotification({
-        accountId: account._id.toString(),
-        title: 'Welcome!',
-        message: 'Your email has been verified. Welcome to the platform!',
-        type: 'success'
-    });
-    
     return true;
 }
 
@@ -368,14 +359,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
         console.error('Failed to send password change notification:', err);
     });
     
-    // Add notification
-    await addUserNotification({
-        accountId: account._id.toString(),
-        title: 'Password Reset',
-        message: 'Your password has been reset successfully.',
-        type: 'info'
-    });
-    
     return true;
 }
 
@@ -429,14 +412,6 @@ export async function changePassword(accountId: string, data: PasswordChangeRequ
         account.userDetails.firstName || account.userDetails.name.split(' ')[0]
     ).catch(err => {
         console.error('Failed to send password change notification:', err);
-    });
-    
-    // Add notification
-    await addUserNotification({
-        accountId: account._id.toString(),
-        title: 'Password Changed',
-        message: 'Your password has been changed successfully.',
-        type: 'info'
     });
     
     return true;
@@ -493,14 +468,6 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
             const accountName = account.userDetails.email || account.userDetails.username || accountId;
             const qrCodeUrl = authenticator.keyuri(accountName.toString(), APP_NAME, secret);
             
-            // Add notification
-            await addUserNotification({
-                accountId: account._id.toString(),
-                title: 'Two-Factor Authentication',
-                message: 'Two-factor authentication has been set up. Be sure to save your backup codes.',
-                type: 'info'
-            });
-            
             return {
                 secret,
                 qrCodeUrl
@@ -523,14 +490,6 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
         account.security.twoFactorBackupCodes = undefined;
         
         await account.save();
-        
-        // Add notification
-        await addUserNotification({
-            accountId: account._id.toString(),
-            title: 'Two-Factor Authentication',
-            message: 'Two-factor authentication has been disabled.',
-            type: 'info'
-        });
         
         return {};
     }
@@ -615,17 +574,7 @@ export async function verifyTwoFactorLogin(tempToken: string, twoFactorCode: str
             // Mark temp token as used and remove it
             markTwoFactorTempTokenAsUsed(tempToken);
             removeTwoFactorTempToken(tempToken);
-            
-            // Add notification about backup code usage
-            await addUserNotification({
-                accountId: account._id.toString(),
-                title: 'Backup Code Used',
-                message: 'You used a backup code to sign in. Only ' + 
-                         (account.security.twoFactorBackupCodes?.length || 0) + 
-                         ' backup codes remain.',
-                type: 'warning'
-            });
-            
+
             return toLocalAccount(account) as LocalAccountDTO;
         }
     }
@@ -684,14 +633,6 @@ export async function generateNewBackupCodes(accountId: string, password: string
     );
     
     await account.save();
-    
-    // Add notification
-    await addUserNotification({
-        accountId: account._id.toString(),
-        title: 'New Backup Codes',
-        message: 'New backup codes have been generated for your account.',
-        type: 'info'
-    });
     
     // Return plain text codes to show to user
     return backupCodes;
@@ -759,14 +700,6 @@ export async function convertOAuthToLocalAccount(oauthAccountId: string, passwor
         },
         // Can copy other relevant fields from OAuth account
     });
-    
-    // Add notification
-    await addUserNotification({
-        accountId: localAccount._id.toString(),
-        title: 'Account Converted',
-        message: 'Your account has been converted to a local account. You can now log in with your email and password.',
-        type: 'info'
-    });
-    
+
     return toLocalAccount(localAccount) as LocalAccountDTO;
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import * as AuthController from './Auth.controller';
 import { asyncHandler } from '../../utils/response';
 
-export const router = express.Router();
+export const router = express.Router({ mergeParams: true });
 
 /**
  * Common Google authentication route for all auth types

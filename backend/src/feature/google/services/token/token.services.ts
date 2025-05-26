@@ -6,9 +6,9 @@ import { OAuthProviders } from '../../../account/Account.types';
 import db from '../../../../config/db';
 
 /**
-     * Get detailed token information from Google
-     * @param accessToken The access token to check
-     */
+* Get detailed token information from Google
+* @param accessToken The access token to check
+*/
 export async function getTokenInfo(accessToken: string) {
     try {
         // Get token info from Google's token info endpoint
@@ -24,9 +24,9 @@ export async function getTokenInfo(accessToken: string) {
 }
 
 /**
-     * Get detailed scope information from a token
-     * @param accessToken The access token to analyze
-     */
+* Get detailed scope information from a token
+* @param accessToken The access token to analyze
+*/
 export async function getTokenScopes(accessToken: string): Promise<TokenScopeInfo> {
     try {
         // Get token info
@@ -141,9 +141,9 @@ export async function getAccountScopes(accountId: string): Promise<string[]> {
 }
 
 /**
-     * Refresh an access token using a refresh token
-     * @param refreshToken The refresh token to use
-     */
+* Refresh an access token using a refresh token
+* @param refreshToken The refresh token to use
+*/
 export async function refreshGoogleToken(refreshToken: string) {
     try {
         const refreshClient = new google.auth.OAuth2(
@@ -239,10 +239,10 @@ export async function revokeTokens(accessToken: string, refreshToken?: string) {
 }
 
 /**
-    * Check if a token has access to a specific scope
-    * @param accessToken The token to check
-    * @param requiredScope The scope to check for
-    */
+* Check if a token has access to a specific scope
+* @param accessToken The token to check
+* @param requiredScope The scope to check for
+*/
 export async function hasScope(accessToken: string, requiredScope: string): Promise<boolean> {
     try {
         const tokenInfo = await getTokenInfo(accessToken);
