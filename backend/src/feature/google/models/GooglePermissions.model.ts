@@ -1,5 +1,4 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import dbConfig from '../../../config/db.config';
 
 export interface GooglePermissions {
     accountId: string;
@@ -83,9 +82,8 @@ GooglePermissionsSchema.methods.hasAllScopes = function(requiredScopes: string[]
 };
 
 // Initialize model with database connection
-const initGooglePermissionsModel = async () => {
-    const accountsConnection = await dbConfig.connectAccountsDB();
-    return accountsConnection.model<GooglePermissionsDocument>('GooglePermissions', GooglePermissionsSchema);
+const initGooglePermissionsModel = async (connection: mongoose.Connection) => {
+    return connection.model<GooglePermissionsDocument>('GooglePermissions', GooglePermissionsSchema);
 };
 
 export default initGooglePermissionsModel;

@@ -1,5 +1,4 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import dbConfig from '../../config/db.config';
 
 // Define notification type
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
@@ -94,8 +93,7 @@ export function toNotification(doc: NotificationDocument): Notification {
 }
 
 // Initialize model with database connection
-const initNotificationModel = async () => {
-    const connection = await dbConfig.connectAccountsDB();
+const initNotificationModel = async (connection: mongoose.Connection) => {
     return connection.model<NotificationDocument>('Notification', NotificationSchema);
 };
 

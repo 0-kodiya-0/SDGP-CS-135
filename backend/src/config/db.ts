@@ -54,8 +54,8 @@ const initializeDB = async (): Promise<DatabaseModels> => {
         const accountsConnection = dbConfig.connections.accounts!;
         const environmentModel = await initEnvironmentModel(accountsConnection);
         const activeEnvironmentModel = await initActiveEnvironmentModel(accountsConnection);
-        const notificationModel = await initNotificationModel();
-        const googlePermissionsModel = await initGooglePermissionsModel();
+        const notificationModel = await initNotificationModel(accountsConnection);
+        const googlePermissionsModel = await initGooglePermissionsModel(accountsConnection);
 
         // Store initialized models
         models = {
