@@ -9,7 +9,6 @@ import {
     PasswordResetRequest,
     PasswordChangeRequest,
     SetupTwoFactorRequest,
-    VerifyTwoFactorRequest,
     LocalAccountDTO
 } from '../account/Account.types';
 import db from '../../config/db';
@@ -30,6 +29,8 @@ import {
     markTwoFactorTempTokenAsUsed,
     removeTwoFactorTempToken
 } from './LocalAuth.cache';
+
+const APP_NAME = process.env.APP_NAME as string;
 
 /**
  * Create a new local account
@@ -489,10 +490,8 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
             
             await account.save();
             
-            // Generate QR code URL
-            const appName = 'YourAppName';
             const accountName = account.userDetails.email || account.userDetails.username || accountId;
-            const qrCodeUrl = authenticator.keyuri(accountName.toString(), appName, secret);
+            const qrCodeUrl = authenticator.keyuri(accountName.toString(), APP_NAME, secret);
             
             // Add notification
             await addUserNotification({

@@ -17,7 +17,6 @@ import {
     validatePermissionState, 
     validateProvider, 
     validateState, 
-    verifyTokenOwnership 
 } from './Auth.validation';
 import { 
     clearOAuthState, 
@@ -26,7 +25,8 @@ import {
     generateOAuthState, 
     generatePermissionState} from './Auth.utils';
 import { 
-    getTokenInfo} from '../google/services/token';
+    getTokenInfo,
+    verifyTokenOwnership} from '../google/services/token';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { createRedirectUrl, RedirectType } from '../../utils/redirect';
 import { GoogleServiceName, getGoogleScope } from '../google/config';

@@ -23,7 +23,8 @@ import {
     SetupTwoFactorRequest,
     VerifyTwoFactorRequest,
     VerifyEmailRequest,
-    LocalAccount
+    LocalAccount,
+    AccountType
 } from '../account/Account.types';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { sendTwoFactorEnabledNotification } from '../email/Email.service';
@@ -85,7 +86,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     const account = result as LocalAccount;
 
     // Generate JWT token
-    const token = await createLocalJwtToken(account.id);
+    const token = await createLocalJwtToken(account.id, AccountType.Local);
 
     // Set cookies
     const expiresIn = account.security.sessionTimeout || 3600;
@@ -133,7 +134,7 @@ export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, 
         const account = await LocalAuthService.verifyTwoFactorLogin(tempToken, token);
 
         // Generate JWT token
-        const jwtToken = await createLocalJwtToken(account.id);
+        const jwtToken = await createLocalJwtToken(account.id, AccountType.Local);
 
         // Set cookies
         const expiresIn = account.security.sessionTimeout || 3600;

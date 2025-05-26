@@ -1,9 +1,9 @@
 import { Response } from 'express';
 import { ApiErrorCode, BadRequestError, ServerError } from '../../types/response.types';
 import { toOAuthAccount } from './Account.utils';
-import { clearAllSessions, clearSession, setAccessTokenCookie } from '../../services/session';
+import { clearAllSessions, clearSession, refreshAccessToken, setAccessTokenCookie } from '../../services/session';
 import { OAuthAccountDocument } from './Account.model';
-import { refreshAccessToken, revokeTokens as revokeGoogleTokens } from '../google/services/token';
+import { revokeTokens as revokeGoogleTokens } from '../google/services/token';
 import { OAuthProviders } from './Account.types';
 import db from '../../config/db';
 import { ValidationUtils } from '../../utils/validation';
@@ -126,14 +126,14 @@ export async function refreshAccountToken(
     refreshToken: string
 ): Promise<void> {
     if (account.provider === OAuthProviders.Google) {
-        const newTokenInfo = await refreshAccessToken(refreshToken);
+        const newTokenInfo = await refreshAccessToken(accountId, refreshToken, account.accountType);
 
         // Update the token in the database
         setAccessTokenCookie(
             res, 
-            accountId, 
-            newTokenInfo.access_token as string, 
-            newTokenInfo.expiry_date as number - Date.now()
+            accountId,
+            newTokenInfo.accessToken as string, 
+            newTokenInfo.expiresIn as number - Date.now()
         );
     } else {
         throw new ServerError("Invalid account provider type found");

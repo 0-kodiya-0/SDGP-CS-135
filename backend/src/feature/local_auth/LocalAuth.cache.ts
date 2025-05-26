@@ -1,5 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import crypto from 'crypto';
+import { TwoFactorTempToken, PasswordResetToken, EmailVerificationToken } from './LocalAuth.types';
 
 // Cache options with TTL (time to live)
 const options = {
@@ -14,31 +15,6 @@ const verificationOptions = {
     ttl: 1000 * 60 * 60 * 24, // 24 hours in milliseconds for email verification
     updateAgeOnGet: false,
     allowStale: false,
-}
-
-// Password reset token interface
-export interface PasswordResetToken {
-    token: string;
-    accountId: string;
-    email: string;
-    expiresAt: string;
-}
-
-// Email verification token interface
-export interface EmailVerificationToken {
-    token: string;
-    accountId: string;
-    email: string;
-    expiresAt: string;
-}
-
-// Temporary 2FA token interface
-export interface TwoFactorTempToken {
-    token: string;
-    accountId: string;
-    email: string;
-    expiresAt: string;
-    isUsed: boolean; // Prevent token reuse
 }
 
 // Cache for temporary 2FA tokens (5 minutes)

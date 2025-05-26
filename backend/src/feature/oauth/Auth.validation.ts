@@ -2,8 +2,6 @@ import { Response } from "express";
 import { OAuthProviders } from "../account/Account.types";
 import { OAuthState, PermissionState, SignInState, SignUpState } from "./Auth.types";
 import { getOAuthState, getSignInState, getSignUpState, getPermissionState } from "./Auth.cache";
-import db from "../../config/db";
-import { google } from "googleapis";
 import { BadRequestError, ApiErrorCode } from "../../types/response.types";
 import { StateDetails } from "./Auth.dto";
 
@@ -122,67 +120,3 @@ export const validateSignUpState = async (state: string): Promise<SignUpState | 
 
     return signUpState;
 };
-
-/**
- * Verifies that the token belongs to the correct user account
- * 
- * @param accessToken The access token to verify
- * @param accountId The account ID that should own this token
- * @returns Object indicating if the token is valid and reason if not
- */
-export async function verifyTokenOwnership(
-    accessToken: string,
-    accountId: string
-): Promise<{ isValid: boolean; reason?: string }> {
-    try {
-        // Get the models
-        const models = await db.getModels();
-
-        // Get the account that should own this token
-        const account = await models.accounts.OAuthAccount.findOne({ _id: accountId });
-
-        if (!account) {
-            return { isValid: false, reason: 'Account not found' };
-        }
-
-        // Get the email from the account
-        const expectedEmail = account.userDetails.email;
-
-        if (!expectedEmail) {
-            return { isValid: false, reason: 'Account missing email' };
-        }
-
-        // Get user information from the token
-        const googleAuth = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
-        );
-        
-        googleAuth.setCredentials({ access_token: accessToken });
-
-        // Get the user info using the oauth2 API
-        const oauth2 = google.oauth2({
-            auth: googleAuth,
-            version: 'v2'
-        });
-
-        const userInfo = await oauth2.userinfo.get();
-
-        if (!userInfo.data.email) {
-            return { isValid: false, reason: 'Could not get email from token' };
-        }
-
-        // Compare emails
-        if (userInfo.data.email.toLowerCase() !== expectedEmail.toLowerCase()) {
-            return {
-                isValid: false,
-                reason: `Token email (${userInfo.data.email}) does not match account email (${expectedEmail})`
-            };
-        }
-
-        return { isValid: true };
-    } catch (error) {
-        console.error('Error verifying token ownership:', error);
-        return { isValid: false, reason: 'Error verifying token ownership' };
-    }
-}
