@@ -1,6 +1,6 @@
 import { Request } from "express";
 import { OAuthProviders } from "../account/Account.types";
-import { OAuthState, SignInState, SignUpState } from "./Auth.types";
+import { OAuthState, SignInState, SignUpState } from "./OAuth.types";
 
 export type StateDetails = OAuthState | SignInState | SignUpState | null;
 

@@ -7,8 +7,8 @@ import {
     RedirectError, 
     RedirectSuccess 
 } from '../../types/response.types';
-import * as AuthService from './Auth.service';
-import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState } from './Auth.types';
+import * as AuthService from './OAuth.service';
+import { AuthType, AuthUrls, OAuthState, PermissionState, ProviderResponse, SignInState } from './OAuth.types';
 import { OAuthProviders } from '../account/Account.types';
 import { 
     validateOAuthState, 
@@ -17,20 +17,20 @@ import {
     validatePermissionState, 
     validateProvider, 
     validateState, 
-} from './Auth.validation';
+} from './OAuth.validation';
 import { 
     clearOAuthState, 
     clearSignInState, 
     clearSignUpState, 
     generateOAuthState, 
-    generatePermissionState} from './Auth.utils';
+    generatePermissionState} from './OAuth.utils';
 import { 
     getTokenInfo,
     verifyTokenOwnership} from '../google/services/token';
 import { setAccessTokenCookie, setRefreshTokenCookie } from '../../services/session';
 import { createRedirectUrl, RedirectType } from '../../utils/redirect';
 import { GoogleServiceName, getGoogleScope } from '../google/config';
-import { SignUpRequest, SignInRequest, OAuthCallBackRequest } from './Auth.dto';
+import { SignUpRequest, SignInRequest, OAuthCallBackRequest } from './OAuth.dto';
 import { ValidationUtils } from '../../utils/validation';
 
 /**
@@ -83,12 +83,12 @@ export const signup = async (req: SignUpRequest, res: Response, next: NextFuncti
                 setAccessTokenCookie(
                     res,
                     result.accountId,
-                    result.accessToken,
+                    result.accessToken, // This is now our JWT token that wraps the OAuth token
                     result.accessTokenInfo.expires_in * 1000
                 );
                 
                 if (result.refreshToken) {
-                    setRefreshTokenCookie(res, result.accountId, result.refreshToken);
+                    setRefreshTokenCookie(res, result.accountId, result.refreshToken); // This is our JWT refresh token
                 }
             }
             
@@ -144,12 +144,12 @@ export const signin = async (req: SignInRequest, res: Response, next: NextFuncti
                 setAccessTokenCookie(
                     res,
                     result.userId,
-                    result.accessToken,
+                    result.accessToken, // This is now our JWT token that wraps the OAuth token
                     result.accessTokenInfo.expires_in * 1000
                 );
                 
                 if (result.refreshToken) {
-                    setRefreshTokenCookie(res, result.userId, result.refreshToken);
+                    setRefreshTokenCookie(res, result.userId, result.refreshToken); // This is our JWT refresh token
                 }
             }
             
@@ -307,15 +307,29 @@ export const handlePermissionCallback = async (req: Request, res: Response, next
                 result.tokenDetails.accessToken
             );
 
+            // Create our JWT tokens that wrap the OAuth tokens
+            const { createOAuthJwtToken, createOAuthRefreshToken } = await import('./OAuth.jwt');
+            
+            const jwtAccessToken = await createOAuthJwtToken(
+                accountId, 
+                result.tokenDetails.accessToken,
+                accessTokenInfo.expires_in
+            );
+            
+            const jwtRefreshToken = await createOAuthRefreshToken(
+                accountId, 
+                result.tokenDetails.refreshToken
+            );
+
             setAccessTokenCookie(
                 res,
                 accountId,
-                result.tokenDetails.accessToken,
+                jwtAccessToken, // Our JWT token that wraps the OAuth token
                 accessTokenInfo.expires_in * 1000
             );
 
-            if (result.tokenDetails.refreshToken) {
-                setRefreshTokenCookie(res, accountId, result.tokenDetails.refreshToken);
+            if (jwtRefreshToken) {
+                setRefreshTokenCookie(res, accountId, jwtRefreshToken); // Our JWT refresh token
             }
 
             console.log(`Token updated for ${service} ${scopeLevel}. Redirecting to ${redirectUrl}`);

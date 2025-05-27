@@ -1,3 +1,5 @@
+import { AccountType } from "../account";
+
 // Password reset token interface
 export interface PasswordResetToken {
     token: string;
@@ -21,4 +23,15 @@ export interface TwoFactorTempToken {
     email: string;
     expiresAt: string;
     isUsed: boolean; // Prevent token reuse
+}
+
+/**
+ * JWT payload interface for local auth tokens
+ */
+export interface LocalAuthTokenPayload {
+    sub: string; // accountId
+    type: AccountType.Local;
+    iat: number;
+    exp?: number;
+    isRefreshToken?: boolean;
 }

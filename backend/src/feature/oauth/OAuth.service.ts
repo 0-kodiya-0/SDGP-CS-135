@@ -1,14 +1,15 @@
 import db from '../../config/db';
 import { Account, AccountType, AccountStatus, OAuthProviders } from '../account/Account.types';
 import { ApiErrorCode, BadRequestError, RedirectError } from '../../types/response.types';
-import { AuthType, OAuthState, ProviderResponse, SignInState } from './Auth.types';
+import { AuthType, OAuthState, ProviderResponse, SignInState } from './OAuth.types';
 import {
     generateSignInState,
     generateSignupState
-} from './Auth.utils';
+} from './OAuth.utils';
 import { validateAccount } from '../account/Account.validation';
 import { getTokenInfo } from '../google/services/token';
 import { findUserByEmail, findUserById } from '../account';
+import { createOAuthJwtToken, createOAuthRefreshToken } from './OAuth.jwt';
 
 /**
  * Process sign up with OAuth provider
@@ -56,9 +57,16 @@ export async function processSignup(
         await updateGooglePermissions(accountId, accessToken);
     }
 
-    const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
-    const refreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
-    const accessTokenInfo = await getTokenInfo(accessToken);
+    const oauthAccessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
+    const oauthRefreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
+    
+    // Get token info to determine expiration
+    const accessTokenInfo = await getTokenInfo(oauthAccessToken);
+    const expiresIn = accessTokenInfo.expires_in || 3600; // Default to 1 hour
+
+    // Create our JWT tokens that wrap the OAuth tokens
+    const accessToken = await createOAuthJwtToken(accountId, oauthAccessToken, expiresIn);
+    const refreshToken = await createOAuthRefreshToken(accountId, oauthRefreshToken);
 
     return {
         accountId,
@@ -88,18 +96,24 @@ export async function processSignIn(stateDetails: SignInState, redirectUrl: stri
         throw new RedirectError(ApiErrorCode.AUTH_FAILED, redirectUrl, 'Account exists but is not an OAuth account');
     }
 
-    const accessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
-    const refreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
+    const oauthAccessToken = stateDetails.oAuthResponse.tokenDetails.accessToken;
+    const oauthRefreshToken = stateDetails.oAuthResponse.tokenDetails.refreshToken;
 
     // Update Google permissions if provider is Google
     if (user.provider === OAuthProviders.Google) {
-        await updateGooglePermissions(user.id, accessToken);
+        await updateGooglePermissions(user.id, oauthAccessToken);
     }
 
-    const accessTokenInfo = await getTokenInfo(accessToken);
+    // Get token info to determine expiration
+    const accessTokenInfo = await getTokenInfo(oauthAccessToken);
+    const expiresIn = accessTokenInfo.expires_in || 3600; // Default to 1 hour
+
+    // Create our JWT tokens that wrap the OAuth tokens
+    const accessToken = await createOAuthJwtToken(user.id, oauthAccessToken, expiresIn);
+    const refreshToken = await createOAuthRefreshToken(user.id, oauthRefreshToken);
 
     // Check for additional scopes from GooglePermissions
-    const needsAdditionalScopes = await checkForAdditionalScopes(user.id, accessToken);
+    const needsAdditionalScopes = await checkForAdditionalScopes(user.id, oauthAccessToken);
 
     return {
         userId: user.id,

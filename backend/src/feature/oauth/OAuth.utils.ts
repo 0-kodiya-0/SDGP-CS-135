@@ -1,7 +1,7 @@
 import { OAuthProviders } from "../account/Account.types";
-import { AuthType, ProviderResponse } from "./Auth.types";
+import { AuthType, ProviderResponse } from "./OAuth.types";
 import crypto from "crypto";
-import { saveOAuthState, saveSignInState, saveSignUpState, removeOAuthState, removeSignInState, removeSignUpState, savePermissionState, removePermissionState, } from "./Auth.cache";
+import { saveOAuthState, saveSignInState, saveSignUpState, removeOAuthState, removeSignInState, removeSignUpState, savePermissionState, removePermissionState, } from "./OAuth.cache";
 
 export const generateOAuthState = async (
     provider: OAuthProviders,

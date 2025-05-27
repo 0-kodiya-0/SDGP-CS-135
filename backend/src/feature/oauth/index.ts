@@ -1,4 +1,4 @@
-export { router } from "./Auth.routes";
-export * from "./Auth.service";
-export * from "./Auth.utils";
-export * from "./Auth.validation"
+export { router } from "./OAuth.routes";
+export * from "./OAuth.service";
+export * from "./OAuth.utils";
+export * from "./OAuth.validation"

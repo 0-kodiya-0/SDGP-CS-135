@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { OAuthProviders } from '../account/Account.types';
-import { AuthType, OAuthState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
+import { AuthType, OAuthState, ProviderResponse, SignInState, SignUpState } from './OAuth.types';
 
 /**
  * Safely converts a Date object to an ISO string

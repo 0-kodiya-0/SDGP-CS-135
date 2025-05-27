@@ -1,22 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { AccountType } from '../account/Account.types';
 import { getAccessTokenExpiry, getJwtSecret, getRefreshTokenExpiry } from '../../config/env.config';
-
-// Environment variables
-const JWT_SECRET = getJwtSecret();
-const ACCESS_TOKEN_EXPIRY = getAccessTokenExpiry();
-const REFRESH_TOKEN_EXPIRY = getRefreshTokenExpiry();
-
-/**
- * JWT payload interface for local auth tokens
- */
-interface LocalAuthTokenPayload {
-    sub: string; // accountId
-    type: AccountType.Local;
-    iat: number;
-    exp?: number;
-    isRefreshToken?: boolean;
-}
+import { LocalAuthTokenPayload } from './LocalAuth.types';
 
 /**
  * Create a signed JWT token for local authentication
@@ -35,8 +20,10 @@ export async function createLocalJwtToken(
     };
     
     // Sign token
-    return jwt.sign(payload, JWT_SECRET, {
-        expiresIn: expiresIn ? `${expiresIn}s` : ACCESS_TOKEN_EXPIRY
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return jwt.sign(payload, getJwtSecret(), {
+        expiresIn: expiresIn ? `${expiresIn}s` : getAccessTokenExpiry()
     });
 }
 
@@ -54,8 +41,10 @@ export async function createLocalRefreshToken(accountId: string): Promise<string
     };
     
     // Sign token with longer expiration
-    return jwt.sign(payload, JWT_SECRET, {
-        expiresIn: REFRESH_TOKEN_EXPIRY
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return jwt.sign(payload, getJwtSecret(), {
+        expiresIn: getRefreshTokenExpiry()
     });
 }
 
@@ -66,7 +55,7 @@ export async function createLocalRefreshToken(accountId: string): Promise<string
  */
 export function verifyLocalJwtToken(token: string): { accountId: string; accountType: AccountType.Local } {
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as LocalAuthTokenPayload;
+        const decoded = jwt.verify(token, getJwtSecret()) as LocalAuthTokenPayload;
         
         // Ensure it's a local auth token
         if (decoded.type !== AccountType.Local) {
@@ -89,7 +78,7 @@ export function verifyLocalJwtToken(token: string): { accountId: string; account
  */
 export function verifyLocalRefreshToken(token: string): { accountId: string; accountType: AccountType.Local } {
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as LocalAuthTokenPayload;
+        const decoded = jwt.verify(token, getJwtSecret()) as LocalAuthTokenPayload;
         
         // Ensure it's a local auth refresh token
         if (decoded.type !== AccountType.Local || !decoded.isRefreshToken) {

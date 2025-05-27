@@ -1,9 +1,9 @@
 import { Response } from "express";
 import { OAuthProviders } from "../account/Account.types";
-import { OAuthState, PermissionState, SignInState, SignUpState } from "./Auth.types";
-import { getOAuthState, getSignInState, getSignUpState, getPermissionState } from "./Auth.cache";
+import { OAuthState, PermissionState, SignInState, SignUpState } from "./OAuth.types";
+import { getOAuthState, getSignInState, getSignUpState, getPermissionState } from "./OAuth.cache";
 import { BadRequestError, ApiErrorCode } from "../../types/response.types";
-import { StateDetails } from "./Auth.dto";
+import { StateDetails } from "./OAuth.dto";
 
 type ValidateState = (
     state: string | undefined,

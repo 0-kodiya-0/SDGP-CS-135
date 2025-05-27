@@ -596,7 +596,7 @@ export async function generateNewBackupCodes(accountId: string, password: string
     // Find account by ID
     const account = await models.accounts.Account.findById(accountId);
     
-    if (!account || account.accountType !== AccountType.Local || !account.security.twoFactorEnabled) {
+    if (!account || account.accountType !== AccountType.Local) {
         throw new NotFoundError('Account not found or 2FA not enabled', 404, ApiErrorCode.USER_NOT_FOUND);
     }
     

@@ -78,8 +78,6 @@ app.use('/:accountId/google', googleRoutes);
 app.use('/:accountId/chat', chatRoutes);
 app.use('/:accountId/environments', environmentRoutes);
 app.use('/:accountId/notifications', notificationRoutes);
-
-// Local auth routes (authentication needed)
 app.use('/:accountId/auth', localAuthRequiredRouter);
 
 applyErrorHandlers(app);

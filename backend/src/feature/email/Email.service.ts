@@ -4,7 +4,8 @@ import path from 'path';
 import { ServerError, ValidationError } from '../../types/response.types';
 import { getTemplateMetadata, isValidTemplate, getTemplateFilePath } from './Email.utils';
 import { EmailTemplate } from './Email.types';
-import { getAppName, getBaseUrl, getNodeEnv, getSenderEmail, getSenderName, getSmtpAppPassword, getSmtpHost, getSmtpPort, getSmtpSecure } from '../../config/env.config';
+import { getAppName, getBaseUrl, getNodeEnv, getSenderEmail, getSenderName } from '../../config/env.config';
+import { getTransporter, resetTransporter } from './Email.transporter';
 
 // Template cache to avoid reading files repeatedly
 const templateCache = new Map<EmailTemplate, string>();
@@ -80,42 +81,6 @@ function generatePlainText(html: string, variables: Record<string, string>): str
 }
 
 /**
- * Create SMTP transporter using app password
- */
-const createTransporter = async () => {
-    try {
-        // Create SMTP transporter with app password
-        const transporter = nodemailer.createTransport({
-            host: getSmtpHost(),
-            port: getSmtpPort(),
-            secure: getSmtpSecure(), // true for 465, false for other ports
-            auth: {
-                user: getSenderEmail(),
-                pass: getSmtpAppPassword() // Use app-specific password here
-            },
-            // Additional options for better reliability
-            tls: {
-                // Do not fail on invalid certs (for development)
-                rejectUnauthorized: getNodeEnv() === 'production'
-            },
-            // Connection timeout
-            connectionTimeout: 60000, // 60 seconds
-            greetingTimeout: 30000, // 30 seconds
-            socketTimeout: 60000, // 60 seconds
-        });
-
-        // Test connection
-        await transporter.verify();
-        console.log('SMTP connection verified successfully');
-
-        return transporter;
-    } catch (error) {
-        console.log(error);
-        throw new ServerError('Failed to create email transporter');
-    }
-};
-
-/**
  * Generic email sender for custom templates with type safety
  */
 export async function sendCustomEmail(
@@ -124,7 +89,7 @@ export async function sendCustomEmail(
     template: EmailTemplate,
     variables: Record<string, string>
 ): Promise<void> {
-    const transporter = await createTransporter();
+    const transporter = await getTransporter();
 
     // Add common variables
     const allVariables = {
@@ -151,17 +116,33 @@ export async function sendCustomEmail(
         text
     };
 
-    // Send email
-    const result = await transporter.sendMail(mailOptions);
+    // Send email with error handling
+    try {
+        const result = await transporter.sendMail(mailOptions);
 
-    // Log preview URL for development
-    if (getNodeEnv() !== 'production') {
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
+        // Log preview URL for development
+        if (getNodeEnv() !== 'production') {
+            console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
+        }
+    } catch (error) {
+        console.error('Failed to send email:', error);
+        
+        // If it's a connection error, reset the transporter for next attempt
+        if (error instanceof Error && (
+            error.message.includes('connection') || 
+            error.message.includes('timeout') ||
+            error.message.includes('ECONNRESET')
+        )) {
+            console.log('Resetting transporter due to connection error');
+            resetTransporter();
+        }
+        
+        throw new ServerError('Failed to send email');
     }
 }
 
 /**
- * Send email verification - NOW USING sendCustomEmail
+ * Send email verification
  */
 export async function sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
     const verificationUrl = `${getBaseUrl()}/api/v1/account/verify-email?token=${token}`;
@@ -178,7 +159,7 @@ export async function sendVerificationEmail(email: string, firstName: string, to
 }
 
 /**
- * Send password reset email - NOW USING sendCustomEmail
+ * Send password reset email
  */
 export async function sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
     const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
@@ -195,7 +176,7 @@ export async function sendPasswordResetEmail(email: string, firstName: string, t
 }
 
 /**
- * Send password changed notification - NOW USING sendCustomEmail
+ * Send password changed notification
  */
 export async function sendPasswordChangedNotification(email: string, firstName: string): Promise<void> {
     const now = new Date();
@@ -213,7 +194,7 @@ export async function sendPasswordChangedNotification(email: string, firstName: 
 }
 
 /**
- * Send successful login notification - NOW USING sendCustomEmail
+ * Send successful login notification
  */
 export async function sendLoginNotification(email: string, firstName: string, ipAddress: string, device: string): Promise<void> {
     const now = new Date();
@@ -232,7 +213,7 @@ export async function sendLoginNotification(email: string, firstName: string, ip
 }
 
 /**
- * Send two-factor authentication enabled notification - NOW USING sendCustomEmail
+ * Send two-factor authentication enabled notification
  */
 export async function sendTwoFactorEnabledNotification(email: string, firstName: string): Promise<void> {
     const now = new Date();
@@ -290,20 +271,6 @@ export async function sendBulkEmails(
 }
 
 /**
- * Test email configuration
- */
-export async function testEmailConfiguration(): Promise<boolean> {
-    try {
-        await createTransporter();
-        console.log('✅ Email configuration test passed');
-        return true;
-    } catch (error) {
-        console.error('❌ Email configuration test failed:', error);
-        return false;
-    }
-}
-
-/**
  * Send test email
  */
 export async function sendTestEmail(to: string): Promise<void> {
@@ -324,6 +291,15 @@ export async function sendTestEmail(to: string): Promise<void> {
 export function clearTemplateCache(): void {
     templateCache.clear();
     console.log('Email template cache cleared');
+}
+
+/**
+ * Clear all caches and reset transporter (useful for development)
+ */
+export function clearAllCaches(): void {
+    clearTemplateCache();
+    resetTransporter();
+    console.log('All email caches cleared and transporter reset');
 }
 
 /**

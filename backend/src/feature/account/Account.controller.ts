@@ -89,7 +89,7 @@ export const updateAccountSecurity = asyncHandler(async (req: Request, res: Resp
 export const refreshToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId as string;
     const account = req.account as AccountDocument;
-    const refreshToken = req.refreshToken as string;
+    const refreshToken = req.oauthRefreshToken as string;
     const { redirectUrl } = req.query;
 
     const finalRedirectUrl = AccountService.validateRedirectUrl(redirectUrl);
@@ -105,8 +105,8 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response, nex
 export const revokeToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const accountId = req.params.accountId as string;
     const account = req.account as AccountDocument;
-    const accessToken = req.accessToken as string;
-    const refreshToken = req.refreshToken as string;
+    const accessToken = req.oauthAccessToken as string;
+    const refreshToken = req.oauthRefreshToken as string;
 
     const result = await AccountService.revokeAccountTokens(res, accountId, account, accessToken, refreshToken);
     

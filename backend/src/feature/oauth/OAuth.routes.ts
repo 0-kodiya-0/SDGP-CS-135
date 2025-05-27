@@ -1,5 +1,5 @@
 import express from 'express';
-import * as AuthController from './Auth.controller';
+import * as AuthController from './OAuth.controller';
 import { asyncHandler } from '../../utils/response';
 
 export const router = express.Router({ mergeParams: true });

@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { AuthType, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './Auth.types';
+import { AuthType, OAuthState, PermissionState, ProviderResponse, SignInState, SignUpState } from './OAuth.types';
 import { OAuthProviders } from '../account/Account.types';
 
 // Cache options with TTL (time to live) of 10 minutes (600,000 ms)

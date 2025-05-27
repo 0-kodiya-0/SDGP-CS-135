@@ -124,7 +124,7 @@ export function validateRedirectUrl(redirectUrl: any): string {
 }
 
 /**
- * Refresh account token (delegates to session manager)
+ * Refresh account token - now directly calls session manager
  */
 export async function refreshAccountToken(
     res: Response, 
@@ -132,17 +132,12 @@ export async function refreshAccountToken(
     account: AccountDocument, 
     refreshToken: string
 ): Promise<void> {
-    if (account.accountType === AccountType.OAuth && account.provider === OAuthProviders.Google) {
-        await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
-    } else if (account.accountType === AccountType.Local) {
-        await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
-    } else {
-        throw new ServerError("Invalid account type or provider");
-    }
+    // Direct call to session manager - no need for wrapper logic
+    await handleTokenRefresh(accountId, refreshToken, account.accountType, res);
 }
 
 /**
- * Revoke account tokens (delegates to session manager)
+ * Revoke account tokens - now directly calls session manager
  */
 export async function revokeAccountTokens(
     res: Response,
@@ -151,6 +146,7 @@ export async function revokeAccountTokens(
     accessToken: string,
     refreshToken: string
 ) {
+    // Direct call to session manager - no need for wrapper logic
     return await revokeAuthTokens(
         accountId, 
         account.accountType, 

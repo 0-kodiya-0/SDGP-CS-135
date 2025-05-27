@@ -46,9 +46,14 @@ declare global {
     namespace Express {
         interface Request {
             accessToken?: string;
+            oauthAccessToken?: string;
+
             refreshToken?: string;
+            oauthRefreshToken?: string;
+            
             googleAuth?: Auth.OAuth2Client;
             googlePermissionRedirectUrl?: string;
+            
             workspaceId?: string;
             
             // Unified account property

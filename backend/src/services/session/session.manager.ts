@@ -1,13 +1,12 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { ApiErrorCode } from '../../types/response.types';
 import { AccountType } from '../../feature/account/Account.types';
 import { refreshGoogleToken, revokeTokens } from '../../feature/google/services/token';
-import { createLocalJwtToken, verifyLocalRefreshToken } from '../../feature/local_auth';
-import { getJwtSecret, getNodeEnv } from '../../config/env.config';
+import { createLocalJwtToken } from '../../feature/local_auth';
+import { createOAuthJwtToken } from '../../feature/oauth/OAuth.jwt';
+import { getNodeEnv } from '../../config/env.config';
 
 // Environment variables
-const JWT_SECRET = getJwtSecret();
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 
 export interface SessionError {
@@ -17,17 +16,11 @@ export interface SessionError {
 }
 
 /**
- * Verify a session token (for OAuth tokens)
- */
-export const verifySession = (session: string) => {
-    return jwt.verify(session, JWT_SECRET);
-}
-
-/**
  * Sets the access token as a cookie for a specific account
+ * No longer signs the token - just stores it directly
  */
 export const setAccessTokenCookie = (res: Response, accountId: string, accessToken: string, expiresIn: number): void => {
-    res.cookie(`access_token_${accountId}`, jwt.sign(accessToken, JWT_SECRET), {
+    res.cookie(`access_token_${accountId}`, accessToken, {
         httpOnly: true,
         secure: getNodeEnv() === 'production',
         maxAge: expiresIn,
@@ -38,9 +31,10 @@ export const setAccessTokenCookie = (res: Response, accountId: string, accessTok
 
 /**
  * Sets the refresh token as a cookie for a specific account
+ * No longer signs the token - just stores it directly
  */
 export const setRefreshTokenCookie = (res: Response, accountId: string, refreshToken: string): void => {
-    res.cookie(`refresh_token_${accountId}`, jwt.sign(refreshToken, JWT_SECRET), {
+    res.cookie(`refresh_token_${accountId}`, refreshToken, {
         httpOnly: true,
         secure: getNodeEnv() === 'production',
         maxAge: COOKIE_MAX_AGE,
@@ -91,50 +85,41 @@ export const clearSession = (res: Response, accountId: string) => {
 
 /**
  * Refresh an access token using a refresh token
- * Delegates to appropriate feature based on account type
+ * Note: oauthRefreshToken is already extracted by session middleware for OAuth accounts
  */
 export const refreshAccessToken = async (
     accountId: string,
-    refreshToken: string,
+    oauthRefreshToken: string, // For OAuth: the actual OAuth refresh token, For Local: the JWT refresh token
     accountType: AccountType
 ): Promise<{ accessToken: string, expiresIn: number }> => {
-    try {
-        if (accountType === AccountType.OAuth) {
-            // For OAuth accounts, use Google refresh flow
-            const tokens = await refreshGoogleToken(refreshToken);
+    if (accountType === AccountType.OAuth) {
+        // Use the OAuth refresh token to get new tokens from Google
+        const tokens = await refreshGoogleToken(oauthRefreshToken);
 
-            if (!tokens.access_token || !tokens.expiry_date) {
-                throw new Error('Failed to refresh Google access token');
-            }
-
-            return {
-                accessToken: tokens.access_token,
-                expiresIn: (tokens.expiry_date as number) - Date.now()
-            };
-        } else {
-
-            try {
-                const decoded = verifyLocalRefreshToken(refreshToken);
-
-                if (decoded.accountId !== accountId) {
-                    throw new Error('Invalid refresh token');
-                }
-
-                // Create new access token
-                const newAccessToken = await createLocalJwtToken(accountId);
-                const expiresIn = 3600 * 1000; // 1 hour in milliseconds
-
-                return {
-                    accessToken: newAccessToken,
-                    expiresIn
-                };
-            } catch {
-                throw new Error('Invalid or expired refresh token');
-            }
+        if (!tokens.access_token || !tokens.expiry_date) {
+            throw new Error('Failed to refresh Google access token');
         }
-    } catch (error) {
-        console.error('Error refreshing access token:', error);
-        throw new Error('Failed to refresh access token');
+
+        // Create a new JWT token that wraps the OAuth access token
+        const newJwtToken = await createOAuthJwtToken(
+            accountId, 
+            tokens.access_token, 
+            Math.floor(((tokens.expiry_date as number) - Date.now()) / 1000)
+        );
+
+        return {
+            accessToken: newJwtToken,
+            expiresIn: (tokens.expiry_date as number) - Date.now()
+        };
+    } else {
+        // Local account - create new access token
+        const newAccessToken = await createLocalJwtToken(accountId);
+        const expiresIn = 3600 * 1000; // 1 hour in milliseconds
+
+        return {
+            accessToken: newAccessToken,
+            expiresIn
+        };
     }
 };
 
@@ -143,11 +128,11 @@ export const refreshAccessToken = async (
  */
 export const handleTokenRefresh = async (
     accountId: string,
-    refreshToken: string,
+    extractedRefreshToken: string, // Already extracted by middleware
     accountType: AccountType,
     res: Response
 ): Promise<void> => {
-    const newTokenInfo = await refreshAccessToken(accountId, refreshToken, accountType);
+    const newTokenInfo = await refreshAccessToken(accountId, extractedRefreshToken, accountType);
 
     // Update the access token cookie
     setAccessTokenCookie(
@@ -160,16 +145,18 @@ export const handleTokenRefresh = async (
 
 /**
  * Revoke tokens based on account type
+ * Note: OAuth tokens are already extracted by session middleware
  */
 export const revokeAuthTokens = async (
     accountId: string,
     accountType: AccountType,
-    accessToken: string,
-    refreshToken: string,
+    extractedAccessToken: string, // For OAuth: actual OAuth access token, For Local: JWT access token
+    extractedRefreshToken: string, // For OAuth: actual OAuth refresh token, For Local: JWT refresh token
     res: Response
 ): Promise<any> => {
     if (accountType === AccountType.OAuth) {
-        const result = await revokeTokens(accessToken, refreshToken);
+        // Use the already extracted OAuth tokens
+        const result = await revokeTokens(extractedAccessToken, extractedRefreshToken);
 
         // Clear session cookies
         clearSession(res, accountId);
@@ -179,7 +166,6 @@ export const revokeAuthTokens = async (
         // For local accounts, just clear the cookies (JWT tokens are stateless)
         clearSession(res, accountId);
 
-        // Could also add to a blacklist if needed for security
         return { accessTokenRevoked: true, refreshTokenRevoked: true };
     }
 };

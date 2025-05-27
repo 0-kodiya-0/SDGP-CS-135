@@ -2,7 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import refresh from 'passport-oauth2-refresh';
 import { OAuthProviders } from '../feature/account/Account.types';
-import { ProviderResponse } from '../feature/oauth/Auth.types';
+import { ProviderResponse } from '../feature/oauth/OAuth.types';
 import { getGoogleClientId, getGoogleClientSecret } from './env.config';
 
 /**
