@@ -4,9 +4,10 @@ import { ApiErrorCode } from '../../types/response.types';
 import { AccountType } from '../../feature/account/Account.types';
 import { refreshGoogleToken, revokeTokens } from '../../feature/google/services/token';
 import { createLocalJwtToken, verifyLocalRefreshToken } from '../../feature/local_auth';
+import { getJwtSecret, getNodeEnv } from '../../config/env.config';
 
 // Environment variables
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_SECRET = getJwtSecret();
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
 
 export interface SessionError {
@@ -28,7 +29,7 @@ export const verifySession = (session: string) => {
 export const setAccessTokenCookie = (res: Response, accountId: string, accessToken: string, expiresIn: number): void => {
     res.cookie(`access_token_${accountId}`, jwt.sign(accessToken, JWT_SECRET), {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: getNodeEnv() === 'production',
         maxAge: expiresIn,
         path: `/${accountId}`,
         sameSite: 'lax'
@@ -41,7 +42,7 @@ export const setAccessTokenCookie = (res: Response, accountId: string, accessTok
 export const setRefreshTokenCookie = (res: Response, accountId: string, refreshToken: string): void => {
     res.cookie(`refresh_token_${accountId}`, jwt.sign(refreshToken, JWT_SECRET), {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: getNodeEnv() === 'production',
         maxAge: COOKIE_MAX_AGE,
         path: `/${accountId}/account/refreshToken`,
         sameSite: 'lax'

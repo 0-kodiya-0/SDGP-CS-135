@@ -4,6 +4,7 @@ import { TokenScopeInfo } from './token.types';
 import { ProviderValidationError } from '../../../../types/response.types';
 import { OAuthProviders } from '../../../account/Account.types';
 import db from '../../../../config/db';
+import { getGoogleClientId, getGoogleClientSecret } from '../../../../config/env.config';
 
 /**
 * Get detailed token information from Google
@@ -153,8 +154,8 @@ export async function getAccountScopes(accountId: string): Promise<string[]> {
 export async function refreshGoogleToken(refreshToken: string) {
     try {
         const refreshClient = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
+            getGoogleClientId(),
+            getGoogleClientSecret()
         );
 
         refreshClient.setCredentials({ refresh_token: refreshToken });
@@ -193,8 +194,8 @@ export async function revokeTokens(accessToken: string, refreshToken?: string) {
     try {
         // Create OAuth2 client for revoking tokens
         const oAuth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
+            getGoogleClientId(),
+            getGoogleClientSecret()
         );
 
         // Revoke access token
@@ -333,8 +334,8 @@ export async function verifyTokenOwnership(
 
         // Get user information from the token
         const googleAuth = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
+            getGoogleClientId(),
+            getGoogleClientSecret()
         );
         
         googleAuth.setCredentials({ access_token: accessToken });

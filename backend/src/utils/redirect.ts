@@ -1,6 +1,7 @@
 import { Response, Request } from "express";
 import { ApiErrorCode } from "../types/response.types";
 import * as path from "path";
+import { getProxyUrl } from "../config/env.config";
 
 // Redirect types
 export enum RedirectType {
@@ -166,7 +167,7 @@ export const getRedirectUrl = (req: Request, defaultUrl: string): string => {
     // Validate the URL to prevent open redirects
     if (redirectUrl && (
         redirectUrl.startsWith('/') ||
-        redirectUrl.startsWith(process.env.PROXY_URL || '')
+        redirectUrl.startsWith(getProxyUrl() || '')
     )) {
         return redirectUrl;
     }

@@ -6,6 +6,7 @@ import { hasScope } from "../services/token";
 import { GoogleApiRequest } from "../types";
 import { asyncHandler } from "../../../utils/response";
 import { google } from "googleapis";
+import { getGoogleClientId, getGoogleClientSecret } from "../../../config/env.config";
 
 /**
  * Core middleware for Google API authentication
@@ -24,8 +25,8 @@ export const authenticateGoogleApi = asyncHandler(async (
 
     // Create OAuth2 client with the valid token
     const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
+        getGoogleClientId(),
+        getGoogleClientSecret() 
     );
 
     oauth2Client.setCredentials({

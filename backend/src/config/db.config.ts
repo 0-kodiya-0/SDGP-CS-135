@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getAccountsDbUri, getChatDbUri } from './env.config';
 
 // Create separate connections for accounts and auth
 const connections = {
@@ -14,7 +15,7 @@ const password = encodeURIComponent("k#od#@1234")
  */
 export const connectAccountsDB = async (): Promise<mongoose.Connection> => {
   try {
-    const accountsURI = process.env.ACCOUNTS_DB_URI || `mongodb+srv://${username}:${password}@fusion-space.vb7xt.mongodb.net/accounts-db?retryWrites=true&w=majority&appName=Fusion-space`;
+    const accountsURI = getAccountsDbUri() || `mongodb+srv://${username}:${password}@fusion-space.vb7xt.mongodb.net/accounts-db?retryWrites=true&w=majority&appName=Fusion-space`;
 
     // Create a new connection
     if (!connections.accounts) {
@@ -43,7 +44,7 @@ export const connectAccountsDB = async (): Promise<mongoose.Connection> => {
  */
 export const connectChatDB = async (): Promise<mongoose.Connection> => {
   try {
-    const chatURI = process.env.CHAT_DB_URI || `mongodb+srv://${username}:${password}@fusion-space.vb7xt.mongodb.net/chat-db?retryWrites=true&w=majority&appName=Fusion-space`;
+    const chatURI = getChatDbUri() || `mongodb+srv://${username}:${password}@fusion-space.vb7xt.mongodb.net/chat-db?retryWrites=true&w=majority&appName=Fusion-space`;
 
     // Create a new connection
     if (!connections.chat) {

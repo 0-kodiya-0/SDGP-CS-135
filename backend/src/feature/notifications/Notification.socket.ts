@@ -1,8 +1,9 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../../config/env.config';
 
 // Environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = getJwtSecret();
 
 export class NotificationSocketHandler {
     private io: Server;

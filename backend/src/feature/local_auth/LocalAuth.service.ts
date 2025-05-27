@@ -27,8 +27,7 @@ import {
     markTwoFactorTempTokenAsUsed,
     removeTwoFactorTempToken
 } from './LocalAuth.cache';
-
-const APP_NAME = process.env.APP_NAME as string;
+import { getAppName } from '../../config/env.config';
 
 /**
  * Create a new local account
@@ -456,7 +455,7 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
             await account.save();
             
             const accountName = account.userDetails.email || account.userDetails.username || accountId;
-            const qrCodeUrl = authenticator.keyuri(accountName.toString(), APP_NAME, secret);
+            const qrCodeUrl = authenticator.keyuri(accountName.toString(), getAppName(), secret);
             
             return {
                 secret,
@@ -465,7 +464,7 @@ export async function setupTwoFactor(accountId: string, data: SetupTwoFactorRequ
         } else {
             // Secret already exists
             const accountName = account.userDetails.email || account.userDetails.username || accountId;
-            const qrCodeUrl = authenticator.keyuri(accountName.toString(), APP_NAME, account.security.twoFactorSecret);
+            const qrCodeUrl = authenticator.keyuri(accountName.toString(), getAppName(), account.security.twoFactorSecret);
             
             return {
                 secret: account.security.twoFactorSecret,

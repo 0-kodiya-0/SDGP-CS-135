@@ -4,16 +4,7 @@ import path from 'path';
 import { ServerError, ValidationError } from '../../types/response.types';
 import { getTemplateMetadata, isValidTemplate, getTemplateFilePath } from './Email.utils';
 import { EmailTemplate } from './Email.types';
-
-// Use environment variables for email configuration
-const SMTP_HOST = process.env.SMTP_HOST as string;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT as string);
-const SMTP_SECURE = process.env.SMTP_SECURE === 'true'; // true for 465, false for other ports
-const SMTP_APP_PASSWORD = process.env.SMTP_APP_PASSWORD; // Your app-specific password
-const SENDER_EMAIL = process.env.SENDER_EMAIL as string;
-const SENDER_NAME = process.env.SENDER_NAME as string;
-const APP_NAME = process.env.APP_NAME as string;
-const BASE_URL = process.env.BASE_URL as string;
+import { getAppName, getBaseUrl, getNodeEnv, getSenderEmail, getSenderName, getSmtpAppPassword, getSmtpHost, getSmtpPort, getSmtpSecure } from '../../config/env.config';
 
 // Template cache to avoid reading files repeatedly
 const templateCache = new Map<EmailTemplate, string>();
@@ -93,24 +84,19 @@ function generatePlainText(html: string, variables: Record<string, string>): str
  */
 const createTransporter = async () => {
     try {
-        // Validate required environment variables
-        if (!SENDER_EMAIL || !SMTP_APP_PASSWORD) {
-            throw new Error('SENDER_EMAIL and SMTP_APP_PASSWORD environment variables are required');
-        }
-
         // Create SMTP transporter with app password
         const transporter = nodemailer.createTransport({
-            host: SMTP_HOST,
-            port: SMTP_PORT,
-            secure: SMTP_SECURE, // true for 465, false for other ports
+            host: getSmtpHost(),
+            port: getSmtpPort(),
+            secure: getSmtpSecure(), // true for 465, false for other ports
             auth: {
-                user: SENDER_EMAIL,
-                pass: SMTP_APP_PASSWORD // Use app-specific password here
+                user: getSenderEmail(),
+                pass: getSmtpAppPassword() // Use app-specific password here
             },
             // Additional options for better reliability
             tls: {
                 // Do not fail on invalid certs (for development)
-                rejectUnauthorized: process.env.NODE_ENV === 'production'
+                rejectUnauthorized: getNodeEnv() === 'production'
             },
             // Connection timeout
             connectionTimeout: 60000, // 60 seconds
@@ -123,7 +109,8 @@ const createTransporter = async () => {
         console.log('SMTP connection verified successfully');
 
         return transporter;
-    } catch {
+    } catch (error) {
+        console.log(error);
         throw new ServerError('Failed to create email transporter');
     }
 };
@@ -141,8 +128,8 @@ export async function sendCustomEmail(
 
     // Add common variables
     const allVariables = {
-        APP_NAME,
-        BASE_URL,
+        APP_NAME: getAppName(),
+        BASE_URL: getBaseUrl(),
         YEAR: new Date().getFullYear().toString(),
         ...variables
     };
@@ -157,7 +144,7 @@ export async function sendCustomEmail(
 
     // Email options
     const mailOptions = {
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        from: `"${getSenderName()}" <${getSenderEmail()}>`,
         to,
         subject,
         html,
@@ -168,7 +155,7 @@ export async function sendCustomEmail(
     const result = await transporter.sendMail(mailOptions);
 
     // Log preview URL for development
-    if (process.env.NODE_ENV !== 'production') {
+    if (getNodeEnv() !== 'production') {
         console.log('Preview URL: %s', nodemailer.getTestMessageUrl(result));
     }
 }
@@ -177,11 +164,11 @@ export async function sendCustomEmail(
  * Send email verification - NOW USING sendCustomEmail
  */
 export async function sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
-    const verificationUrl = `${BASE_URL}/api/v1/account/verify-email?token=${token}`;
+    const verificationUrl = `${getBaseUrl()}/api/v1/account/verify-email?token=${token}`;
 
     await sendCustomEmail(
         email,
-        `Verify your email address for ${APP_NAME}`,
+        `Verify your email address for ${getAppName()}`,
         EmailTemplate.EMAIL_VERIFICATION,
         {
             FIRST_NAME: firstName,
@@ -194,11 +181,11 @@ export async function sendVerificationEmail(email: string, firstName: string, to
  * Send password reset email - NOW USING sendCustomEmail
  */
 export async function sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
-    const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
+    const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
 
     await sendCustomEmail(
         email,
-        `Reset your password for ${APP_NAME}`,
+        `Reset your password for ${getAppName()}`,
         EmailTemplate.PASSWORD_RESET,
         {
             FIRST_NAME: firstName,
@@ -215,7 +202,7 @@ export async function sendPasswordChangedNotification(email: string, firstName: 
 
     await sendCustomEmail(
         email,
-        `Your password was changed on ${APP_NAME}`,
+        `Your password was changed on ${getAppName()}`,
         EmailTemplate.PASSWORD_CHANGED,
         {
             FIRST_NAME: firstName,
@@ -233,7 +220,7 @@ export async function sendLoginNotification(email: string, firstName: string, ip
 
     await sendCustomEmail(
         email,
-        `New login detected on ${APP_NAME}`,
+        `New login detected on ${getAppName()}`,
         EmailTemplate.LOGIN_NOTIFICATION,
         {
             FIRST_NAME: firstName,
@@ -252,7 +239,7 @@ export async function sendTwoFactorEnabledNotification(email: string, firstName:
 
     await sendCustomEmail(
         email,
-        `Two-factor authentication enabled on ${APP_NAME}`,
+        `Two-factor authentication enabled on ${getAppName()}`,
         EmailTemplate.TWO_FACTOR_ENABLED,
         {
             FIRST_NAME: firstName,
@@ -322,11 +309,11 @@ export async function testEmailConfiguration(): Promise<boolean> {
 export async function sendTestEmail(to: string): Promise<void> {
     await sendCustomEmail(
         to,
-        `Test Email from ${APP_NAME}`,
+        `Test Email from ${getAppName()}`,
         EmailTemplate.EMAIL_VERIFICATION, // Reuse verification template for testing
         {
             FIRST_NAME: 'Test User',
-            VERIFICATION_URL: `${BASE_URL}/test`
+            VERIFICATION_URL: `${getBaseUrl()}/test`
         }
     );
 }
@@ -386,42 +373,6 @@ export async function getAvailableTemplates(): Promise<EmailTemplate[]> {
         console.error('Failed to read templates directory:', error);
         return [];
     }
-}
-
-/**
- * Email service health check
- */
-export async function healthCheck(): Promise<{
-    smtp: boolean;
-    templates: EmailTemplate[];
-    missingEnvVars: string[];
-    templateValidation: Record<EmailTemplate, boolean>;
-}> {
-    const requiredEnvVars = ['SENDER_EMAIL', 'SMTP_APP_PASSWORD', 'APP_NAME', 'BASE_URL'];
-    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-    let smtpHealthy = false;
-    try {
-        smtpHealthy = await testEmailConfiguration();
-    } catch {
-        smtpHealthy = false;
-    }
-
-    const availableTemplates = await getAvailableTemplates();
-
-    // Validate all defined templates
-    const templateValidation: Record<EmailTemplate, boolean> = {} as Record<EmailTemplate, boolean>;
-
-    for (const template of Object.values(EmailTemplate)) {
-        templateValidation[template] = await validateTemplate(template);
-    }
-
-    return {
-        smtp: smtpHealthy,
-        templates: availableTemplates,
-        missingEnvVars,
-        templateValidation
-    };
 }
 
 /**

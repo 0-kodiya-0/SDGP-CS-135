@@ -3,6 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import refresh from 'passport-oauth2-refresh';
 import { OAuthProviders } from '../feature/account/Account.types';
 import { ProviderResponse } from '../feature/oauth/Auth.types';
+import { getGoogleClientId, getGoogleClientSecret } from './env.config';
 
 /**
  * Sets up passport strategies for OAuth providers
@@ -10,8 +11,8 @@ import { ProviderResponse } from '../feature/oauth/Auth.types';
 const setupPassport = () => {
     // Main Google Strategy for authentication (sign in/sign up)
     const googleAuthStrategy = new GoogleStrategy({
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientID: getGoogleClientId(),
+        clientSecret: getGoogleClientSecret(),
         callbackURL: 'http://localhost:8080/api/v1/oauth/callback/google',
         passReqToCallback: true
     }, async (req, accessToken, refreshToken, profile, done) => {
@@ -41,8 +42,8 @@ const setupPassport = () => {
 
     // Separate Google Strategy for permission requests - focused only on tokens
     const googlePermissionStrategy = new GoogleStrategy({
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientID: getGoogleClientId(),
+        clientSecret: getGoogleClientSecret(),
         callbackURL: 'http://localhost:8080/api/v1/oauth/callback/permission/google',
         passReqToCallback: true,
         skipUserProfile: true

@@ -1,10 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { AccountType } from '../account/Account.types';
+import { getAccessTokenExpiry, getJwtSecret, getRefreshTokenExpiry } from '../../config/env.config';
 
 // Environment variables
-const JWT_SECRET = process.env.JWT_SECRET as string;
-const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY;
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY;
+const JWT_SECRET = getJwtSecret();
+const ACCESS_TOKEN_EXPIRY = getAccessTokenExpiry();
+const REFRESH_TOKEN_EXPIRY = getRefreshTokenExpiry();
 
 /**
  * JWT payload interface for local auth tokens

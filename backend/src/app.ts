@@ -1,4 +1,6 @@
-import dotenv from 'dotenv';
+import './config/env.config';
+import { getPort, getFrontendUrl, getProxyUrl } from './config/env.config';
+
 import { createServer } from 'http';
 import cors from 'cors';
 import express, { Request, Response } from 'express';
@@ -19,8 +21,6 @@ import { authNotRequiredRouter as localAuthNotRequiredRouter, authRequiredRouter
 import notificationRoutes, { NotificationSocketHandler } from './feature/notifications';
 import { chatRoutes, ChatSocketHandler } from './feature/chat';
 
-dotenv.config();
-
 const app = express();
 // Create HTTP server using the Express app
 const httpServer = createServer(app);
@@ -32,9 +32,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
     origin: [
-        process.env.FRONTEND_URL || 'http://localhost:5173',
-        process.env.PROXY_URL || 'http://localhost:8080'
-    ].filter(Boolean), // Remove any empty strings
+        getFrontendUrl(),
+        getProxyUrl()
+    ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
@@ -90,7 +90,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // IMPORTANT: Use httpServer.listen instead of app.listen to support Socket.IO
-const PORT = process.env.PORT || 3000;
+const PORT = getPort();
 httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO is listening on the same port`);
