@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
 /**
  * Component to handle Google OAuth permission redirects and process permission status
@@ -92,7 +92,7 @@ const PermissionCallback: React.FC = () => {
                 }, '*');
             }
         }
-    }, [navigate, searchParams, permissionDetails]);
+    }, [searchParams, permissionDetails]);
 
     // Handle closing the window
     const handleClose = () => {
@@ -136,9 +136,9 @@ const PermissionCallback: React.FC = () => {
     if (status === 'loading') {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-                <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="sm:mx-auto sm:w-full sm:max-w-md">
                     <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <Loader2 className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
                         <h2 className="text-2xl font-medium text-gray-900 mb-2">Processing permission request...</h2>
                         <p className="text-gray-600">Please wait while we complete your request.</p>
                     </div>
@@ -147,52 +147,52 @@ const PermissionCallback: React.FC = () => {
         );
     }
 
-    if (status === 'error') {
-        return (
-            <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-                <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                    <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
-                        <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                        <h2 className="text-2xl font-medium text-gray-900 mb-2">Permission Request Failed</h2>
-                        <p className="text-gray-600 mb-6">{message}</p>
-
-                        <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 justify-center">
-                            <button
-                                onClick={handleClose}
-                                className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                <ArrowLeft size={16} className="mr-2" />
-                                Close
-                            </button>
-                            <button
-                                onClick={handleRetry}
-                                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                Try again
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    {status === 'success' ? 'Permission Granted' : 'Permission Request Failed'}
+                </h2>
+            </div>
+
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-medium text-gray-900 mb-2">Permission Granted</h2>
-                    <p className="text-gray-600 mb-6">
-                        The requested permissions have been successfully granted.
-                        This window will close automatically...
-                    </p>
-                    <button
-                        onClick={handleClose}
-                        className="mt-2 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                        Close this window
-                    </button>
+                    {status === 'success' ? (
+                        <>
+                            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                            <p className="text-gray-600 mb-6">
+                                The requested permissions have been successfully granted.
+                                This window will close automatically...
+                            </p>
+                            <button
+                                onClick={handleClose}
+                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Close this window
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                            <p className="text-gray-600 mb-6">{message}</p>
+
+                            <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
+                                <button
+                                    onClick={handleClose}
+                                    className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    <ArrowLeft size={16} className="mr-2" />
+                                    Close
+                                </button>
+                                <button
+                                    onClick={handleRetry}
+                                    className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

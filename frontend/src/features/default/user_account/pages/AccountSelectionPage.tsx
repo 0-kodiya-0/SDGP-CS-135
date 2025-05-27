@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, LogOut, Check } from 'lucide-react';
+import { PlusCircle, LogOut, Check, Key, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar } from '../components/UserAvatar';
 import { useAccount } from '../contexts/AccountContext';
+import {  AccountType } from '../types/types.data';
 
 const AccountSelectionPage: React.FC = () => {
     const { isLoading, logoutAll } = useAuth();
@@ -23,7 +24,7 @@ const AccountSelectionPage: React.FC = () => {
     };
 
     const handleSetDefaultAccount = (accountId: string, event: React.MouseEvent) => {
-        event.stopPropagation(); // Prevent card click from firing
+        event.stopPropagation();
         localStorage.setItem('preferredAccountId', accountId);
         setPreferredAccountId(accountId);
     };
@@ -39,72 +40,86 @@ const AccountSelectionPage: React.FC = () => {
 
     if (isLoading || loadingAccounts) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+                <div className="flex justify-center items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    <span className="ml-2 text-gray-600">Loading accounts...</span>
+                </div>
             </div>
         );
     }
     
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md mx-auto">
-                <div className="text-center">
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                        Choose an account
-                    </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        You're signed in with multiple accounts. Select one to continue.
-                    </p>
-                </div>
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    Choose an account
+                </h2>
+                <p className="mt-2 text-center text-sm text-gray-600">
+                    Select an account to continue
+                </p>
+            </div>
 
-                <div className="mt-8">
-                    <div className="space-y-4">
-                        {accounts.map((account) => (
-                            <div
-                                key={account.id}
-                                className="relative bg-white shadow-sm hover:shadow-md transition-shadow border border-gray-200 rounded-lg p-4 cursor-pointer"
-                                onClick={() => handleSelectAccount(account.id)}
-                            >
-                                <div className="flex items-center">
-                                    <UserAvatar account={account} size="md" showProviderIcon={true} />
-                                    <div className="ml-4 flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                                                {account.userDetails.name}
-                                                {account.status === 'inactive' && (
-                                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                                        Inactive
-                                                    </span>
+            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                    <div className="space-y-3">
+                        {accounts.map((account) => {
+                            const isLocal = account.accountType === AccountType.Local;
+                            const isPreferred = account.id === preferredAccountId;
+                            
+                            return (
+                                <div
+                                    key={account.id}
+                                    className="relative bg-white border border-gray-200 rounded-md p-3 cursor-pointer hover:border-blue-300 hover:bg-gray-50 transition-all duration-200"
+                                    onClick={() => handleSelectAccount(account.id)}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <UserAvatar
+                                            account={account}
+                                            size="sm"
+                                            showProviderIcon={false}
+                                        />
+                                        
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-2">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {account.userDetails.name}
+                                                    </p>
+                                                    {isLocal ? (
+                                                        <Key size={12} className="text-blue-600 flex-shrink-0" />
+                                                    ) : (
+                                                        <Shield size={12} className="text-green-600 flex-shrink-0" />
+                                                    )}
+                                                </div>
+                                                {isPreferred && (
+                                                    <Check size={14} className="text-blue-600 flex-shrink-0" />
                                                 )}
-                                            </h3>
-                                            {account.id === preferredAccountId && (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                    <Check size={12} className="mr-1" /> Default
+                                            </div>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {account.userDetails.email}
+                                            </p>
+                                            <div className="flex items-center justify-between mt-1">
+                                                <span className="text-xs text-gray-400">
+                                                    {isLocal ? 'Local Account' : `${account.provider} Account`}
                                                 </span>
-                                            )}
+                                                {!isPreferred && (
+                                                    <button
+                                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                                        onClick={(e) => handleSetDefaultAccount(account.id, e)}
+                                                    >
+                                                        Set default
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-gray-500">{account.userDetails.email}</p>
-                                        <p className="text-xs text-gray-500 mt-1 capitalize flex items-center">
-                                            <span className={`inline-block w-2 h-2 rounded-full mr-1 ${account.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                                                }`}></span>
-                                            {account.provider} account
-                                        </p>
                                     </div>
                                 </div>
-
-                                {account.id !== preferredAccountId && (
-                                    <button
-                                        className="absolute bottom-4 right-4 text-xs text-blue-600 hover:text-blue-800"
-                                        onClick={(e) => handleSetDefaultAccount(account.id, e)}
-                                    >
-                                        Set as default
-                                    </button>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
-                    <div className="mt-8 space-y-4">
+                    <div className="mt-6 space-y-3">
                         <button
                             onClick={handleAddAccount}
                             className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

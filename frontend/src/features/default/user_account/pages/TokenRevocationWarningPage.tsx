@@ -1,6 +1,7 @@
 import axios from 'axios';
 import React, { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../../../conf/axios';
 import { useAccountStore } from '../store/account.store';
 
@@ -47,51 +48,103 @@ const TokenRevocationWarningPage: React.FC = () => {
         }
     };
 
+    if (isRevoking) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+                <div className="flex justify-center items-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <span className="ml-2 text-gray-600">Revoking token...</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-                <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold text-red-600">Warning: Token Revocation</h2>
-                </div>
-
-                <div className="mb-6">
-                    <p className="mb-4">
-                        You are about to revoke the OAuth token for this account. This means:
-                    </p>
-
-                    <ul className="list-disc pl-6 mb-4 space-y-2">
-                        <li>Your current authorization to the application will be removed</li>
-                        <li>All previously granted permissions (scopes) will be unlinked</li>
-                        <li>You will need to sign in again with the correct permissions</li>
-                        <li>You will be automatically redirected to the sign-in page</li>
-                    </ul>
-
-                    <p className="font-medium">
-                        Do you want to continue with revoking this token?
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="text-center">
+                    <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-3xl font-extrabold text-gray-900">
+                        Revoke Access Token
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                        This action will remove all permissions for this account
                     </p>
                 </div>
+            </div>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-                        {error}
+            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="mb-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                            What happens when you revoke this token?
+                        </h3>
+
+                        <ul className="space-y-3 text-sm text-gray-600">
+                            <li className="flex items-start">
+                                <div className="flex-shrink-0 w-2 h-2 bg-red-400 rounded-full mt-2 mr-3"></div>
+                                <span>Your current authorization to the application will be removed</span>
+                            </li>
+                            <li className="flex items-start">
+                                <div className="flex-shrink-0 w-2 h-2 bg-red-400 rounded-full mt-2 mr-3"></div>
+                                <span>All previously granted permissions (scopes) will be unlinked</span>
+                            </li>
+                            <li className="flex items-start">
+                                <div className="flex-shrink-0 w-2 h-2 bg-red-400 rounded-full mt-2 mr-3"></div>
+                                <span>You will need to sign in again with the correct permissions</span>
+                            </li>
+                            <li className="flex items-start">
+                                <div className="flex-shrink-0 w-2 h-2 bg-red-400 rounded-full mt-2 mr-3"></div>
+                                <span>You will be automatically redirected to the sign-in page</span>
+                            </li>
+                        </ul>
                     </div>
-                )}
 
-                <div className="flex justify-between">
-                    <button
-                        onClick={handleCancel}
-                        disabled={isRevoking}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 disabled:opacity-50"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleRevoke}
-                        disabled={isRevoking}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                    >
-                        {isRevoking ? 'Revoking...' : 'Revoke Token'}
-                    </button>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                        <div className="flex">
+                            <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+                            <div className="ml-3">
+                                <h4 className="text-sm font-medium text-yellow-800">
+                                    Important Notice
+                                </h4>
+                                <p className="mt-1 text-sm text-yellow-700">
+                                    This action cannot be undone. You will need to re-authenticate and grant permissions again.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex space-x-3">
+                        <button
+                            onClick={handleCancel}
+                            className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleRevoke}
+                            className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                            Revoke Token
+                        </button>
+                    </div>
+
+                    <div className="mt-6">
+                        <button
+                            type="button"
+                            onClick={handleCancel}
+                            className="w-full inline-flex items-center justify-center text-sm text-gray-500 hover:text-gray-700"
+                        >
+                            <ArrowLeft size={16} className="mr-1" />
+                            Back to settings
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
