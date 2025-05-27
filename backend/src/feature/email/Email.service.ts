@@ -4,7 +4,7 @@ import path from 'path';
 import { ServerError, ValidationError } from '../../types/response.types';
 import { getTemplateMetadata, isValidTemplate, getTemplateFilePath } from './Email.utils';
 import { EmailTemplate } from './Email.types';
-import { getAppName, getBaseUrl, getNodeEnv, getSenderEmail, getSenderName } from '../../config/env.config';
+import { getAppName, getBaseUrl, getNodeEnv, getProxyUrl, getSenderEmail, getSenderName } from '../../config/env.config';
 import { getTransporter, resetTransporter } from './Email.transporter';
 
 // Template cache to avoid reading files repeatedly
@@ -94,7 +94,6 @@ export async function sendCustomEmail(
     // Add common variables
     const allVariables = {
         APP_NAME: getAppName(),
-        BASE_URL: getBaseUrl(),
         YEAR: new Date().getFullYear().toString(),
         ...variables
     };
@@ -126,17 +125,17 @@ export async function sendCustomEmail(
         }
     } catch (error) {
         console.error('Failed to send email:', error);
-        
+
         // If it's a connection error, reset the transporter for next attempt
         if (error instanceof Error && (
-            error.message.includes('connection') || 
+            error.message.includes('connection') ||
             error.message.includes('timeout') ||
             error.message.includes('ECONNRESET')
         )) {
             console.log('Resetting transporter due to connection error');
             resetTransporter();
         }
-        
+
         throw new ServerError('Failed to send email');
     }
 }
@@ -145,7 +144,7 @@ export async function sendCustomEmail(
  * Send email verification
  */
 export async function sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
-    const verificationUrl = `${getBaseUrl()}/api/v1/account/verify-email?token=${token}`;
+    const verificationUrl = `${getProxyUrl()}${getBaseUrl()}/auth/verify-email?token=${token}`;
 
     await sendCustomEmail(
         email,
@@ -162,7 +161,7 @@ export async function sendVerificationEmail(email: string, firstName: string, to
  * Send password reset email
  */
 export async function sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
-    const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
+    const resetUrl = `${getProxyUrl()}${getBaseUrl()}/reset-password?token=${token}`;
 
     await sendCustomEmail(
         email,
@@ -280,7 +279,7 @@ export async function sendTestEmail(to: string): Promise<void> {
         EmailTemplate.EMAIL_VERIFICATION, // Reuse verification template for testing
         {
             FIRST_NAME: 'Test User',
-            VERIFICATION_URL: `${getBaseUrl()}/test`
+            VERIFICATION_URL: `${getProxyUrl()}${getBaseUrl()}/test`
         }
     );
 }
